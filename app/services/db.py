@@ -49,3 +49,26 @@ def execute_query(sql: str, params: dict = None) -> list[dict]:
         columns = result.keys()
         return [dict(zip(columns, row)) for row in result.fetchall()]
 
+
+def execute_insert(sql: str, params: dict = None) -> dict | None:
+    """INSERT/UPDATE/DELETE çalıştır, RETURNING varsa sonucu döndür"""
+    with engine.connect() as conn:
+        result = conn.execute(text(sql), params or {})
+        conn.commit()
+        try:
+            row = result.fetchone()
+            if row:
+                columns = result.keys()
+                return dict(zip(columns, row))
+        except:
+            pass
+        return None
+
+
+def execute_insert_many(sql: str, params_list: list[dict]) -> None:
+    """Birden fazla INSERT çalıştır"""
+    with engine.connect() as conn:
+        for params in params_list:
+            conn.execute(text(sql), params)
+        conn.commit()
+

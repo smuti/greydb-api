@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 
-from app.services.db import query_to_df
+from app.services.db import query_to_df, execute_insert, execute_insert_many
 
 router = APIRouter(tags=["coupons"])
 
@@ -84,7 +84,7 @@ async def create_coupon(coupon: CouponCreate):
         ) VALUES (
             :type, :image_url, :winnings, :total_odds, :status, :created_by_email
         )
-        RETURNING *
+        RETURNING id, type, image_url, winnings, total_odds, status, created_by_email, created_at, updated_at
     """
     
     coupon_data = {
@@ -96,29 +96,33 @@ async def create_coupon(coupon: CouponCreate):
         "created_by_email": coupon.created_by_email
     }
     
-    df_coupon = query_to_df(sql_coupon, coupon_data, commit=True)
+    coupon_row = execute_insert(sql_coupon, coupon_data)
     
-    if df_coupon.empty:
+    if not coupon_row:
         raise HTTPException(status_code=500, detail="Kupon oluşturulamadı")
     
-    coupon_id = int(df_coupon.iloc[0]["id"])
+    coupon_id = int(coupon_row["id"])
     
     # Maçları ekle
+    sql_match = """
+        INSERT INTO greydb.coupon_matches (
+            coupon_id, home_team, away_team, league, prediction,
+            market_name, odds, match_date, prediction_id
+        ) VALUES (
+            :coupon_id, :home_team, :away_team, :league, :prediction,
+            :market_name, :odds, :match_date, :prediction_id
+        )
+    """
+    
+    match_params = []
     for match in coupon.matches:
-        sql_match = """
-            INSERT INTO greydb.coupon_matches (
-                coupon_id, home_team, away_team, league, prediction,
-                market_name, odds, match_date, prediction_id
-            ) VALUES (
-                :coupon_id, :home_team, :away_team, :league, :prediction,
-                :market_name, :odds, :match_date, :prediction_id
-            )
-        """
-        match_data = {
+        match_params.append({
             "coupon_id": coupon_id,
             **match.model_dump()
-        }
-        query_to_df(sql_match, match_data, commit=True)
+        })
+    
+    if match_params:
+        execute_insert_many(sql_match, match_params)
     
     # Oluşturulan kuponu getir
     return await get_coupon(coupon_id)
