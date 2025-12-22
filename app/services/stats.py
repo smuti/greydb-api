@@ -72,14 +72,75 @@ def get_team_form(team_fotmob_id: int, limit: int = 5, venue: str = None, league
     return {"matches": matches, "stats": stats}
 
 
+# Bilinen takım alias'ları (FotMob isimleri -> DB isimleri)
+TEAM_ALIASES = {
+    # İspanya
+    "athletic bilbao": "athletic club",
+    "atletico de madrid": "atletico madrid",
+    "atlético madrid": "atletico madrid",
+    "atlético de madrid": "atletico madrid",
+    "real sociedad de fútbol": "real sociedad",
+    "real betis balompié": "real betis",
+    "rcd espanyol": "espanyol",
+    "villarreal cf": "villarreal",
+    "valencia cf": "valencia",
+    "sevilla fc": "sevilla",
+    "real valladolid": "valladolid",
+    "rayo vallecano de madrid": "rayo vallecano",
+    
+    # İngiltere
+    "manchester united": "man utd",
+    "manchester city": "man city",
+    "tottenham hotspur": "tottenham",
+    "wolverhampton wanderers": "wolves",
+    "nottingham forest": "nott'm forest",
+    "newcastle united": "newcastle",
+    "west ham united": "west ham",
+    "leicester city": "leicester",
+    "brighton & hove albion": "brighton",
+    "brighton and hove albion": "brighton",
+    
+    # Almanya
+    "bayern munich": "bayern münchen",
+    "bayer 04 leverkusen": "bayer leverkusen",
+    "borussia dortmund": "borussia dortmund",
+    "rb leipzig": "rb leipzig",
+    "vfb stuttgart": "stuttgart",
+    "vfl wolfsburg": "wolfsburg",
+    "1. fc köln": "1. fc köln",
+    
+    # İtalya
+    "inter milan": "inter",
+    "internazionale": "inter",
+    "ac milan": "milan",
+    "as roma": "roma",
+    "ssc napoli": "napoli",
+    "juventus fc": "juventus",
+    
+    # Fransa
+    "paris saint-germain": "psg",
+    "paris saint germain": "psg",
+    "olympique lyonnais": "lyon",
+    "olympique de marseille": "marseille",
+    "as monaco": "monaco",
+    
+    # Türkiye
+    "galatasaray sk": "galatasaray",
+    "fenerbahçe sk": "fenerbahce",
+    "beşiktaş jk": "besiktas",
+    "trabzonspor a.ş.": "trabzonspor",
+}
+
+
 def find_team_by_name(team_name: str) -> dict | None:
     """
-    Takım adından FotMob ID bul (fuzzy match)
+    Takım adından FotMob ID bul (alias + fuzzy match)
     """
     name_lower = team_name.lower().strip()
     
-    # İlk kelimeyi al (örn: "Athletic Bilbao" -> "Athletic")
-    first_word = name_lower.split()[0] if name_lower else name_lower
+    # Önce alias'a bak
+    if name_lower in TEAM_ALIASES:
+        name_lower = TEAM_ALIASES[name_lower]
     
     sql = """
         SELECT fotmob_id, name, short_name
@@ -87,14 +148,13 @@ def find_team_by_name(team_name: str) -> dict | None:
         WHERE LOWER(name) LIKE :name 
            OR LOWER(short_name) LIKE :name
            OR LOWER(name) LIKE :name_start
-           OR LOWER(name) LIKE :first_word_pattern
-           OR LOWER(short_name) LIKE :first_word_pattern
+           OR LOWER(short_name) LIKE :name_start
         ORDER BY 
             CASE 
                 WHEN LOWER(name) = :exact THEN 0
                 WHEN LOWER(short_name) = :exact THEN 1
-                WHEN LOWER(name) LIKE :name THEN 2
-                WHEN LOWER(name) LIKE :first_word_pattern THEN 3
+                WHEN LOWER(name) LIKE :name_start THEN 2
+                WHEN LOWER(short_name) LIKE :name_start THEN 3
                 ELSE 4
             END,
             LENGTH(name)
@@ -104,7 +164,6 @@ def find_team_by_name(team_name: str) -> dict | None:
     params = {
         "name": f"%{name_lower}%",
         "name_start": f"{name_lower}%",
-        "first_word_pattern": f"{first_word}%",
         "exact": name_lower
     }
     
