@@ -33,10 +33,13 @@ def get_connection():
         conn.close()
 
 
-def query_to_df(sql: str, params: dict = None) -> pd.DataFrame:
+def query_to_df(sql: str, params: dict = None, commit: bool = False) -> pd.DataFrame:
     """SQL sorgusunu pandas DataFrame olarak döndür"""
     with engine.connect() as conn:
-        return pd.read_sql(text(sql), conn, params=params)
+        result = pd.read_sql(text(sql), conn, params=params)
+        if commit:
+            conn.commit()
+        return result
 
 
 def execute_query(sql: str, params: dict = None) -> list[dict]:

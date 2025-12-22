@@ -102,7 +102,7 @@ async def create_prediction(prediction: PredictionCreate):
         RETURNING *
     """
     
-    df = query_to_df(sql, prediction.model_dump())
+    df = query_to_df(sql, prediction.model_dump(), commit=True)
     
     if df.empty:
         raise HTTPException(status_code=500, detail="Tahmin oluşturulamadı")
@@ -178,7 +178,7 @@ async def update_prediction(prediction_id: int, update: PredictionUpdate):
         RETURNING *
     """
     
-    df = query_to_df(sql, update_data)
+    df = query_to_df(sql, update_data, commit=True)
     
     if df.empty:
         raise HTTPException(status_code=404, detail="Tahmin bulunamadı")
@@ -190,7 +190,7 @@ async def update_prediction(prediction_id: int, update: PredictionUpdate):
 async def delete_prediction(prediction_id: int):
     """Tahmin sil"""
     sql = "DELETE FROM greydb.predictions WHERE id = :id RETURNING id"
-    df = query_to_df(sql, {"id": prediction_id})
+    df = query_to_df(sql, {"id": prediction_id}, commit=True)
     
     if df.empty:
         raise HTTPException(status_code=404, detail="Tahmin bulunamadı")
