@@ -200,27 +200,44 @@ async def delete_prediction(prediction_id: int):
 
 def _row_to_response(row) -> dict:
     """DataFrame satırını response'a çevir"""
+    import pandas as pd
+    
+    def safe_int(val):
+        if pd.isna(val) or val is None:
+            return None
+        return int(val)
+    
+    def safe_float(val):
+        if pd.isna(val) or val is None:
+            return None
+        return float(val)
+    
+    def safe_str(val):
+        if pd.isna(val) or val is None:
+            return None
+        return str(val)
+    
     return {
         "id": int(row["id"]),
         "home_team": row["home_team"],
         "away_team": row["away_team"],
         "league": row["league"],
         "match_date": row["match_date"],
-        "home_team_fotmob_id": int(row["home_team_fotmob_id"]) if row["home_team_fotmob_id"] else None,
-        "away_team_fotmob_id": int(row["away_team_fotmob_id"]) if row["away_team_fotmob_id"] else None,
-        "match_fotmob_id": int(row["match_fotmob_id"]) if row["match_fotmob_id"] else None,
+        "home_team_fotmob_id": safe_int(row["home_team_fotmob_id"]),
+        "away_team_fotmob_id": safe_int(row["away_team_fotmob_id"]),
+        "match_fotmob_id": safe_int(row["match_fotmob_id"]),
         "market_name": row["market_name"],
         "pick": row["pick"],
-        "pick_name": row["pick_name"],
-        "odds": float(row["odds"]) if row["odds"] else None,
-        "probability": float(row["probability"]) if row["probability"] else None,
+        "pick_name": safe_str(row["pick_name"]),
+        "odds": safe_float(row["odds"]),
+        "probability": safe_float(row["probability"]),
         "prediction_type": row["prediction_type"],
-        "content": row["content"],
-        "audio_url": row["audio_url"],
-        "audio_file_name": row["audio_file_name"],
-        "analysis": row["analysis"],
+        "content": safe_str(row["content"]),
+        "audio_url": safe_str(row["audio_url"]),
+        "audio_file_name": safe_str(row["audio_file_name"]),
+        "analysis": safe_str(row["analysis"]),
         "status": row["status"],
-        "result": row["result"],
+        "result": safe_str(row["result"]),
         "created_by_email": row["created_by_email"],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
