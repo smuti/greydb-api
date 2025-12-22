@@ -72,6 +72,65 @@ def get_team_form(team_fotmob_id: int, limit: int = 5, venue: str = None, league
     return {"matches": matches, "stats": stats}
 
 
+def find_team_by_name(team_name: str) -> dict | None:
+    """
+    Takım adından FotMob ID bul (fuzzy match)
+    """
+    sql = """
+        SELECT fotmob_id, name, short_name
+        FROM greydb.teams
+        WHERE LOWER(name) LIKE :name 
+           OR LOWER(short_name) LIKE :name
+           OR LOWER(name) LIKE :name_start
+        ORDER BY 
+            CASE 
+                WHEN LOWER(name) = :exact THEN 0
+                WHEN LOWER(short_name) = :exact THEN 1
+                ELSE 2
+            END,
+            LENGTH(name)
+        LIMIT 1
+    """
+    
+    name_lower = team_name.lower().strip()
+    params = {
+        "name": f"%{name_lower}%",
+        "name_start": f"{name_lower}%",
+        "exact": name_lower
+    }
+    
+    df = query_to_df(sql, params)
+    
+    if df.empty:
+        return None
+    
+    row = df.iloc[0]
+    return {
+        "fotmob_id": int(row["fotmob_id"]),
+        "name": row["name"],
+        "short_name": row["short_name"]
+    }
+
+
+def get_team_form_by_name(team_name: str, limit: int = 5, venue: str = None) -> dict:
+    """
+    Takım adıyla form getir
+    """
+    team = find_team_by_name(team_name)
+    
+    if not team:
+        return {"error": f"Takım bulunamadı: {team_name}", "matches": [], "stats": None}
+    
+    result = get_team_form(
+        team_fotmob_id=team["fotmob_id"],
+        limit=limit,
+        venue=venue
+    )
+    
+    result["team"] = team
+    return result
+
+
 def get_h2h(team1_fotmob_id: int, team2_fotmob_id: int, limit: int = 10, home_only: bool = False) -> dict:
     """
     İki takım arası H2H istatistikleri

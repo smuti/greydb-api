@@ -2,9 +2,29 @@
 Takım Form Endpoint'leri
 """
 from fastapi import APIRouter, Query
-from app.services.stats import get_team_form
+from app.services.stats import get_team_form, get_team_form_by_name
 
 router = APIRouter(prefix="/form", tags=["Form"])
+
+
+@router.get("/by-name/{team_name}")
+async def team_form_by_name(
+    team_name: str,
+    limit: int = Query(5, ge=1, le=20, description="Maç sayısı"),
+    venue: str = Query(None, description="home, away veya boş (genel)")
+):
+    """
+    Takım adıyla form getir
+    
+    - **team_name**: Takım adı (örn: "Beşiktaş", "Galatasaray", "Barcelona")
+    - **limit**: Kaç maç (default 5)
+    - **venue**: 'home' (ev), 'away' (deplasman) veya boş (genel)
+    """
+    return get_team_form_by_name(
+        team_name=team_name,
+        limit=limit,
+        venue=venue
+    )
 
 
 @router.get("/{team_fotmob_id}")
