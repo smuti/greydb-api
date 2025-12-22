@@ -76,26 +76,35 @@ def find_team_by_name(team_name: str) -> dict | None:
     """
     Takım adından FotMob ID bul (fuzzy match)
     """
+    name_lower = team_name.lower().strip()
+    
+    # İlk kelimeyi al (örn: "Athletic Bilbao" -> "Athletic")
+    first_word = name_lower.split()[0] if name_lower else name_lower
+    
     sql = """
         SELECT fotmob_id, name, short_name
         FROM greydb.teams
         WHERE LOWER(name) LIKE :name 
            OR LOWER(short_name) LIKE :name
            OR LOWER(name) LIKE :name_start
+           OR LOWER(name) LIKE :first_word_pattern
+           OR LOWER(short_name) LIKE :first_word_pattern
         ORDER BY 
             CASE 
                 WHEN LOWER(name) = :exact THEN 0
                 WHEN LOWER(short_name) = :exact THEN 1
-                ELSE 2
+                WHEN LOWER(name) LIKE :name THEN 2
+                WHEN LOWER(name) LIKE :first_word_pattern THEN 3
+                ELSE 4
             END,
             LENGTH(name)
         LIMIT 1
     """
     
-    name_lower = team_name.lower().strip()
     params = {
         "name": f"%{name_lower}%",
         "name_start": f"{name_lower}%",
+        "first_word_pattern": f"{first_word}%",
         "exact": name_lower
     }
     
