@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import form, h2h
+from app.routers import form, h2h, predictions
 
 settings = get_settings()
 
@@ -30,6 +30,7 @@ app.add_middleware(
 # Routers
 app.include_router(form.router, prefix="/api")
 app.include_router(h2h.router, prefix="/api")
+app.include_router(predictions.router, prefix="/api")
 
 
 @app.get("/")
@@ -41,7 +42,8 @@ async def root():
         "docs": "/docs",
         "endpoints": {
             "form": "/api/form/{team_fotmob_id}",
-            "h2h": "/api/h2h/{team1}/{team2}"
+            "h2h": "/api/h2h/{team1}/{team2}",
+            "predictions": "/api/predictions"
         }
     }
 
