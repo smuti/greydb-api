@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import form, h2h, predictions
+from app.routers import form, h2h, predictions, coupons
 
 settings = get_settings()
 
@@ -31,6 +31,7 @@ app.add_middleware(
 app.include_router(form.router, prefix="/api")
 app.include_router(h2h.router, prefix="/api")
 app.include_router(predictions.router, prefix="/api")
+app.include_router(coupons.router, prefix="/api")
 
 
 @app.get("/")
