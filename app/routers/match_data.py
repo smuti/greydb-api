@@ -2,7 +2,7 @@
 Maç Verisi Yönetimi Router
 - Oynanmış maçları tespit et
 - FotMob'dan detaylı veri çek
-- Veritabanına kaydet
+- Veritabanına kaydet (tüm ilgili tablolara)
 """
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
@@ -12,6 +12,7 @@ import httpx
 import asyncio
 
 from app.services.db import execute_query, execute_insert
+from app.services.match_saver import save_full_match_data
 
 router = APIRouter(
     prefix="/match-data",
@@ -325,72 +326,20 @@ async def process_finished_matches(
                     result.finished_matches.append(finished_info)
                     
                     if not dry_run:
-                        # public.matches'a kaydet (veya güncelle)
+                        # Tüm ilgili tablolara kaydet (fotmob_to_db.py gibi)
                         try:
-                            import json
-                            raw_json = json.dumps(data)  # Tüm FotMob verisini kaydet
-                            
-                            check_query = f"""
-                                SELECT id FROM public.matches 
-                                WHERE fotmob_match_id = {fotmob_match_id}
-                            """
-                            existing = execute_query(check_query)
-                            
-                            if existing:
-                                # Update existing match
-                                update_query = """
-                                    UPDATE public.matches 
-                                    SET home_score = :home_score,
-                                        away_score = :away_score,
-                                        finished = true,
-                                        raw_match_details = :raw_match_details,
-                                        updated_at = NOW()
-                                    WHERE fotmob_match_id = :fotmob_match_id
-                                """
-                                execute_insert(update_query, {
-                                    "home_score": info["home_score"],
-                                    "away_score": info["away_score"],
-                                    "raw_match_details": raw_json,
-                                    "fotmob_match_id": fotmob_match_id
-                                })
-                            else:
-                                # Round değerini integer'a çevir
-                                round_val = match.get("round")
-                                if isinstance(round_val, str):
-                                    try:
-                                        round_val = int(round_val)
-                                    except:
-                                        round_val = None
-                                
-                                # Insert new match
-                                insert_query = """
-                                    INSERT INTO public.matches (
-                                        fotmob_match_id, league_id,
-                                        match_date, round,
-                                        home_team_id, away_team_id,
-                                        home_score, away_score, 
-                                        finished, page_url, raw_match_details
-                                    ) VALUES (
-                                        :fotmob_match_id, :league_id,
-                                        :match_date, :round,
-                                        :home_team_id, :away_team_id,
-                                        :home_score, :away_score,
-                                        :finished, :page_url, :raw_match_details
-                                    )
-                                """
-                                execute_insert(insert_query, {
-                                    "fotmob_match_id": fotmob_match_id,
-                                    "league_id": match["league_id"],
-                                    "match_date": match["match_date"],
-                                    "round": round_val,
-                                    "home_team_id": info.get("home_team_id"),
-                                    "away_team_id": info.get("away_team_id"),
-                                    "home_score": info["home_score"],
-                                    "away_score": info["away_score"],
-                                    "finished": True,
-                                    "page_url": match.get("match_url", ""),
-                                    "raw_match_details": raw_json
-                                })
+                            # save_full_match_data tüm tabloları doldurur:
+                            # - matches (raw_match_details dahil)
+                            # - match_stats (xG, shots, possession, etc.)
+                            # - match_advanced_stats (55 kolon)
+                            # - match_context (stadium, referee, weather)
+                            # - match_formations
+                            # - match_lineups (kadro, market value, age, rating)
+                            # - match_player_stats (oyuncu istatistikleri)
+                            # - match_events (gol, kart, değişiklik)
+                            # - player_availability (sakatlık, ceza)
+                            # - h2h_stats
+                            match_id = save_full_match_data(data)
                             
                             # upcoming_matches'ta is_processed=true yap
                             mark_processed_query = """
