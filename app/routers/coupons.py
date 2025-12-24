@@ -180,9 +180,18 @@ async def list_coupons(
 
 def _has_upcoming_matches(matches: List[dict]) -> bool:
     """Kuponda henüz başlamamış maç var mı kontrol et"""
-    from datetime import datetime, timezone
+    from datetime import datetime, timezone, timedelta
     
-    now = datetime.now(timezone.utc)
+    # Türkiye saati UTC+3
+    turkey_tz_offset = timedelta(hours=3)
+    now_utc = datetime.now(timezone.utc)
+    now_turkey = now_utc + turkey_tz_offset
+    
+    # Türkçe ay isimleri
+    turkish_months = {
+        'Oca': 1, 'Şub': 2, 'Mar': 3, 'Nis': 4, 'May': 5, 'Haz': 6,
+        'Tem': 7, 'Ağu': 8, 'Eyl': 9, 'Eki': 10, 'Kas': 11, 'Ara': 12
+    }
     
     for match in matches:
         match_date_str = match.get("match_date")
@@ -191,27 +200,40 @@ def _has_upcoming_matches(matches: List[dict]) -> bool:
             return True
         
         try:
-            # ISO format parse et
             if isinstance(match_date_str, str):
-                # Eğer timezone bilgisi yoksa UTC kabul et
-                if match_date_str.endswith('Z'):
-                    match_date_str = match_date_str[:-1] + '+00:00'
-                elif '+' not in match_date_str and '-' not in match_date_str[-6:]:
-                    match_date_str = match_date_str + '+00:00'
-                
-                match_date = datetime.fromisoformat(match_date_str)
+                # Türkçe format: "23 Ara 17:30"
+                parts = match_date_str.split()
+                if len(parts) >= 3:
+                    day = int(parts[0])
+                    month_str = parts[1]
+                    time_parts = parts[2].split(':')
+                    hour = int(time_parts[0])
+                    minute = int(time_parts[1]) if len(time_parts) > 1 else 0
+                    
+                    month = turkish_months.get(month_str, 1)
+                    year = now_turkey.year
+                    
+                    # Eğer ay geçmişte kaldıysa gelecek yıl olabilir
+                    match_date = datetime(year, month, day, hour, minute)
+                    
+                    # Maç henüz başlamamışsa True döndür
+                    if match_date > now_turkey.replace(tzinfo=None):
+                        return True
+                else:
+                    # Format anlaşılamadı, henüz bitmemiş kabul et
+                    return True
             else:
-                match_date = match_date_str
-            
-            # Timezone aware yap
-            if match_date.tzinfo is None:
-                match_date = match_date.replace(tzinfo=timezone.utc)
-            
-            # Maç henüz başlamamışsa True döndür
-            if match_date > now:
-                return True
-        except Exception:
+                # datetime objesi ise direkt karşılaştır
+                if match_date_str.tzinfo is None:
+                    match_date = match_date_str
+                else:
+                    match_date = match_date_str.replace(tzinfo=None) + turkey_tz_offset
+                
+                if match_date > now_turkey.replace(tzinfo=None):
+                    return True
+        except Exception as e:
             # Parse hatası varsa henüz bitmemiş kabul et
+            print(f"Date parse error: {e} for {match_date_str}")
             return True
     
     # Tüm maçlar bitmiş
