@@ -132,10 +132,14 @@ async def create_coupon(coupon: CouponCreate):
 async def list_coupons(
     type: Optional[str] = None,
     status: Optional[str] = None,
+    exclude_finished: bool = True,  # Varsayılan olarak bitmiş maçları olan kuponları hariç tut
     limit: int = 50,
     offset: int = 0
 ):
-    """Kuponları listele"""
+    """Kuponları listele
+    
+    exclude_finished=True olduğunda, tüm maçları bitmiş kuponlar filtrelenir.
+    """
     conditions = []
     params = {"limit": limit, "offset": offset}
     
@@ -162,9 +166,56 @@ async def list_coupons(
     for _, row in df.iterrows():
         coupon_id = int(row["id"])
         matches = await _get_coupon_matches(coupon_id)
+        
+        # Eğer exclude_finished=True ise, tüm maçları bitmiş kuponları atla
+        if exclude_finished and matches:
+            has_upcoming_match = _has_upcoming_matches(matches)
+            if not has_upcoming_match:
+                continue  # Tüm maçlar bitmiş, bu kuponu atla
+        
         coupons.append(_row_to_response(row, matches))
     
     return coupons
+
+
+def _has_upcoming_matches(matches: List[dict]) -> bool:
+    """Kuponda henüz başlamamış maç var mı kontrol et"""
+    from datetime import datetime, timezone
+    
+    now = datetime.now(timezone.utc)
+    
+    for match in matches:
+        match_date_str = match.get("match_date")
+        if not match_date_str:
+            # Tarih yoksa henüz bitmemiş kabul et
+            return True
+        
+        try:
+            # ISO format parse et
+            if isinstance(match_date_str, str):
+                # Eğer timezone bilgisi yoksa UTC kabul et
+                if match_date_str.endswith('Z'):
+                    match_date_str = match_date_str[:-1] + '+00:00'
+                elif '+' not in match_date_str and '-' not in match_date_str[-6:]:
+                    match_date_str = match_date_str + '+00:00'
+                
+                match_date = datetime.fromisoformat(match_date_str)
+            else:
+                match_date = match_date_str
+            
+            # Timezone aware yap
+            if match_date.tzinfo is None:
+                match_date = match_date.replace(tzinfo=timezone.utc)
+            
+            # Maç henüz başlamamışsa True döndür
+            if match_date > now:
+                return True
+        except Exception:
+            # Parse hatası varsa henüz bitmemiş kabul et
+            return True
+    
+    # Tüm maçlar bitmiş
+    return False
 
 
 @router.get("/coupons/{coupon_id}", response_model=CouponResponse)
