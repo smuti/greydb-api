@@ -35,6 +35,8 @@ class PredictionCreate(BaseModel):
     analysis: Optional[str] = None
     # Durum
     status: str = "draft"  # draft, active
+    # Ana sayfa gösterimi
+    show_on_homepage: Optional[bool] = None
     # Meta
     created_by_email: str
 
@@ -53,6 +55,7 @@ class PredictionUpdate(BaseModel):
     analysis: Optional[str] = None
     status: Optional[str] = None
     result: Optional[str] = None
+    show_on_homepage: Optional[bool] = None
 
 
 class PredictionResponse(BaseModel):
@@ -77,6 +80,7 @@ class PredictionResponse(BaseModel):
     analysis: Optional[str]
     status: str
     result: Optional[str]
+    show_on_homepage: Optional[bool]
     created_by_email: str
     created_at: datetime
     updated_at: datetime
@@ -91,13 +95,13 @@ async def create_prediction(prediction: PredictionCreate):
             home_team_fotmob_id, away_team_fotmob_id, match_fotmob_id,
             market_name, pick, pick_name, odds, probability,
             prediction_type, content, audio_url, audio_file_name, analysis,
-            status, created_by_email
+            status, show_on_homepage, created_by_email
         ) VALUES (
             :home_team, :away_team, :league, :match_date,
             :home_team_fotmob_id, :away_team_fotmob_id, :match_fotmob_id,
             :market_name, :pick, :pick_name, :odds, :probability,
             :prediction_type, :content, :audio_url, :audio_file_name, :analysis,
-            :status, :created_by_email
+            :status, :show_on_homepage, :created_by_email
         )
         RETURNING *
     """
@@ -217,6 +221,11 @@ def _row_to_response(row) -> dict:
             return None
         return str(val)
     
+    def safe_bool(val):
+        if pd.isna(val) or val is None:
+            return None
+        return bool(val)
+    
     return {
         "id": int(row["id"]),
         "home_team": row["home_team"],
@@ -238,6 +247,7 @@ def _row_to_response(row) -> dict:
         "analysis": safe_str(row["analysis"]),
         "status": row["status"],
         "result": safe_str(row["result"]),
+        "show_on_homepage": safe_bool(row.get("show_on_homepage")),
         "created_by_email": row["created_by_email"],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
