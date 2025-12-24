@@ -233,20 +233,18 @@ async def check_finished_matches(match_ids: List[int]):
 @router.post("/process-finished", response_model=ProcessResult)
 async def process_finished_matches(
     fotmob_league_id: Optional[int] = None,
-    limit: int = 50,
+    limit_per_league: int = 20,
     dry_run: bool = False
 ):
     """
     Bitmiş maçları tespit et ve veritabanına kaydet.
     
-    1. upcoming_matches'tan işlenmemiş, tarihi geçmiş maçları al
-    2. Her maç için FotMob'dan bitip bitmediğini kontrol et
-    3. Bitmiş olanları public.matches'a kaydet
-    4. upcoming_matches'ta is_processed=true yap
+    LİGE GÖRE GRUPLA - Her lig için ayrı ayrı kontrol et.
+    İlk oynanmamış maçta o ligi bırak, sonraki lige geç.
     
     Args:
         fotmob_league_id: Opsiyonel lig filtresi
-        limit: Maksimum kontrol edilecek maç sayısı
+        limit_per_league: Her lig için maksimum kontrol edilecek maç sayısı
         dry_run: True ise sadece kontrol et, kaydetme
     """
     result = ProcessResult(
@@ -258,135 +256,149 @@ async def process_finished_matches(
         finished_matches=[]
     )
     
-    # 1. İşlenmemiş, tarihi geçmiş maçları al
-    query = """
-        SELECT 
-            um.id,
-            um.fotmob_match_id,
-            um.match_url,
-            um.match_date,
-            um.home_team_name,
-            um.away_team_name,
-            um.round,
-            l.name as league_name,
-            l.fotmob_league_id,
-            l.id as league_id
+    # 1. Ligleri al
+    leagues_query = """
+        SELECT DISTINCT l.id, l.name, l.fotmob_league_id
         FROM public.upcoming_matches um
         JOIN public.leagues l ON um.league_id = l.id
         WHERE um.is_processed = false
         AND um.match_date < NOW()
     """
-    
     if fotmob_league_id:
-        query += f" AND l.fotmob_league_id = {fotmob_league_id}"
+        leagues_query += f" AND l.fotmob_league_id = {fotmob_league_id}"
     
-    query += f" ORDER BY um.match_date ASC LIMIT {limit}"
+    leagues = execute_query(leagues_query)
     
-    unprocessed = execute_query(query)
-    
-    if not unprocessed:
+    if not leagues:
         return result
     
-    # 2. Her maç için FotMob'dan kontrol et
-    for match in unprocessed:
-        result.total_checked += 1
-        fotmob_match_id = match["fotmob_match_id"]
+    # 2. Her lig için ayrı ayrı işle
+    for league in leagues:
+        league_id = league["id"]
+        league_name = league["name"]
         
-        try:
-            data = await fetch_match_details(fotmob_match_id)
-            info = parse_match_info(data)
+        # Bu ligin maçlarını al (tarih sırasına göre)
+        matches_query = f"""
+            SELECT 
+                um.id,
+                um.fotmob_match_id,
+                um.match_url,
+                um.match_date,
+                um.home_team_name,
+                um.away_team_name,
+                um.round,
+                '{league_name}' as league_name,
+                {league["fotmob_league_id"]} as fotmob_league_id,
+                {league_id} as league_id
+            FROM public.upcoming_matches um
+            WHERE um.league_id = {league_id}
+            AND um.is_processed = false
+            AND um.match_date < NOW()
+            ORDER BY um.match_date ASC
+            LIMIT {limit_per_league}
+        """
+        
+        league_matches = execute_query(matches_query)
+        
+        # Bu lig için maçları kontrol et
+        for match in league_matches:
+            result.total_checked += 1
+            fotmob_match_id = match["fotmob_match_id"]
             
-            # Maç bitti mi?
-            if info["finished"] and info["home_score"] is not None and info["away_score"] is not None:
-                result.finished_count += 1
+            try:
+                data = await fetch_match_details(fotmob_match_id)
+                info = parse_match_info(data)
                 
-                finished_info = FinishedMatchInfo(
-                    id=match["id"],
-                    fotmob_match_id=fotmob_match_id,
-                    home_team_name=info["home_team_name"],
-                    away_team_name=info["away_team_name"],
-                    home_score=info["home_score"],
-                    away_score=info["away_score"],
-                    finished=True
-                )
-                result.finished_matches.append(finished_info)
+                # Maç bitti mi?
+                if info["finished"] and info["home_score"] is not None and info["away_score"] is not None:
+                    result.finished_count += 1
+                    
+                    finished_info = FinishedMatchInfo(
+                        id=match["id"],
+                        fotmob_match_id=fotmob_match_id,
+                        home_team_name=info["home_team_name"],
+                        away_team_name=info["away_team_name"],
+                        home_score=info["home_score"],
+                        away_score=info["away_score"],
+                        finished=True
+                    )
+                    result.finished_matches.append(finished_info)
+                    
+                    if not dry_run:
+                        # public.matches'a kaydet (veya güncelle)
+                        try:
+                            check_query = f"""
+                                SELECT id FROM public.matches 
+                                WHERE fotmob_match_id = {fotmob_match_id}
+                            """
+                            existing = execute_query(check_query)
+                            
+                            if existing:
+                                update_query = """
+                                    UPDATE public.matches 
+                                    SET home_score = :home_score,
+                                        away_score = :away_score,
+                                        updated_at = NOW()
+                                    WHERE fotmob_match_id = :fotmob_match_id
+                                """
+                                execute_insert(update_query, {
+                                    "home_score": info["home_score"],
+                                    "away_score": info["away_score"],
+                                    "fotmob_match_id": fotmob_match_id
+                                })
+                            else:
+                                insert_query = """
+                                    INSERT INTO public.matches (
+                                        fotmob_match_id, league_id, season,
+                                        match_date, round, round_name,
+                                        home_team_fotmob_id, away_team_fotmob_id,
+                                        home_score, away_score, page_url
+                                    ) VALUES (
+                                        :fotmob_match_id, :league_id, :season,
+                                        :match_date, :round, :round_name,
+                                        :home_team_id, :away_team_id,
+                                        :home_score, :away_score, :page_url
+                                    )
+                                """
+                                execute_insert(insert_query, {
+                                    "fotmob_match_id": fotmob_match_id,
+                                    "league_id": match["league_id"],
+                                    "season": "2024-2025",
+                                    "match_date": match["match_date"],
+                                    "round": match.get("round", ""),
+                                    "round_name": info.get("league_round", ""),
+                                    "home_team_id": info.get("home_team_id"),
+                                    "away_team_id": info.get("away_team_id"),
+                                    "home_score": info["home_score"],
+                                    "away_score": info["away_score"],
+                                    "page_url": match.get("match_url", "")
+                                })
+                            
+                            # upcoming_matches'ta is_processed=true yap
+                            mark_processed_query = """
+                                UPDATE public.upcoming_matches 
+                                SET is_processed = true, updated_at = NOW()
+                                WHERE id = :id
+                            """
+                            execute_insert(mark_processed_query, {"id": match["id"]})
+                            
+                            result.processed_count += 1
+                            
+                        except Exception as e:
+                            result.error_count += 1
+                            result.errors.append(f"{match['home_team_name']} vs {match['away_team_name']}: {str(e)}")
+                else:
+                    # Bu ligde ilk oynanmamış maça ulaştık
+                    # Bu ligi bırak, sonraki lige geç
+                    break
                 
-                if not dry_run:
-                    # 3. public.matches'a kaydet (veya güncelle)
-                    try:
-                        # Önce mevcut kaydı kontrol et
-                        check_query = f"""
-                            SELECT id FROM public.matches 
-                            WHERE fotmob_match_id = {fotmob_match_id}
-                        """
-                        existing = execute_query(check_query)
-                        
-                        if existing:
-                            # Update existing match
-                            update_query = """
-                                UPDATE public.matches 
-                                SET home_score = :home_score,
-                                    away_score = :away_score,
-                                    updated_at = NOW()
-                                WHERE fotmob_match_id = :fotmob_match_id
-                            """
-                            execute_insert(update_query, {
-                                "home_score": info["home_score"],
-                                "away_score": info["away_score"],
-                                "fotmob_match_id": fotmob_match_id
-                            })
-                        else:
-                            # Insert new match
-                            insert_query = """
-                                INSERT INTO public.matches (
-                                    fotmob_match_id, league_id, season,
-                                    match_date, round, round_name,
-                                    home_team_fotmob_id, away_team_fotmob_id,
-                                    home_score, away_score, page_url
-                                ) VALUES (
-                                    :fotmob_match_id, :league_id, :season,
-                                    :match_date, :round, :round_name,
-                                    :home_team_id, :away_team_id,
-                                    :home_score, :away_score, :page_url
-                                )
-                            """
-                            execute_insert(insert_query, {
-                                "fotmob_match_id": fotmob_match_id,
-                                "league_id": match["league_id"],
-                                "season": "2024-2025",
-                                "match_date": match["match_date"],
-                                "round": match.get("round", ""),
-                                "round_name": info.get("league_round", ""),
-                                "home_team_id": info.get("home_team_id"),
-                                "away_team_id": info.get("away_team_id"),
-                                "home_score": info["home_score"],
-                                "away_score": info["away_score"],
-                                "page_url": match.get("match_url", "")
-                            })
-                        
-                        # 4. upcoming_matches'ta is_processed=true yap
-                        mark_processed_query = """
-                            UPDATE public.upcoming_matches 
-                            SET is_processed = true, updated_at = NOW()
-                            WHERE id = :id
-                        """
-                        execute_insert(mark_processed_query, {"id": match["id"]})
-                        
-                        result.processed_count += 1
-                        
-                    except Exception as e:
-                        result.error_count += 1
-                        result.errors.append(f"{match['home_team_name']} vs {match['away_team_name']}: {str(e)}")
-            # Oynanmamış maçları atla, devam et
-            # (farklı liglerden maçlar farklı saatlerde biter)
-            
-            # Rate limiting
-            await asyncio.sleep(0.3)
-            
-        except Exception as e:
-            result.error_count += 1
-            result.errors.append(f"FotMob API error for {fotmob_match_id}: {str(e)}")
-            continue
+                # Rate limiting
+                await asyncio.sleep(0.3)
+                
+            except Exception as e:
+                result.error_count += 1
+                result.errors.append(f"FotMob API error for {fotmob_match_id}: {str(e)}")
+                continue
     
     return result
 
