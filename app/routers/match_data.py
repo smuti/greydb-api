@@ -327,6 +327,9 @@ async def process_finished_matches(
                     if not dry_run:
                         # public.matches'a kaydet (veya güncelle)
                         try:
+                            import json
+                            raw_json = json.dumps(data)  # Tüm FotMob verisini kaydet
+                            
                             check_query = f"""
                                 SELECT id FROM public.matches 
                                 WHERE fotmob_match_id = {fotmob_match_id}
@@ -334,55 +337,60 @@ async def process_finished_matches(
                             existing = execute_query(check_query)
                             
                             if existing:
-                            update_query = """
-                                UPDATE public.matches 
-                                SET home_score = :home_score,
-                                    away_score = :away_score,
-                                    finished = true,
-                                    updated_at = NOW()
-                                WHERE fotmob_match_id = :fotmob_match_id
-                            """
-                            execute_insert(update_query, {
-                                "home_score": info["home_score"],
-                                "away_score": info["away_score"],
-                                "fotmob_match_id": fotmob_match_id
-                            })
+                                # Update existing match
+                                update_query = """
+                                    UPDATE public.matches 
+                                    SET home_score = :home_score,
+                                        away_score = :away_score,
+                                        finished = true,
+                                        raw_match_details = :raw_match_details,
+                                        updated_at = NOW()
+                                    WHERE fotmob_match_id = :fotmob_match_id
+                                """
+                                execute_insert(update_query, {
+                                    "home_score": info["home_score"],
+                                    "away_score": info["away_score"],
+                                    "raw_match_details": raw_json,
+                                    "fotmob_match_id": fotmob_match_id
+                                })
                             else:
-                            # Round değerini integer'a çevir
-                            round_val = match.get("round")
-                            if isinstance(round_val, str):
-                                try:
-                                    round_val = int(round_val)
-                                except:
-                                    round_val = None
-                            
-                            insert_query = """
-                                INSERT INTO public.matches (
-                                    fotmob_match_id, league_id,
-                                    match_date, round,
-                                    home_team_id, away_team_id,
-                                    home_score, away_score, 
-                                    finished, page_url
-                                ) VALUES (
-                                    :fotmob_match_id, :league_id,
-                                    :match_date, :round,
-                                    :home_team_id, :away_team_id,
-                                    :home_score, :away_score,
-                                    :finished, :page_url
-                                )
-                            """
-                            execute_insert(insert_query, {
-                                "fotmob_match_id": fotmob_match_id,
-                                "league_id": match["league_id"],
-                                "match_date": match["match_date"],
-                                "round": round_val,
-                                "home_team_id": info.get("home_team_id"),
-                                "away_team_id": info.get("away_team_id"),
-                                "home_score": info["home_score"],
-                                "away_score": info["away_score"],
-                                "finished": True,
-                                "page_url": match.get("match_url", "")
-                            })
+                                # Round değerini integer'a çevir
+                                round_val = match.get("round")
+                                if isinstance(round_val, str):
+                                    try:
+                                        round_val = int(round_val)
+                                    except:
+                                        round_val = None
+                                
+                                # Insert new match
+                                insert_query = """
+                                    INSERT INTO public.matches (
+                                        fotmob_match_id, league_id,
+                                        match_date, round,
+                                        home_team_id, away_team_id,
+                                        home_score, away_score, 
+                                        finished, page_url, raw_match_details
+                                    ) VALUES (
+                                        :fotmob_match_id, :league_id,
+                                        :match_date, :round,
+                                        :home_team_id, :away_team_id,
+                                        :home_score, :away_score,
+                                        :finished, :page_url, :raw_match_details
+                                    )
+                                """
+                                execute_insert(insert_query, {
+                                    "fotmob_match_id": fotmob_match_id,
+                                    "league_id": match["league_id"],
+                                    "match_date": match["match_date"],
+                                    "round": round_val,
+                                    "home_team_id": info.get("home_team_id"),
+                                    "away_team_id": info.get("away_team_id"),
+                                    "home_score": info["home_score"],
+                                    "away_score": info["away_score"],
+                                    "finished": True,
+                                    "page_url": match.get("match_url", ""),
+                                    "raw_match_details": raw_json
+                                })
                             
                             # upcoming_matches'ta is_processed=true yap
                             mark_processed_query = """
