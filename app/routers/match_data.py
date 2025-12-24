@@ -370,6 +370,50 @@ async def process_finished_matches(
     return result
 
 
+@router.post("/refill-missing-data")
+async def refill_missing_data(limit: int = 20):
+    """
+    raw_match_details'i olan ama diğer tabloları boş olan maçları doldur.
+    Örn: Önceki turda sadece matches tablosuna kaydedilmiş maçlar.
+    """
+    # raw_match_details'i olan ama match_stats'ı olmayan maçları bul
+    query = """
+        SELECT m.id, m.fotmob_match_id, m.raw_match_details
+        FROM public.matches m
+        LEFT JOIN public.match_stats ms ON m.id = ms.match_id
+        WHERE m.raw_match_details IS NOT NULL
+        AND ms.match_id IS NULL
+        AND m.finished = true
+        LIMIT :limit
+    """
+    matches = execute_query(query.replace(":limit", str(limit)))
+    
+    filled_count = 0
+    errors = []
+    
+    for match in matches:
+        try:
+            import json
+            match_data = match["raw_match_details"]
+            
+            # Eğer string ise parse et
+            if isinstance(match_data, str):
+                match_data = json.loads(match_data)
+            
+            # Tüm ilgili tabloları doldur
+            save_full_match_data(match_data)
+            filled_count += 1
+            
+        except Exception as e:
+            errors.append(f"Match {match['fotmob_match_id']}: {str(e)}")
+    
+    return {
+        "total_found": len(matches),
+        "filled": filled_count,
+        "errors": errors
+    }
+
+
 @router.get("/stats")
 async def get_match_data_stats():
     """
