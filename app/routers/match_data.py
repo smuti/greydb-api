@@ -355,9 +355,10 @@ async def process_finished_matches(
                             result.error_count += 1
                             result.errors.append(f"{match['home_team_name']} vs {match['away_team_name']}: {str(e)}")
                 else:
-                    # Bu ligde ilk oynanmamış maça ulaştık
-                    # Bu ligi bırak, sonraki lige geç
-                    break
+                    # Maç henüz bitmemiş (ertelenmiş veya gelecek maç olabilir)
+                    # BREAK YAPMA - diğer maçları kontrol etmeye devam et
+                    # Çünkü ertelenmiş maçlar tarih sırasını bozabilir
+                    pass
                 
                 # Rate limiting
                 await asyncio.sleep(0.3)
