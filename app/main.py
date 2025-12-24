@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import form, h2h, predictions, coupons, match_comments, feedback, skorjin
+from app.routers import form, h2h, predictions, coupons, match_comments, feedback, skorjin, leagues
 
 settings = get_settings()
 
@@ -35,6 +35,7 @@ app.include_router(coupons.router, prefix="/api")
 app.include_router(match_comments.router, prefix="/api")
 app.include_router(feedback.router, prefix="/api")
 app.include_router(skorjin.router, prefix="/api")
+app.include_router(leagues.router, prefix="/api")
 
 
 @app.get("/")
