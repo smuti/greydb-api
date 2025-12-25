@@ -33,9 +33,24 @@ def get_connection():
         conn.close()
 
 
-def query_to_df(sql: str, params: dict = None, commit: bool = False) -> pd.DataFrame:
-    """SQL sorgusunu pandas DataFrame olarak döndür"""
+def query_to_df(sql: str, params = None, commit: bool = False) -> pd.DataFrame:
+    """SQL sorgusunu pandas DataFrame olarak döndür
+    
+    Args:
+        sql: SQL sorgusu (%s veya :param formatında)
+        params: tuple veya dict olabilir
+        commit: True ise commit yap
+    """
     with engine.connect() as conn:
+        # Eğer params tuple ise, psycopg2 formatından sqlalchemy formatına çevir
+        if params is not None and isinstance(params, tuple):
+            # %s placeholder'ları :p0, :p1, ... formatına çevir
+            import re
+            placeholders = re.findall(r'%s', sql)
+            for i, _ in enumerate(placeholders):
+                sql = sql.replace('%s', f':p{i}', 1)
+            params = {f'p{i}': v for i, v in enumerate(params)}
+        
         result = pd.read_sql(text(sql), conn, params=params)
         if commit:
             conn.commit()
