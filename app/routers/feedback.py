@@ -79,7 +79,7 @@ async def create_or_update_feedback(feedback: FeedbackCreate):
             # Farklı butona tıklandı - güncelle
             update_sql = """
                 UPDATE greydb.feedbacks 
-                SET feedback_type = %s, updated_at = CURRENT_TIMESTAMP
+                SET feedback_type = %s
                 WHERE id = %s
                 RETURNING *
             """

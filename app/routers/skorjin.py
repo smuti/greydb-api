@@ -163,7 +163,7 @@ async def save_message_feedback(feedback: MessageFeedbackCreate):
         else:
             # Farklı feedback verdiyse güncelle
             update_sql = """
-                UPDATE greydb.feedbacks SET feedback_type = %s, created_at = NOW()
+                UPDATE greydb.feedbacks SET feedback_type = %s
                 WHERE id = %s RETURNING *
             """
             updated_df = query_to_df(update_sql, (feedback.feedback_type, existing_id), commit=True)
