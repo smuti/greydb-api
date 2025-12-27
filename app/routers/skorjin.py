@@ -33,7 +33,7 @@ class MessageFeedbackCreate(BaseModel):
     """Mesaj feedback şeması"""
     conversation_id: int
     user_id: str
-    feedback_type: str  # 'up' veya 'down'
+    feedback_type: str  # 'like' veya 'dislike'
 
 
 class MessageFeedbackResponse(BaseModel):
@@ -186,8 +186,8 @@ async def get_message_feedback_counts(conversation_id: int):
     
     sql = """
         SELECT 
-            COALESCE(SUM(CASE WHEN feedback_type = 'up' THEN 1 ELSE 0 END), 0) AS up_votes,
-            COALESCE(SUM(CASE WHEN feedback_type = 'down' THEN 1 ELSE 0 END), 0) AS down_votes
+            COALESCE(SUM(CASE WHEN feedback_type = 'like' THEN 1 ELSE 0 END), 0) AS up_votes,
+            COALESCE(SUM(CASE WHEN feedback_type = 'dislike' THEN 1 ELSE 0 END), 0) AS down_votes
         FROM greydb.feedbacks
         WHERE content_type = %s AND content_id = %s
     """
