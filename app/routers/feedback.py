@@ -59,53 +59,45 @@ async def create_or_update_feedback(feedback: FeedbackCreate):
     Aynı kullanıcı aynı içeriğe tekrar tıklarsa feedback güncellenir.
     Aynı feedback_type'a tekrar tıklarsa feedback silinir (toggle).
     """
-    import traceback
-    try:
-        # Mevcut feedback'i kontrol et
-        check_sql = """
-            SELECT id, feedback_type FROM greydb.feedbacks
-            WHERE user_id = %s AND content_type = %s AND content_id = %s
-        """
-        existing = query_to_df(check_sql, (feedback.user_id, feedback.content_type, feedback.content_id))
+    # Mevcut feedback'i kontrol et
+    check_sql = """
+        SELECT id, feedback_type FROM greydb.feedbacks
+        WHERE user_id = %s AND content_type = %s AND content_id = %s
+    """
+    existing = query_to_df(check_sql, (feedback.user_id, feedback.content_type, feedback.content_id))
+    
+    if not existing.empty:
+        existing_type = existing.iloc[0]['feedback_type']
+        existing_id = int(existing.iloc[0]['id'])
         
-        if not existing.empty:
-            existing_type = existing.iloc[0]['feedback_type']
-            existing_id = int(existing.iloc[0]['id'])
-            
-            if existing_type == feedback.feedback_type:
-                # Aynı butona tekrar tıklandı - feedback'i sil (toggle off)
-                delete_sql = "DELETE FROM greydb.feedbacks WHERE id = %s"
-                query_to_df(delete_sql, (existing_id,), commit=True)
-                raise HTTPException(status_code=204, detail="Feedback removed")
-            else:
-                # Farklı butona tıklandı - güncelle
-                update_sql = """
-                    UPDATE greydb.feedbacks 
-                    SET feedback_type = %s
-                    WHERE id = %s
-                    RETURNING *
-                """
-                result = query_to_df(update_sql, (feedback.feedback_type, existing_id), commit=True)
-                return _row_to_response(result.iloc[0])
-        
-        # Yeni feedback oluştur
-        insert_sql = """
-            INSERT INTO greydb.feedbacks (user_id, content_type, content_id, feedback_type)
-            VALUES (%s, %s, %s, %s)
-            RETURNING *
-        """
-        result = query_to_df(
-            insert_sql,
-            (feedback.user_id, feedback.content_type, feedback.content_id, feedback.feedback_type),
-            commit=True
-        )
-        return _row_to_response(result.iloc[0])
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"Feedback error: {str(e)}")
-        print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Feedback error: {str(e)}")
+        if existing_type == feedback.feedback_type:
+            # Aynı butona tekrar tıklandı - feedback'i sil (toggle off)
+            delete_sql = "DELETE FROM greydb.feedbacks WHERE id = %s"
+            query_to_df(delete_sql, (existing_id,), commit=True)
+            raise HTTPException(status_code=204, detail="Feedback removed")
+        else:
+            # Farklı butona tıklandı - güncelle
+            update_sql = """
+                UPDATE greydb.feedbacks 
+                SET feedback_type = %s
+                WHERE id = %s
+                RETURNING *
+            """
+            result = query_to_df(update_sql, (feedback.feedback_type, existing_id), commit=True)
+            return _row_to_response(result.iloc[0])
+    
+    # Yeni feedback oluştur
+    insert_sql = """
+        INSERT INTO greydb.feedbacks (user_id, content_type, content_id, feedback_type)
+        VALUES (%s, %s, %s, %s)
+        RETURNING *
+    """
+    result = query_to_df(
+        insert_sql,
+        (feedback.user_id, feedback.content_type, feedback.content_id, feedback.feedback_type),
+        commit=True
+    )
+    return _row_to_response(result.iloc[0])
 
 
 @router.get("/feedback/counts/{content_type}/{content_id}", response_model=FeedbackCountResponse)
