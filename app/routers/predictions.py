@@ -269,7 +269,38 @@ async def check_prediction_results():
                         }
             
             if not match_result:
-                # Maç sonucu bulunamadı, sonra tekrar dene
+                # greydb.matches'te bulunamadı, FotMob API'den dene
+                fotmob_url = prediction.get("fotmob_url")
+                if fotmob_url:
+                    try:
+                        # URL'den match ID çıkar (örn: .../2t8gjc#4803201 -> 4803201)
+                        import re
+                        match_id_match = re.search(r'#(\d+)', fotmob_url)
+                        if not match_id_match:
+                            # URL formatı: /matches/.../MATCHID
+                            match_id_match = re.search(r'/(\d+)(?:\?|$|#)', fotmob_url)
+                        
+                        if match_id_match:
+                            fotmob_match_id = match_id_match.group(1)
+                            async with httpx.AsyncClient(timeout=10.0) as client:
+                                fotmob_api_url = f"https://www.fotmob.com/api/matchDetails?matchId={fotmob_match_id}"
+                                response = await client.get(fotmob_api_url)
+                                if response.status_code == 200:
+                                    data = response.json()
+                                    # Maç bitti mi kontrol et
+                                    if data.get("general", {}).get("finished"):
+                                        teams = data.get("header", {}).get("teams", [])
+                                        if len(teams) >= 2:
+                                            match_result = {
+                                                "home_score": teams[0].get("score", 0),
+                                                "away_score": teams[1].get("score", 0),
+                                                "status": "finished"
+                                            }
+                    except Exception as fotmob_error:
+                        print(f"FotMob API error for prediction {pred_id}: {fotmob_error}")
+            
+            if not match_result:
+                # Hala bulunamadı, sonra tekrar dene
                 results.append({"id": pred_id, "status": "pending", "reason": "Maç sonucu henüz yok"})
                 continue
             
