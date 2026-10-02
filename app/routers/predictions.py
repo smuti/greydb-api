@@ -283,7 +283,7 @@ async def check_prediction_results():
                         if match_id_match:
                             fotmob_match_id = match_id_match.group(1)
                             async with httpx.AsyncClient(timeout=10.0) as client:
-                                fotmob_api_url = f"https://www.fotmob.com/api/matchDetails?matchId={fotmob_match_id}"
+                                fotmob_api_url = f"https://www.fotmob.com/api/data/matchDetails?matchId={fotmob_match_id}"
                                 response = await client.get(fotmob_api_url)
                                 if response.status_code == 200:
                                     data = response.json()
