@@ -9,8 +9,17 @@ from app.config import get_settings
 
 settings = get_settings()
 
+# SQLAlchemy'nin sürücü otomatik-seçimi sqlalchemy sürümüne göre psycopg (v3) ile
+# psycopg2 arasında değişebiliyor; biz sadece psycopg2-binary kuruyoruz, o yüzden
+# sürücüyü URL'de açıkça belirtip belirsizliği ortadan kaldırıyoruz.
+database_url = settings.database_url
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql+psycopg2://", 1)
+elif database_url.startswith("postgresql://") and "+psycopg2" not in database_url:
+    database_url = database_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+
 # SQLAlchemy engine
-engine = create_engine(settings.database_url, pool_pre_ping=True)
+engine = create_engine(database_url, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
