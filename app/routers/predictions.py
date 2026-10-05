@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
+import json
 
 from app.services.db import execute_query, query_to_df
 
@@ -38,6 +39,12 @@ class PredictionCreate(BaseModel):
     status: str = "draft"  # draft, active
     # Ana sayfa gösterimi
     show_on_homepage: Optional[bool] = None
+    # Radar (Açık Radar / Gri Radar) alanları
+    radar_type: str = "acik"  # acik, gri
+    signal_strength: Optional[str] = None  # zayif, orta, guclu
+    risk_level: Optional[str] = None  # dusuk, dusuk-orta, orta, orta-yuksek, yuksek
+    reasons: Optional[List[str]] = None  # "Neden Bu Seçim?" madde listesi
+    main_risk: Optional[str] = None  # "Ana Risk" cümlesi
     # Meta
     created_by_email: str
 
@@ -58,6 +65,11 @@ class PredictionUpdate(BaseModel):
     result: Optional[str] = None  # pending, won, lost, void
     show_on_homepage: Optional[bool] = None
     fotmob_url: Optional[str] = None
+    radar_type: Optional[str] = None
+    signal_strength: Optional[str] = None
+    risk_level: Optional[str] = None
+    reasons: Optional[List[str]] = None
+    main_risk: Optional[str] = None
 
 
 class PredictionResponse(BaseModel):
@@ -84,6 +96,11 @@ class PredictionResponse(BaseModel):
     status: str
     result: Optional[str]  # pending, won, lost, void
     show_on_homepage: Optional[bool]
+    radar_type: str
+    signal_strength: Optional[str]
+    risk_level: Optional[str]
+    reasons: Optional[List[str]]
+    main_risk: Optional[str]
     created_by_email: str
     created_at: datetime
     updated_at: datetime
@@ -98,18 +115,22 @@ async def create_prediction(prediction: PredictionCreate):
             home_team_fotmob_id, away_team_fotmob_id, match_fotmob_id, fotmob_url,
             market_name, pick, pick_name, odds, probability,
             prediction_type, content, audio_url, audio_file_name, analysis,
-            status, show_on_homepage, created_by_email
+            status, show_on_homepage, created_by_email,
+            radar_type, signal_strength, risk_level, reasons, main_risk
         ) VALUES (
             :home_team, :away_team, :league, :match_date,
             :home_team_fotmob_id, :away_team_fotmob_id, :match_fotmob_id, :fotmob_url,
             :market_name, :pick, :pick_name, :odds, :probability,
             :prediction_type, :content, :audio_url, :audio_file_name, :analysis,
-            :status, :show_on_homepage, :created_by_email
+            :status, :show_on_homepage, :created_by_email,
+            :radar_type, :signal_strength, :risk_level, CAST(:reasons AS jsonb), :main_risk
         )
         RETURNING *
     """
-    
-    df = query_to_df(sql, prediction.model_dump(), commit=True)
+
+    params = prediction.model_dump()
+    params["reasons"] = json.dumps(params["reasons"]) if params.get("reasons") is not None else None
+    df = query_to_df(sql, params, commit=True)
     
     if df.empty:
         raise HTTPException(status_code=500, detail="Tahmin oluşturulamadı")
@@ -122,20 +143,25 @@ async def create_prediction(prediction: PredictionCreate):
 async def list_predictions(
     status: Optional[str] = None,
     created_by_email: Optional[str] = None,
+    radar_type: Optional[str] = None,
     limit: int = 50,
     offset: int = 0
 ):
     """Tahminleri listele"""
     conditions = []
     params = {"limit": limit, "offset": offset}
-    
+
     if status:
         conditions.append("status = :status")
         params["status"] = status
-    
+
     if created_by_email:
         conditions.append("created_by_email = :created_by_email")
         params["created_by_email"] = created_by_email
+
+    if radar_type:
+        conditions.append("radar_type = :radar_type")
+        params["radar_type"] = radar_type
     
     where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
     
@@ -172,11 +198,19 @@ async def update_prediction(prediction_id: int, update: PredictionUpdate):
     if not update_data:
         raise HTTPException(status_code=400, detail="Güncellenecek alan yok")
     
+    # reasons (JSONB) özel işlem gerektiriyor — Python list'i JSON string'e çevirip
+    # SQL tarafında CAST ediyoruz, psycopg2 list'i otomatik jsonb'ye çeviremiyor.
+    if "reasons" in update_data:
+        update_data["reasons"] = json.dumps(update_data["reasons"])
+
     # updated_at ekle
     update_data["updated_at"] = datetime.now()
     update_data["id"] = prediction_id
-    
-    set_clause = ", ".join([f"{k} = :{k}" for k in update_data.keys() if k != "id"])
+
+    set_clause = ", ".join([
+        f"{k} = CAST(:{k} AS jsonb)" if k == "reasons" else f"{k} = :{k}"
+        for k in update_data.keys() if k != "id"
+    ])
     
     sql = f"""
         UPDATE greydb.predictions
@@ -433,7 +467,22 @@ def _row_to_response(row) -> dict:
         if pd.isna(val) or val is None:
             return None
         return bool(val)
-    
+
+    def safe_list(val):
+        if val is None:
+            return None
+        try:
+            if pd.isna(val):
+                return None
+        except (TypeError, ValueError):
+            pass  # val bir liste/array ise pd.isna() hata verebilir, yoksay
+        if isinstance(val, str):
+            try:
+                return json.loads(val)
+            except (TypeError, ValueError):
+                return None
+        return list(val)
+
     return {
         "id": int(row["id"]),
         "home_team": row["home_team"],
@@ -457,6 +506,11 @@ def _row_to_response(row) -> dict:
         "status": row["status"],  # draft, active, archived, problem
         "result": safe_str(row["result"]),  # pending, won, lost, void
         "show_on_homepage": safe_bool(row.get("show_on_homepage")),
+        "radar_type": row.get("radar_type") or "acik",
+        "signal_strength": safe_str(row.get("signal_strength")),
+        "risk_level": safe_str(row.get("risk_level")),
+        "reasons": safe_list(row.get("reasons")),
+        "main_risk": safe_str(row.get("main_risk")),
         "created_by_email": row["created_by_email"],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
