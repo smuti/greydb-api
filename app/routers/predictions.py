@@ -51,6 +51,9 @@ class PredictionCreate(BaseModel):
 
 class PredictionUpdate(BaseModel):
     """Tahmin güncelleme şeması"""
+    home_team_fotmob_id: Optional[int] = None
+    away_team_fotmob_id: Optional[int] = None
+    match_fotmob_id: Optional[int] = None
     market_name: Optional[str] = None
     pick: Optional[str] = None
     pick_name: Optional[str] = None
