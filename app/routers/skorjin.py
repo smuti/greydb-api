@@ -7,6 +7,11 @@ from typing import Optional, List
 from datetime import datetime
 
 from app.services.db import query_to_df
+from app.services.skorjin_match_analysis import (
+    MatchAnalysisError,
+    build_match_analysis_data,
+    generate_analysis,
+)
 
 router = APIRouter(tags=["skorjin"])
 
@@ -136,6 +141,89 @@ async def get_conversation_stats():
         "unique_users": int(total_df.iloc[0]["unique_users"]) if not total_df.empty else 0,
         "daily_stats": daily_stats
     }
+
+
+class MatchAnalysisRequest(BaseModel):
+    """Maç analizi isteği şeması"""
+    fotmob_match_id: int
+
+
+class MatchAnalysisResponse(BaseModel):
+    """Maç analizi response şeması"""
+    fotmob_match_id: int
+    home_team: Optional[str]
+    away_team: Optional[str]
+    league: Optional[str]
+    analysis: str
+    cached: bool
+    created_at: datetime
+
+
+@router.post("/skorjin/match-analysis", response_model=MatchAnalysisResponse)
+async def get_match_analysis(request: MatchAnalysisRequest):
+    """
+    Henüz başlamamış bir maç için sabit şablonlu Skorjin analizi.
+
+    İlk istekte matchforge+team-analyzer'dan veri toplanır, skorjin'in LLM
+    ucu çağrılır ve sonuç fotmob_match_id başına kaydedilir. Sonraki tüm
+    istekler (kim sorarsa sorsun) aynı kayıtlı metni döner — maç başlamadan
+    önce veri zaten statik, yeniden üretmeye gerek yok.
+    """
+    fotmob_match_id = request.fotmob_match_id
+
+    cached_df = query_to_df(
+        "SELECT * FROM greydb.skorjin_match_analysis WHERE fotmob_match_id = %s",
+        (fotmob_match_id,),
+    )
+    if not cached_df.empty:
+        row = cached_df.iloc[0]
+        return MatchAnalysisResponse(
+            fotmob_match_id=int(row["fotmob_match_id"]),
+            home_team=row["home_team"],
+            away_team=row["away_team"],
+            league=row["league"],
+            analysis=row["analysis"],
+            cached=True,
+            created_at=row["created_at"],
+        )
+
+    try:
+        match_data = build_match_analysis_data(fotmob_match_id)
+        analysis_text = generate_analysis(match_data)
+    except MatchAnalysisError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    insert_sql = """
+        INSERT INTO greydb.skorjin_match_analysis
+            (fotmob_match_id, home_team, away_team, league, analysis)
+        VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (fotmob_match_id) DO UPDATE SET analysis = EXCLUDED.analysis
+        RETURNING *
+    """
+    insert_df = query_to_df(
+        insert_sql,
+        (
+            fotmob_match_id,
+            match_data.get("ev_sahibi"),
+            match_data.get("deplasman"),
+            match_data.get("lig"),
+            analysis_text,
+        ),
+        commit=True,
+    )
+    if insert_df.empty:
+        raise HTTPException(status_code=500, detail="Analiz kaydedilemedi")
+
+    row = insert_df.iloc[0]
+    return MatchAnalysisResponse(
+        fotmob_match_id=int(row["fotmob_match_id"]),
+        home_team=row["home_team"],
+        away_team=row["away_team"],
+        league=row["league"],
+        analysis=row["analysis"],
+        cached=False,
+        created_at=row["created_at"],
+    )
 
 
 @router.post("/skorjin/feedback", response_model=MessageFeedbackResponse)
