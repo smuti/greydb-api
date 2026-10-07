@@ -433,9 +433,10 @@ async def get_match_data_stats():
     
     # Matches stats
     matches_query = """
-        SELECT 
+        SELECT
             COUNT(*) as total,
-            COUNT(*) FILTER (WHERE home_score IS NOT NULL) as with_score
+            COUNT(*) FILTER (WHERE home_score IS NOT NULL) as with_score,
+            COUNT(*) FILTER (WHERE finished = true) as finished
         FROM public.matches
     """
     matches_stats = execute_query(matches_query)
