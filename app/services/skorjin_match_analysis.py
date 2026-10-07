@@ -47,6 +47,58 @@ def _normalize(name: str) -> str:
     return (name or "").lower().translate(_TR_MAP).strip()
 
 
+# apps/web/src/lib/teamNames.ts ile birebir aynı tutulmalı. FotMob milli takım
+# adları İngilizce geliyor — LLM'e gönderilen JSON'da hem üst seviye hem de
+# team-analyzer'ın iç içe geçmiş "team_name" alanlarında ham İngilizce kalırsa
+# model bazen "Croatia" bazen "Hırvatistan" yazıp tutarsız oluyor (gözlemlendi).
+# Bu yüzden JSON'a HİÇ İngilizce isim girmesin diye kaynak noktasında çeviriyoruz.
+NATIONAL_TEAM_NAMES_TR = {
+    "Albania": "Arnavutluk", "Andorra": "Andorra", "Armenia": "Ermenistan",
+    "Austria": "Avusturya", "Azerbaijan": "Azerbaycan", "Belarus": "Belarus",
+    "Belgium": "Belçika", "Bosnia and Herzegovina": "Bosna Hersek",
+    "Bulgaria": "Bulgaristan", "Croatia": "Hırvatistan", "Cyprus": "Kıbrıs",
+    "Czechia": "Çekya", "Czech Republic": "Çekya", "Denmark": "Danimarka",
+    "England": "İngiltere", "Estonia": "Estonya", "Faroe Islands": "Faroe Adaları",
+    "Finland": "Finlandiya", "France": "Fransa", "Georgia": "Gürcistan",
+    "Germany": "Almanya", "Gibraltar": "Cebelitarık", "Greece": "Yunanistan",
+    "Hungary": "Macaristan", "Iceland": "İzlanda", "Israel": "İsrail",
+    "Italy": "İtalya", "Kazakhstan": "Kazakistan", "Kosovo": "Kosova",
+    "Latvia": "Letonya", "Liechtenstein": "Lihtenştayn", "Lithuania": "Litvanya",
+    "Luxembourg": "Lüksemburg", "Malta": "Malta", "Moldova": "Moldova",
+    "Montenegro": "Karadağ", "Netherlands": "Hollanda", "North Macedonia": "Kuzey Makedonya",
+    "Northern Ireland": "Kuzey İrlanda", "Norway": "Norveç", "Poland": "Polonya",
+    "Portugal": "Portekiz", "Republic of Ireland": "İrlanda", "Ireland": "İrlanda",
+    "Romania": "Romanya", "Russia": "Rusya", "San Marino": "San Marino",
+    "Scotland": "İskoçya", "Serbia": "Sırbistan", "Slovakia": "Slovakya",
+    "Slovenia": "Slovenya", "Spain": "İspanya", "Sweden": "İsveç",
+    "Switzerland": "İsviçre", "Turkiye": "Türkiye", "Turkey": "Türkiye",
+    "Ukraine": "Ukrayna", "Wales": "Galler",
+}
+
+
+def translate_team_name(name: Optional[str]) -> Optional[str]:
+    if not name:
+        return name
+    return NATIONAL_TEAM_NAMES_TR.get(name.strip(), name)
+
+
+_TEAM_NAME_KEYS = {"team_name", "home_team_name", "away_team_name", "opponent"}
+
+
+def _translate_names_in_place(obj: Any) -> None:
+    """match_data içindeki her 'team_name' türevi alanı (nested dict/list fark
+    etmeksizin) Türkçeleştirir — LLM'in gördüğü HER yerde tutarlı isim olsun."""
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            if key in _TEAM_NAME_KEYS and isinstance(value, str):
+                obj[key] = translate_team_name(value)
+            else:
+                _translate_names_in_place(value)
+    elif isinstance(obj, list):
+        for item in obj:
+            _translate_names_in_place(item)
+
+
 def get_league_id_by_name(name: str) -> Optional[int]:
     normalized = _normalize(name)
     if normalized in LEAGUE_NAME_TO_ID:
@@ -96,9 +148,12 @@ def build_match_analysis_data(fotmob_match_id: int) -> Dict[str, Any]:
         away_team_name = match.get("away_team")
         league_name = match.get("league")
 
+        # data içinde SADECE Türkçe isim kullanılır — team_list eşleştirmesi ve
+        # korner/kart URL'leri için ham home_team_name/away_team_name (İngilizce
+        # FotMob adı) ayrı tutuluyor, aşağıda hiç değiştirilmiyor.
         data: Dict[str, Any] = {
-            "ev_sahibi": home_team_name,
-            "deplasman": away_team_name,
+            "ev_sahibi": translate_team_name(home_team_name),
+            "deplasman": translate_team_name(away_team_name),
             "lig": league_name,
             "mac_tarihi": match.get("kickoff"),
         }
@@ -170,6 +225,9 @@ def build_match_analysis_data(fotmob_match_id: int) -> Dict[str, Any]:
                 "deplasman": _pick(away_cards, "overall", "thresholds"),
             }
 
+        # H2H maç listesindeki home_team_name/away_team_name gibi alanlar hâlâ
+        # İngilizce — burada tek seferde Türkçeleştiriliyor.
+        _translate_names_in_place(data)
         return data
 
 
