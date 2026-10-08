@@ -45,6 +45,7 @@ class PredictionCreate(BaseModel):
     risk_level: Optional[str] = None  # dusuk, dusuk-orta, orta, orta-yuksek, yuksek
     reasons: Optional[List[str]] = None  # "Neden Bu Seçim?" madde listesi
     main_risk: Optional[str] = None  # "Ana Risk" cümlesi
+    main_scores: Optional[List[str]] = None  # "Ana Skorlar" — olası skor listesi (ör. "1-1", "0-2")
     # Meta
     created_by_email: str
 
@@ -73,6 +74,7 @@ class PredictionUpdate(BaseModel):
     risk_level: Optional[str] = None
     reasons: Optional[List[str]] = None
     main_risk: Optional[str] = None
+    main_scores: Optional[List[str]] = None
 
 
 class PredictionResponse(BaseModel):
@@ -104,6 +106,7 @@ class PredictionResponse(BaseModel):
     risk_level: Optional[str]
     reasons: Optional[List[str]]
     main_risk: Optional[str]
+    main_scores: Optional[List[str]]
     created_by_email: str
     created_at: datetime
     updated_at: datetime
@@ -119,20 +122,21 @@ async def create_prediction(prediction: PredictionCreate):
             market_name, pick, pick_name, odds, probability,
             prediction_type, content, audio_url, audio_file_name, analysis,
             status, show_on_homepage, created_by_email,
-            radar_type, signal_strength, risk_level, reasons, main_risk
+            radar_type, signal_strength, risk_level, reasons, main_risk, main_scores
         ) VALUES (
             :home_team, :away_team, :league, :match_date,
             :home_team_fotmob_id, :away_team_fotmob_id, :match_fotmob_id, :fotmob_url,
             :market_name, :pick, :pick_name, :odds, :probability,
             :prediction_type, :content, :audio_url, :audio_file_name, :analysis,
             :status, :show_on_homepage, :created_by_email,
-            :radar_type, :signal_strength, :risk_level, CAST(:reasons AS jsonb), :main_risk
+            :radar_type, :signal_strength, :risk_level, CAST(:reasons AS jsonb), :main_risk, CAST(:main_scores AS jsonb)
         )
         RETURNING *
     """
 
     params = prediction.model_dump()
     params["reasons"] = json.dumps(params["reasons"]) if params.get("reasons") is not None else None
+    params["main_scores"] = json.dumps(params["main_scores"]) if params.get("main_scores") is not None else None
     df = query_to_df(sql, params, commit=True)
     
     if df.empty:
@@ -201,17 +205,20 @@ async def update_prediction(prediction_id: int, update: PredictionUpdate):
     if not update_data:
         raise HTTPException(status_code=400, detail="Güncellenecek alan yok")
     
-    # reasons (JSONB) özel işlem gerektiriyor — Python list'i JSON string'e çevirip
-    # SQL tarafında CAST ediyoruz, psycopg2 list'i otomatik jsonb'ye çeviremiyor.
+    # reasons/main_scores (JSONB) özel işlem gerektiriyor — Python list'i JSON
+    # string'e çevirip SQL tarafında CAST ediyoruz, psycopg2 list'i otomatik
+    # jsonb'ye çeviremiyor.
     if "reasons" in update_data:
         update_data["reasons"] = json.dumps(update_data["reasons"])
+    if "main_scores" in update_data:
+        update_data["main_scores"] = json.dumps(update_data["main_scores"])
 
     # updated_at ekle
     update_data["updated_at"] = datetime.now()
     update_data["id"] = prediction_id
 
     set_clause = ", ".join([
-        f"{k} = CAST(:{k} AS jsonb)" if k == "reasons" else f"{k} = :{k}"
+        f"{k} = CAST(:{k} AS jsonb)" if k in ("reasons", "main_scores") else f"{k} = :{k}"
         for k in update_data.keys() if k != "id"
     ])
     
@@ -514,6 +521,7 @@ def _row_to_response(row) -> dict:
         "risk_level": safe_str(row.get("risk_level")),
         "reasons": safe_list(row.get("reasons")),
         "main_risk": safe_str(row.get("main_risk")),
+        "main_scores": safe_list(row.get("main_scores")),
         "created_by_email": row["created_by_email"],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
