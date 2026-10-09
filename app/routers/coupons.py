@@ -73,10 +73,6 @@ class CouponResponse(BaseModel):
 @router.post("/coupons", response_model=CouponResponse)
 async def create_coupon(coupon: CouponCreate):
     """Yeni kupon oluştur"""
-    # Premium için resim zorunlu
-    if coupon.type == "premium" and not coupon.image_url:
-        raise HTTPException(status_code=400, detail="Premium kuponlar için resim zorunludur")
-    
     # Kupon oluştur
     sql_coupon = """
         INSERT INTO greydb.coupons (
