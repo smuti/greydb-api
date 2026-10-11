@@ -85,7 +85,7 @@ def fetch_round_matches(game_round_id: int) -> List[Dict[str, Any]]:
             "deplasman_takim": away.get("name"),
             "sportoto_home_id": home.get("id"),
             "sportoto_away_id": away.get("id"),
-            "lig": (m.get("round") or {}).get("name") or (m.get("stage") or {}).get("name"),
+            "lig_haftasi": (m.get("round") or {}).get("name") or (m.get("stage") or {}).get("name"),
             "mac_tarihi": m.get("date"),
         })
     return matches

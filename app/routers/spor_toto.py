@@ -18,6 +18,7 @@ router = APIRouter(tags=["spor-toto"])
 
 class FetchWeekRequest(BaseModel):
     game_round_id: int
+    hafta_etiketi: Optional[str] = None  # ör. "10. Hafta" - available-rounds'tan secilen round'un kendi adi
 
 
 class ManualTeamLinkRequest(BaseModel):
@@ -50,7 +51,10 @@ def _get_or_create_week(game_round_id: int, hafta_etiketi: Optional[str]) -> int
 
 
 def _get_or_create_match(week_id: int, m: dict) -> tuple[int, bool]:
-    """Döner: (match_id, zaten_onaylanmis_mi)"""
+    """Döner: (match_id, zaten_onaylanmis_mi). "lig" (gerçek lig adı, ör. "Süper Lig")
+    burada DEĞİL, _generate_for_match başarılı üretimden sonra yazar - çünkü ancak
+    takım eşleşip gerçek lig çözüldükten sonra bilinir. Burada sadece Sportoto'nun
+    kendi per-maç round etiketi olan "lig_haftasi" (ör. "8. Hafta") yazılır."""
     existing = query_to_df(
         "SELECT id, final_metin FROM greydb.spor_toto_matches WHERE week_id = %s AND mac_no = %s",
         (week_id, m["mac_no"]),
@@ -62,22 +66,25 @@ def _get_or_create_match(week_id: int, m: dict) -> tuple[int, bool]:
             execute_insert(
                 """
                 UPDATE greydb.spor_toto_matches
-                SET ev_takim = :ev_takim, deplasman_takim = :deplasman_takim, lig = :lig
+                SET ev_takim = :ev_takim, deplasman_takim = :deplasman_takim, lig_haftasi = :lig_haftasi
                 WHERE id = :id
                 """,
-                {"ev_takim": m["ev_takim"], "deplasman_takim": m["deplasman_takim"], "lig": m["lig"], "id": match_id},
+                {
+                    "ev_takim": m["ev_takim"], "deplasman_takim": m["deplasman_takim"],
+                    "lig_haftasi": m["lig_haftasi"], "id": match_id,
+                },
             )
         return match_id, approved
 
     row = execute_insert(
         """
-        INSERT INTO greydb.spor_toto_matches (week_id, mac_no, ev_takim, deplasman_takim, lig)
-        VALUES (:week_id, :mac_no, :ev_takim, :deplasman_takim, :lig)
+        INSERT INTO greydb.spor_toto_matches (week_id, mac_no, ev_takim, deplasman_takim, lig_haftasi)
+        VALUES (:week_id, :mac_no, :ev_takim, :deplasman_takim, :lig_haftasi)
         RETURNING id
         """,
         {
             "week_id": week_id, "mac_no": m["mac_no"], "ev_takim": m["ev_takim"],
-            "deplasman_takim": m["deplasman_takim"], "lig": m["lig"],
+            "deplasman_takim": m["deplasman_takim"], "lig_haftasi": m["lig_haftasi"],
         },
     )
     return int(row["id"]), False
@@ -99,10 +106,22 @@ def _save_entries(match_id: int, scenarios: list[dict]) -> None:
         )
 
 
-def _generate_for_match(match_id: int, home: dict, away: dict, league_name: Optional[str]) -> None:
-    match_data = stf.build_match_data(home, away, league_name)
+def _generate_for_match(match_id: int, home: dict, away: dict, lig_haftasi: Optional[str]) -> None:
+    match_data = stf.build_match_data(home, away, lig_haftasi)
     scenarios = stf.generate_scenarios(match_data)
     _save_entries(match_id, scenarios)
+    # Gercek lig adi (ör. "Süper Lig") sadece takim-lig eslesmesi basarili olduysa
+    # yazilir - build_match_data'nin "lig" alani basarisiz eslesmede lig_haftasi'na
+    # (Sportoto'nun per-mac round etiketine, ör. "8. Hafta") duser, onu DB'ye yazmiyoruz,
+    # cunku lig_haftasi zaten ayri bir kolonda duruyor.
+    home_league = stf.get_team_league(home["team_id"]) if home.get("team_id") else {}
+    away_league = stf.get_team_league(away["team_id"]) if away.get("team_id") else {}
+    real_lig = home_league.get("league_name") or away_league.get("league_name")
+    if real_lig:
+        execute_insert(
+            "UPDATE greydb.spor_toto_matches SET lig = :lig WHERE id = :id",
+            {"lig": real_lig, "id": match_id},
+        )
 
 
 # ==================== Endpoint'ler ====================
@@ -126,7 +145,11 @@ async def fetch_week(request: FetchWeekRequest):
     if not sportoto_matches:
         raise HTTPException(status_code=404, detail="Bu round için maç bulunamadı")
 
-    hafta_etiketi = sportoto_matches[0].get("lig")
+    # hafta_etiketi Spor Toto KUPONUNUN kendi haftasi (ör. "10. Hafta", available-rounds'tan
+    # secilen round'un adi) - mac'lerin KENDI ligindeki hafta numarasiyla (lig_haftasi,
+    # ör. "8. Hafta" Süper Lig icin) KARISTIRILMAMALI, ikisi farkli kavram. Frontend
+    # dropdown'dan secileni gondermezse (eski istemciler icin) ilk macin lig_haftasi'na duseriz.
+    hafta_etiketi = request.hafta_etiketi or sportoto_matches[0].get("lig_haftasi")
     week_id = _get_or_create_week(request.game_round_id, hafta_etiketi)
 
     results = []
@@ -153,7 +176,7 @@ async def fetch_week(request: FetchWeekRequest):
         _set_match_team_ids(match_id, home["team_id"], away["team_id"], "eslesti")
 
         try:
-            _generate_for_match(match_id, home, away, m["lig"])
+            _generate_for_match(match_id, home, away, m["lig_haftasi"])
             results.append({"mac_no": m["mac_no"], "durum": "uretildi", "match_id": match_id})
         except Exception as e:
             results.append({"mac_no": m["mac_no"], "durum": "uretim_hatasi", "match_id": match_id, "hata": str(e)})
@@ -238,7 +261,7 @@ async def manual_team_link(match_id: int, request: ManualTeamLinkRequest):
                 match_id,
                 {"team_id": int(match_row["home_team_id"]), "name": match_row["ev_takim"]},
                 {"team_id": int(match_row["away_team_id"]), "name": match_row["deplasman_takim"]},
-                match_row["lig"],
+                match_row["lig_haftasi"],
             )
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Eşleştirme kaydedildi ama üretim başarısız: {e}")
