@@ -137,6 +137,11 @@ async def available_rounds(year: str = "2026/2027"):
 
 @router.post("/spor-toto/weeks/fetch")
 async def fetch_week(request: FetchWeekRequest):
+    """Sadece HIZLI kısmı yapar: Sportoto'dan 15 maçı çeker, hafta/maç satırlarını
+    oluşturur, takımları eşleştirir (cache'den okuduğu için hızlı, LLM çağrısı yok).
+    Senaryo üretimi YOK — admin ekranı bu cevapla maç listesini hemen gösterip,
+    ardından her maç için ayrı ayrı POST /matches/{id}/generate çağırır, böylece
+    sonuçlar tek tek geldikçe ekrana yansır."""
     try:
         sportoto_matches = stf.fetch_round_matches(request.game_round_id)
     except Exception as e:
@@ -157,7 +162,7 @@ async def fetch_week(request: FetchWeekRequest):
         match_id, already_approved = _get_or_create_match(week_id, m)
 
         if already_approved:
-            results.append({"mac_no": m["mac_no"], "durum": "atlandi_onaylanmis"})
+            results.append({"mac_no": m["mac_no"], "match_id": match_id, "durum": "atlandi_onaylanmis"})
             continue
 
         home = stf.resolve_team(m["sportoto_home_id"], m["ev_takim"]) if m["sportoto_home_id"] else None
@@ -174,14 +179,36 @@ async def fetch_week(request: FetchWeekRequest):
             continue
 
         _set_match_team_ids(match_id, home["team_id"], away["team_id"], "eslesti")
-
-        try:
-            _generate_for_match(match_id, home, away, m["lig_haftasi"])
-            results.append({"mac_no": m["mac_no"], "durum": "uretildi", "match_id": match_id})
-        except Exception as e:
-            results.append({"mac_no": m["mac_no"], "durum": "uretim_hatasi", "match_id": match_id, "hata": str(e)})
+        results.append({"mac_no": m["mac_no"], "durum": "eslesti_uretim_bekliyor", "match_id": match_id})
 
     return {"week_id": week_id, "hafta_no": request.game_round_id, "sonuclar": results}
+
+
+@router.post("/spor-toto/matches/{match_id}/generate")
+async def generate_match(match_id: int):
+    """Tek bir maç için 6 senaryoyu üretir — /weeks/fetch'in eşleştirdiği her maç
+    için admin ekranı bunu sırayla çağırır, her cevap geldikçe o maçın kartı güncellenir."""
+    match_df = query_to_df("SELECT * FROM greydb.spor_toto_matches WHERE id = %s", (match_id,))
+    if match_df.empty:
+        raise HTTPException(status_code=404, detail="Maç bulunamadı")
+    m = match_df.iloc[0]
+
+    if pd.notna(m["final_metin"]):
+        raise HTTPException(status_code=409, detail="Bu maç zaten onaylanmış, üzerine yazılmaz")
+    if pd.isna(m["home_team_id"]) or pd.isna(m["away_team_id"]):
+        raise HTTPException(status_code=400, detail="Takımlar henüz eşleşmedi")
+
+    try:
+        _generate_for_match(
+            match_id,
+            {"team_id": int(m["home_team_id"]), "name": m["ev_takim"]},
+            {"team_id": int(m["away_team_id"]), "name": m["deplasman_takim"]},
+            m["lig_haftasi"],
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Üretim başarısız: {e}")
+
+    return {"message": "Üretildi", "match_id": match_id}
 
 
 @router.get("/spor-toto/weeks")
