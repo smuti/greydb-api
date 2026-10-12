@@ -1,6 +1,7 @@
 """
 Spor Toto Router - haftalık 15 maç için Fuat-tarzı 6 senaryo üretimi ve onayı
 """
+import json
 from datetime import datetime
 from typing import List, Optional
 
@@ -106,16 +107,39 @@ def _save_entries(match_id: int, scenarios: list[dict]) -> None:
         )
 
 
-def _generate_for_match(match_id: int, home: dict, away: dict, lig_haftasi: Optional[str]) -> None:
+def _save_model(match_id: int, model: Optional[dict]) -> None:
+    """Modelin olasılık/karar/gerekçesini maça yazar; model yoksa eski değeri temizler (bayat model kalmasın)."""
+    if not model:
+        execute_insert(
+            "UPDATE greydb.spor_toto_matches SET model_p1 = NULL, model_p0 = NULL, model_p2 = NULL, model_kademe = NULL, "
+            "model_onerilen = NULL, model_version = NULL, model_facts = NULL WHERE id = :id",
+            {"id": match_id},
+        )
+        return
+    facts = model.get("facts") or {}
+    execute_insert(
+        "UPDATE greydb.spor_toto_matches SET model_p1 = :p1, model_p0 = :p0, model_p2 = :p2, model_kademe = :kademe, "
+        "model_onerilen = :onerilen, model_version = :version, model_facts = CAST(:facts AS jsonb) WHERE id = :id",
+        {"id": match_id, "p1": model["p1"], "p0": model["p0"], "p2": model["p2"], "kademe": model["decision"]["tier"],
+         "onerilen": model["decision"]["senaryo"], "version": facts.get("model_version"), "facts": json.dumps(facts, ensure_ascii=False)},
+    )
+
+
+def _generate_for_match(match_id: int, home: dict, away: dict, lig_haftasi: Optional[str], mac_tarihi=None) -> None:
     match_data = stf.build_match_data(home, away, lig_haftasi)
-    scenarios = stf.generate_scenarios(match_data)
-    _save_entries(match_id, scenarios)
     # Gercek lig adi (ör. "Süper Lig") sadece takim-lig eslesmesi basarili olduysa
     # yazilir - build_match_data'nin "lig" alani basarisiz eslesmede lig_haftasi'na
     # (Sportoto'nun per-mac round etiketine, ör. "8. Hafta") duser, onu DB'ye yazmiyoruz,
     # cunku lig_haftasi zaten ayri bir kolonda duruyor.
     home_league = stf.get_team_league(home["team_id"]) if home.get("team_id") else {}
     away_league = stf.get_team_league(away["team_id"]) if away.get("team_id") else {}
+    # Istatistiksel model (opsiyonel): olasilik + karar + gerekce. Basarisizsa None -> eski akis.
+    model = stf.fetch_model_prediction(home, away, mac_tarihi, home_league.get("league_id") or away_league.get("league_id"))
+    if model:
+        match_data["model_tahmini"] = model["facts"]
+    scenarios = stf.apply_model_choice(stf.generate_scenarios(match_data), model)
+    _save_entries(match_id, scenarios)
+    _save_model(match_id, model)
     real_lig = home_league.get("league_name") or away_league.get("league_name")
     if real_lig:
         execute_insert(
@@ -204,6 +228,7 @@ async def generate_match(match_id: int):
             {"team_id": int(m["home_team_id"]), "name": m["ev_takim"]},
             {"team_id": int(m["away_team_id"]), "name": m["deplasman_takim"]},
             m["lig_haftasi"],
+            m.get("mac_tarihi"),
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Üretim başarısız: {e}")
@@ -289,6 +314,7 @@ async def manual_team_link(match_id: int, request: ManualTeamLinkRequest):
                 {"team_id": int(match_row["home_team_id"]), "name": match_row["ev_takim"]},
                 {"team_id": int(match_row["away_team_id"]), "name": match_row["deplasman_takim"]},
                 match_row["lig_haftasi"],
+                match_row.get("mac_tarihi"),
             )
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Eşleştirme kaydedildi ama üretim başarısız: {e}")

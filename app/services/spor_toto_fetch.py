@@ -28,6 +28,7 @@ from app.services.skorjin_match_analysis import (
 SPORTOTO_BASE = "https://webapi.sportoto.gov.tr"
 SKORJIN_BASE = "https://skorjin-production.up.railway.app"
 HTTP_TIMEOUT = 20.0
+MS_PREDICT_TIMEOUT = 120.0   # matchforge günün ilk isteğinde modeli kurar (~6 sn); payı geniş tutuldu
 
 _TR_MAP = str.maketrans({"İ": "i", "ı": "i", "ü": "u", "ö": "o", "ş": "s", "ç": "c", "ğ": "g"})
 
@@ -318,6 +319,46 @@ def build_match_data(home: Dict[str, Any], away: Dict[str, Any], sportoto_round_
 
     _translate_names_in_place(data)
     return _clean_for_json(data)
+
+
+# ==================== 3b. İstatistiksel model (matchforge /api/ms/predict) ====================
+
+def fetch_model_prediction(home: Dict[str, Any], away: Dict[str, Any], mac_tarihi: Any, league_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    """Maç için model olasılıkları + karar (tek/çift/üçlü) + LLM'e verilecek 'facts'. Herhangi bir sorunda None döner:
+    model olmadan eski akış (yalnızca LLM) çalışmaya devam eder, üretim ASLA bunun yüzünden düşmez."""
+    if not home.get("team_id") or not away.get("team_id"):
+        return None
+    if mac_tarihi is None or (isinstance(mac_tarihi, str) and not mac_tarihi.strip()) or pd.isna(mac_tarihi):
+        return None
+    try:
+        date = pd.Timestamp(mac_tarihi).isoformat()
+    except (ValueError, TypeError):
+        return None
+    payload = {"matches": [{
+        "home_team_id": int(home["team_id"]), "away_team_id": int(away["team_id"]), "league_id": league_id,
+        "match_date": date, "home_name": translate_team_name(home.get("name")), "away_name": translate_team_name(away.get("name")),
+    }]}
+    try:
+        with httpx.Client() as client:
+            resp = client.post(f"{MATCHFORGE_BASE}/api/ms/predict", json=payload, timeout=MS_PREDICT_TIMEOUT)
+        if resp.status_code != 200:
+            print(f"[spor_toto] model çağrısı {resp.status_code}: {str(resp.text)[:200]}")
+            return None
+        results = resp.json().get("results") or []
+        return results[0] if results else None
+    except Exception as e:  # noqa: BLE001 — model opsiyonel, hata üretimi durdurmamalı
+        print(f"[spor_toto] model çağrısı başarısız: {e}")
+        return None
+
+
+def apply_model_choice(scenarios: List[Dict[str, Any]], model: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Model varsa 'önerilen' kartı model belirler (Skorjin eski sürümde kalsa bile). Girdiyi değiştirmez."""
+    if not model:
+        return scenarios
+    pick = (model.get("decision") or {}).get("senaryo")
+    if not pick:
+        return scenarios
+    return [{**s, "onerilen": s["senaryo"] == pick} for s in scenarios]
 
 
 # ==================== 4. Skorjin çağrısı ====================
