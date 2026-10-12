@@ -1,0 +1,1872 @@
+{
+  "id": 6,
+  "hafta_no": 1537,
+  "hafta_etiketi": "10. Hafta",
+  "created_at": "2026-10-12T02:16:21.269262",
+  "created_by_email": null,
+  "matches": [
+    {
+      "id": 76,
+      "week_id": 6,
+      "mac_no": 1,
+      "ev_takim": "Arca Çorum FK",
+      "deplasman_takim": "Çaykur Rizespor",
+      "lig": "Super Lig",
+      "mac_tarihi": "2026-10-16T20:00:00",
+      "home_team_id": 334,
+      "away_team_id": 14,
+      "fotmob_match_id": null,
+      "secilen_senaryo": null,
+      "final_metin": null,
+      "final_metin_guncellenme_at": null,
+      "final_metin_guncelleyen_email": null,
+      "video_linki": null,
+      "video_eklenme_at": null,
+      "esleme_durumu": "eslesti",
+      "lig_haftasi": "8. Hafta",
+      "model_p1": 0.43442207156418855,
+      "model_p0": 0.2584226701203606,
+      "model_p2": 0.30715525831545093,
+      "model_kademe": "cift",
+      "model_onerilen": "1-0",
+      "model_version": "harman-v1-2026-10",
+      "model_facts": {
+        "ev": "Arca Çorum FK",
+        "as_of": "2026-10-16",
+        "banko": false,
+        "kolon": 2,
+        "kademe": "cift",
+        "onerilen": "1-0",
+        "uyarilar": [
+          "Kadro, sakatlık, hakem ve hava durumu hesaba katılmadı; tahmin maçtan günler önce üretilir.",
+          "Arca Çorum FK için yeterli geçmiş veri yok (yeni ya da az maçlı takım); güç tahmini belirsiz."
+        ],
+        "deplasman": "Çaykur Rizespor",
+        "elo_farki": 4.3,
+        "guc_farki": "denk",
+        "ihtimaller": {
+          "p0": 0.2584226701203606,
+          "p1": 0.43442207156418855,
+          "p2": 0.30715525831545093
+        },
+        "senaryolar": [
+          {
+            "ihtimal": 0.43442207156418855,
+            "senaryo": "1",
+            "onerilen": false,
+            "guven_dili": "gerçekçi ihtimal"
+          },
+          {
+            "ihtimal": 0.2584226701203606,
+            "senaryo": "0",
+            "onerilen": false,
+            "guven_dili": "sürpriz ihtimali"
+          },
+          {
+            "ihtimal": 0.30715525831545093,
+            "senaryo": "2",
+            "onerilen": false,
+            "guven_dili": "sürpriz ihtimali"
+          },
+          {
+            "ihtimal": 0.6928447416845491,
+            "senaryo": "1-0",
+            "onerilen": true,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 0.5655779284358116,
+            "senaryo": "0-2",
+            "onerilen": false,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 1.0,
+            "senaryo": "1-0-2",
+            "onerilen": false,
+            "guven_dili": "tam kapsama"
+          }
+        ],
+        "ev_avantaji": "modelde sabit (yaklaşık yarım gollük ev avantajı)",
+        "favori_taraf": "ev",
+        "model_version": "harman-v1-2026-10",
+        "gol_beklentisi": {
+          "ev": 2.06,
+          "seviye": "gollü",
+          "toplam": 3.35,
+          "deplasman": 1.29
+        }
+      },
+      "entries": [
+        {
+          "senaryo": "0",
+          "metin": "Rizespor son dış saha sınavında Göztepe ile karşılıklı gollerle berabere kalırken dengeli bir oyun ortaya koydu. Çorum ise son maçında Gaziantep'i rahat geçerken deplasmanda ne kadar üretken olabileceğini gösterdi. İki takımın sezon boyunca maç başına yediği gol sayıları ve genel istatistikleri birbirine oldukça yakın seyrediyor. Rizespor'un iç sahada Fenerbahçe'ye kaybettiği son maçın ardından bu deplasmanda daha kontrollü bir oyun tercih etmesi muhtemel görünürken ev sahibi de açık vermekten kaçınacaktır. Sahadaki bu taktiksel denge ve benzer karakterler maçın kilitlenme ihtimalini artırıyor. Bu tablo bana mücadelenin beraberliğe çok açık olduğunu net şekilde gösteriyor.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "0-2",
+          "metin": "Rizespor deplasmanda oynadığı son üç mücadelede iki galibiyet alarak dış sahada ne kadar etkili bir kimliğe büründüğünü gösterdi. Son maçında evinde Fenerbahçe'ye kaybeden konuk ekip, bu kez deplasman reaksiyonuyla sahadan puanla ayrılmayı hedefleyecektir. Çorum ise evinde oynadığı son karşılaşmada Alanyaspor engeline takılmış ve sahadan mağlubiyetle ayrılmıştı. Ev sahibinin hücum odaklı yapısı maç içinde açıklar vermesine neden olabilir ve bu durum konuk ekibin işini kolaylaştırabilir. Rizespor'un dış sahada kaybetmeyen bu yapısı, ev sahibinin galibiyetine güvenmeyenler için güvenli bir alternatif sunuyor. Maçın gidişatını göz önüne alarak bu ihtimali senaryoma dahil ediyorum.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1",
+          "metin": "Çorum son olarak Gaziantep deplasmanından üç golle döndü ve hücumda etkili bir görüntü çizdi. Evinde daha önce Alanyaspor'a kaybetmiş olsalar da genel form durumu rakibine göre daha parlak görünüyor. Rizespor ise son maçında Fenerbahçe karşısında sahadan yenilgiyle ayrıldı ve deplasman performansında bazı dalgalanmalar yaşıyor. Ev sahibinin maç başına ürettiği yüksek gol potansiyeli bu mücadelede ibreyi onlara çeviriyor. Rizespor'un dış sahadaki zaman zaman direnç gösteren yapısını da göz ardı edemiyorum. Tüm bu verileri yan yana koyduğumuzda, ev sahibi galibiyeti kuponlarda değerlendirilebilir bir seçenek olarak öne çıkıyor.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0",
+          "metin": "Çorum geçen hafta Gaziantep deplasmanından net bir galibiyetle dönerken açık oyundan ne kadar tehlikeli olabileceğini bir kez daha kanıtladı. Evinde daha önce Alanyaspor'a mağlup olsalar da genel form grafikleri ve maç başına yakaladıkları pozisyon sayısı onları bu eşleşmede favori konumuna getiriyor. Rizespor ise son maçında Fenerbahçe karşısında sahadan boynu bükük ayrıldı ve deplasmandaki son sınavında Göztepe ile beraberliği son anda kurtarabildi. Konuk ekibin dış sahada puan koparabilen inatçı yapısı nedeniyle maçı tek başına ev sahibine bırakmak riskli olabilir. Bu yüzden ev sahibinin galibiyetini sağlama almak adına beraberliği de kuponumda tutacağım. Ana kupon tercihim 1-0 olacak.",
+          "onerilen": true
+        },
+        {
+          "senaryo": "1-0-2",
+          "metin": "Çorum son olarak Gaziantep deplasmanında farklı kazanırken iç sahada Alanyaspor'a mağlup olarak istikrarsız bir görüntü çizdi. Rizespor ise evindeki Fenerbahçe yenilgisinin aksine dış sahada oynadığı son üç maçta iki galibiyet alarak farklı bir performans sergiledi. İki takımın sezon genelindeki istatistikleri ve maç başına ürettikleri gol ortalamaları mücadelenin her türlü sonuca açık olduğunu açıkça gösteriyor. Tarafların oyun karakterlerinin benzerliği ve form grafiğindeki bu dalgalanmalar maçın tek bir tarafa yıkılmasını imkansız kılıyor. Bu yüzden riskten kaçınmak ve tüm kapıları açık bırakmak en mantıklı yol olarak karşımızda duruyor.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "2",
+          "metin": "Rizespor son deplasman sınavında Eyüpspor'u mağlup etmeyi başarmış ve dış sahada etkili olabileceğini kanıtlamıştı. Evinde oynadığı son maçta Fenerbahçe'ye kaybeden konuk ekip, bu kez dış sahada toparlanmak için sahaya çıkacak. Çorum ise evindeki son mücadelede Alanyaspor'a mağlup olmaktan kurtulamamıştı ve iç sahada zaman zaman savunma güvenliğini zora sokabiliyor. Konuk ekibin dış sahada gösterdiği bu dirençli tablo sürpriz arayanlar için mantıklı bir zemin hazırlıyor. Çorum'un hücum hattındaki hareketliliğine karşı Rizespor'un deplasman formunu dikkate almak gerekiyor. Tüm bu dış saha verileri ışığında konuk ekibin bu zorlu deplasmandan puan veya puanlarla ayrılma ihtimali masada duruyor.",
+          "onerilen": false
+        }
+      ]
+    },
+    {
+      "id": 77,
+      "week_id": 6,
+      "mac_no": 2,
+      "ev_takim": "Erzurumspor FK",
+      "deplasman_takim": "Eyüpspor",
+      "lig": "Super Lig",
+      "mac_tarihi": "2026-10-17T13:30:00",
+      "home_team_id": 315,
+      "away_team_id": 16,
+      "fotmob_match_id": null,
+      "secilen_senaryo": null,
+      "final_metin": null,
+      "final_metin_guncellenme_at": null,
+      "final_metin_guncelleyen_email": null,
+      "video_linki": null,
+      "video_eklenme_at": null,
+      "esleme_durumu": "eslesti",
+      "lig_haftasi": "8. Hafta",
+      "model_p1": 0.4431440781315982,
+      "model_p0": 0.29855912997895195,
+      "model_p2": 0.2582967918894499,
+      "model_kademe": "cift",
+      "model_onerilen": "1-0",
+      "model_version": "harman-v1-2026-10",
+      "model_facts": {
+        "ev": "Erzurumspor FK",
+        "as_of": "2026-10-17",
+        "banko": false,
+        "kolon": 2,
+        "kademe": "cift",
+        "onerilen": "1-0",
+        "uyarilar": [
+          "Kadro, sakatlık, hakem ve hava durumu hesaba katılmadı; tahmin maçtan günler önce üretilir.",
+          "Erzurumspor FK için yeterli geçmiş veri yok (yeni ya da az maçlı takım); güç tahmini belirsiz."
+        ],
+        "deplasman": "Eyüpspor",
+        "elo_farki": 73.6,
+        "guc_farki": "hafif",
+        "ihtimaller": {
+          "p0": 0.29855912997895195,
+          "p1": 0.4431440781315982,
+          "p2": 0.2582967918894499
+        },
+        "senaryolar": [
+          {
+            "ihtimal": 0.4431440781315982,
+            "senaryo": "1",
+            "onerilen": false,
+            "guven_dili": "gerçekçi ihtimal"
+          },
+          {
+            "ihtimal": 0.29855912997895195,
+            "senaryo": "0",
+            "onerilen": false,
+            "guven_dili": "sürpriz ihtimali"
+          },
+          {
+            "ihtimal": 0.2582967918894499,
+            "senaryo": "2",
+            "onerilen": false,
+            "guven_dili": "sürpriz ihtimali"
+          },
+          {
+            "ihtimal": 0.7417032081105501,
+            "senaryo": "1-0",
+            "onerilen": true,
+            "guven_dili": "geniş kapsama"
+          },
+          {
+            "ihtimal": 0.5568559218684018,
+            "senaryo": "0-2",
+            "onerilen": false,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 1.0,
+            "senaryo": "1-0-2",
+            "onerilen": false,
+            "guven_dili": "tam kapsama"
+          }
+        ],
+        "ev_avantaji": "modelde sabit (yaklaşık yarım gollük ev avantajı)",
+        "favori_taraf": "ev",
+        "model_version": "harman-v1-2026-10",
+        "gol_beklentisi": {
+          "ev": 1.02,
+          "seviye": "düşük skorlu",
+          "toplam": 1.92,
+          "deplasman": 0.9
+        }
+      },
+      "entries": [
+        {
+          "senaryo": "0",
+          "metin": "Erzurumspor son beş lig maçında iki kez sahadan beraberlikle ayrıldı. Son olarak Alanyaspor deplasmanından 0-0'lık sonuçla döndüler. Eyüpspor da son dönemde galibiyet üretmekte zorlanıyor ve maçlar genellikle düşük skorlu geçiyor. İki takımın da hücum hattında yaşadığı sıkıntılar orta sahanın kilitlenmesine yol açabilir. Oyunun kontrolü sık sık el değiştirebilir ve taraflar birbirine üstünlük kuramayabilir. Yine de bu maçı dengete tutmak isteyenler için beraberlik akla yatkın duruyor.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "0-2",
+          "metin": "Eyüpspor son deplasman maçında Fenerbahçe karşısında 8-0 kaybetti ama bu maçta farklı bir strateji deneyecekler. Erzurumspor hücumda maç başına bir golün altında kalıyor ve üretkenlik sorunu yaşıyor. Ev sahibinin bu hücum yetersizliği konuk ekibe direnç gösterme fırsatı verebilir. Eyüpspor savunması hata yapmazsa maçın berabere bitme ihtimali de masada kalır. Temkinli oynamak isteyenler için bu çift ihtimalli senaryo mantıklı bir alternatif oluşturuyor.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1",
+          "metin": "Erzurumspor evinde oynadığı son maçta Samsunspor'u 1-0 yenmeyi bildi. Konuk ekip Eyüpspor ise deplasmandaki son maçında Fenerbahçe karşısında 8-0'lık ağır bir yenilgi yaşadı. Erzurumspor FK maç başına ortalama bir gole yakın üretim yaparken, savunmada da rakibine göre daha derli toplu duruyor. Ev sahibinin bu form grafiğiyle sahada üstünlük kurması beklenebilir. Yine de Eyüpspor'un duran top odaklı yapısını göz ardı etmemek gerekir. Bu senaryo gerçekleşirse ev sahibinin galibiyeti kaçınılmaz olur.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0",
+          "metin": "Erzurumspor evinde oynadığı son iki maçı galibiyetle kapatmayı başardı. Konuk ekip Eyüpspor ise deplasmandaki son maçında Fenerbahçe'den 8 gol yiyerek sahadan boynu bükük ayrıldı. Ev sahibi takım kontrollü savunma anlayışıyla rakibine kolay pozisyon vermiyor. Eyüpspor'un deplasmandaki zayıf karnı göz önüne alındığında ev sahibinin yenilmesi zor görünüyor. Maçın genelinde skoru korumaya çalışacak bir Erzurumspor izleyebiliriz. Ana kupon tercihim 1-0 olacak.",
+          "onerilen": true
+        },
+        {
+          "senaryo": "1-0-2",
+          "metin": "Erzurumspor son beş lig maçında ikişer galibiyet ve beraberlik yaşadı. Eyüpspor ise son maçında Fenerbahçe deplasmanında 8-0 yenilmesine rağmen Alanyaspor'u yenmeyi başarmıştı. İki takımın da sezon istatistiklerindeki dalgalı grafikler maçın her sonuca açık olduğunu gösteriyor. Ev sahibinin kontrollü oyunu ile konuk ekibin duran top becerisi dengeleri sürekli değiştirebilir. Haftanın en kördüğüm maçlarından birinde üç ihtimali de açık bırakmak gerekir.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "2",
+          "metin": "Eyüpspor son beş lig maçında sadece bir kez galibiyet sevinci yaşayabildi. Son deplasman maçında Fenerbahçe karşısında alınan 8-0'lık yenilgi moralleri bozsa da konuk ekip bu maçta reaksiyon göstermek zorunda. Erzurumspor'un hücum hattındaki düşük skor üretimi deplasman ekibine şans tanıyabilir. Eyüpspor duran toplarda etkili olabilen bir takım yapısına sahip. Ev sahibinin savunma zaafları doğru değerlendirilirse konuk ekip sahadan sürpriz bir galibiyetle ayrılabilir.",
+          "onerilen": false
+        }
+      ]
+    },
+    {
+      "id": 78,
+      "week_id": 6,
+      "mac_no": 3,
+      "ev_takim": "Amed Sportif Faaliyetler",
+      "deplasman_takim": "Tümosan Konyaspor",
+      "lig": "Super Lig",
+      "mac_tarihi": "2026-10-17T16:00:00",
+      "home_team_id": 335,
+      "away_team_id": 17,
+      "fotmob_match_id": null,
+      "secilen_senaryo": null,
+      "final_metin": null,
+      "final_metin_guncellenme_at": null,
+      "final_metin_guncelleyen_email": null,
+      "video_linki": null,
+      "video_eklenme_at": null,
+      "esleme_durumu": "eslesti",
+      "lig_haftasi": "8. Hafta",
+      "model_p1": 0.5753481119924435,
+      "model_p0": 0.23199422890059487,
+      "model_p2": 0.19265765910696164,
+      "model_kademe": "tek",
+      "model_onerilen": "1",
+      "model_version": "harman-v1-2026-10",
+      "model_facts": {
+        "ev": "Amed Sportif Faaliyetler",
+        "as_of": "2026-10-17",
+        "banko": true,
+        "kolon": 1,
+        "kademe": "tek",
+        "onerilen": "1",
+        "uyarilar": [
+          "Kadro, sakatlık, hakem ve hava durumu hesaba katılmadı; tahmin maçtan günler önce üretilir.",
+          "Amed Sportif Faaliyetler için yeterli geçmiş veri yok (yeni ya da az maçlı takım); güç tahmini belirsiz."
+        ],
+        "deplasman": "Tümosan Konyaspor",
+        "elo_farki": 63.8,
+        "guc_farki": "hafif",
+        "ihtimaller": {
+          "p0": 0.23199422890059487,
+          "p1": 0.5753481119924435,
+          "p2": 0.19265765910696164
+        },
+        "senaryolar": [
+          {
+            "ihtimal": 0.5753481119924435,
+            "senaryo": "1",
+            "onerilen": true,
+            "guven_dili": "ağırlıklı ihtimal"
+          },
+          {
+            "ihtimal": 0.23199422890059487,
+            "senaryo": "0",
+            "onerilen": false,
+            "guven_dili": "sürpriz ihtimali"
+          },
+          {
+            "ihtimal": 0.19265765910696164,
+            "senaryo": "2",
+            "onerilen": false,
+            "guven_dili": "zor ihtimal"
+          },
+          {
+            "ihtimal": 0.8073423408930384,
+            "senaryo": "1-0",
+            "onerilen": false,
+            "guven_dili": "güvenli kapanış"
+          },
+          {
+            "ihtimal": 0.4246518880075565,
+            "senaryo": "0-2",
+            "onerilen": false,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 1.0,
+            "senaryo": "1-0-2",
+            "onerilen": false,
+            "guven_dili": "tam kapsama"
+          }
+        ],
+        "ev_avantaji": "modelde sabit (yaklaşık yarım gollük ev avantajı)",
+        "favori_taraf": "ev",
+        "model_version": "harman-v1-2026-10",
+        "gol_beklentisi": {
+          "ev": 2.51,
+          "seviye": "gollü",
+          "toplam": 3.42,
+          "deplasman": 0.91
+        }
+      },
+      "entries": [
+        {
+          "senaryo": "0",
+          "metin": "Amed son 5 maçında 2 beraberlik aldı ve Gençlerbirliği deplasmanından 2-2'lik sonuçla döndü. Konyaspor ise son maçında Başakşehir ile 0-0 berabere kalırken, deplasmanda Kasımpaşa ile de golsüz eşitliği bozamadı. İki takımın da kontrollü savunma anlayışını benimsemesi, bu maçın ortada geçmesine yol açabilir. Konuk ekibin maç başına bulduğu sınırlı sayıdaki skor üretimi, skorun kilitlenmesine neden olabilir. Risk almak isteyenler için bu mücadele dengeli bir tablo sunuyor. Bizim hesabımıza göre bu senaryo masada duruyor ve bu yüzden beraberliği kuponumda tutuyorum.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "0-2",
+          "metin": "Konyaspor deplasmanda son olarak Kasımpaşa ile 0-0 berabere kaldı ve evinde Başakşehir ile yine golsüz eşitliği bozamadı. Konuk ekibin sert savunması, ev sahibinin maç başına ürettiği yüksek gol girişimlerini durdurmayı hedefleyecektir. Amed ise son maçında Gençlerbirliği ile 2-2 berabere kaldı ve savunmada açıklar verebildi. Ev sahibinin galibiyetine tam olarak güvenmeyenler için bu ikili seçenek iyi bir alternatif oluşturuyor. Konyaspor'un dirençli yapısı sayesinde bu senaryo kuponlarda değerlendirilebilir. Bu doğrultuda ben de bu seçeneği listeme alıyorum.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1",
+          "metin": "Amed son maçında Gençlerbirliği ile 2-2 berabere kaldı. Evinde oynadığı son maçta Beşiktaş'ı 3-2 yenmeyi başaran ev sahibi, bu karşılaşmada da hücum hattındaki etkili görüntüsünü sürdürmek isteyecektir. Konyaspor ise son maçında Başakşehir ile 0-0 berabere kaldı ve deplasmanda son olarak Kasımpaşa ile yine golsüz eşitliği bozamadı. Konuk ekibin hücumda yaşadığı sıkıntılar ortadayken, Amed'in kendi sahasındaki üstün oyunu bu maçta sonucu belirleyecektir. Yine de Konyaspor'un kompakt savunmasını küçümsememek lazım. Ana kupon tercihim direkt 1 olacak.",
+          "onerilen": true
+        },
+        {
+          "senaryo": "1-0",
+          "metin": "Amed evinde oynadığı son 3 maçını kazandı ve Beşiktaş'ı 3-2 yenmeyi bildi. Son maçında ise Gençlerbirliği ile 2-2 berabere kalan ev sahibi, kendi sahasındaki güven veren yapısıyla öne çıkıyor. Konyaspor deplasmanda Kasımpaşa ile 0-0 berabere kaldı ve rakip kalede etkili olmakta zorlanıyor. Konuk ekibin deplasmandaki zayıf hücum performansı, ev sahibinin yenilmeyeceğini net bir şekilde gösteriyor. Temkinli oynamak isteyen oyuncular için bu ikili seçenek oldukça mantıklı bir tercih sunuyor. Bu yüzden kuponumda bu ihtimali güvenli şekilde tutacağım.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0-2",
+          "metin": "Amed son maçında Gençlerbirliği ile 2-2 berabere kalırken, Konyaspor da Başakşehir ile 0-0 beraberlik yaşadı. Büyük ikramiyeyi favorileri bilenler değil, sürprizi önceden görenler alır; bu maç tam da bu felsefeye hizmet ediyor. Ev sahibinin yüksek skor potansiyeli ile konuk ekibin katı savunma yapısı birbirini dengeliyor. İki tarafın da son maçlarındaki farklı sonuçlar tablosu, üç ihtimalin de açık olduğunu gösteriyor. Maçın gidişatını kestirmek güç olduğu için tüm kapıları açık bırakmak en doğrusudur. Bu yüzden kuponumda üç ihtimale de yer veriyorum.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "2",
+          "metin": "Konyaspor son maçında Başakşehir ile 0-0 berabere kaldı ve deplasmanda Kasımpaşa ile de golsüz beraberlik yaşadı. Konuk ekibin hücumda zorlandığı ve maç başına düşük skor ürettiği açıkça görülüyor. Amed ise evinde Beşiktaş'ı 3-2 mağlup etse de, son maçında Gençlerbirliği ile 2-2 berabere kaldı. Deplasman ekibinin sürpriz bir çıkış aradığı bu senaryo, risk seven oyunculara hitap ediyor. Zor bir ihtimal olsa da konuk ekibin savunma direnci bu maçı çevirebilir. Sürpriz arayanlar için deplasman galibiyeti kuponlarda denenebilir.",
+          "onerilen": false
+        }
+      ]
+    },
+    {
+      "id": 79,
+      "week_id": 6,
+      "mac_no": 4,
+      "ev_takim": "Gençlerbirliği",
+      "deplasman_takim": "Galatasaray",
+      "lig": "Super Lig",
+      "mac_tarihi": "2026-10-17T16:00:00",
+      "home_team_id": 11,
+      "away_team_id": 9,
+      "fotmob_match_id": null,
+      "secilen_senaryo": null,
+      "final_metin": null,
+      "final_metin_guncellenme_at": null,
+      "final_metin_guncelleyen_email": null,
+      "video_linki": null,
+      "video_eklenme_at": null,
+      "esleme_durumu": "eslesti",
+      "lig_haftasi": "8. Hafta",
+      "model_p1": 0.13706151078261472,
+      "model_p0": 0.19055656560532763,
+      "model_p2": 0.6723819236120577,
+      "model_kademe": "tek",
+      "model_onerilen": "2",
+      "model_version": "harman-v1-2026-10",
+      "model_facts": {
+        "ev": "Gençlerbirliği",
+        "as_of": "2026-10-17",
+        "banko": true,
+        "kolon": 1,
+        "kademe": "tek",
+        "onerilen": "2",
+        "uyarilar": [
+          "Kadro, sakatlık, hakem ve hava durumu hesaba katılmadı; tahmin maçtan günler önce üretilir."
+        ],
+        "deplasman": "Galatasaray",
+        "elo_farki": -166.0,
+        "guc_farki": "belirgin",
+        "ihtimaller": {
+          "p0": 0.19055656560532763,
+          "p1": 0.13706151078261472,
+          "p2": 0.6723819236120577
+        },
+        "senaryolar": [
+          {
+            "ihtimal": 0.13706151078261472,
+            "senaryo": "1",
+            "onerilen": false,
+            "guven_dili": "zor ihtimal"
+          },
+          {
+            "ihtimal": 0.19055656560532763,
+            "senaryo": "0",
+            "onerilen": false,
+            "guven_dili": "zor ihtimal"
+          },
+          {
+            "ihtimal": 0.6723819236120577,
+            "senaryo": "2",
+            "onerilen": true,
+            "guven_dili": "güçlü ihtimal"
+          },
+          {
+            "ihtimal": 0.3276180763879424,
+            "senaryo": "1-0",
+            "onerilen": false,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 0.8629384892173854,
+            "senaryo": "0-2",
+            "onerilen": false,
+            "guven_dili": "güvenli kapanış"
+          },
+          {
+            "ihtimal": 1.0,
+            "senaryo": "1-0-2",
+            "onerilen": false,
+            "guven_dili": "tam kapsama"
+          }
+        ],
+        "ev_avantaji": "modelde sabit (yaklaşık yarım gollük ev avantajı)",
+        "favori_taraf": "deplasman",
+        "model_version": "harman-v1-2026-10",
+        "gol_beklentisi": {
+          "ev": 0.93,
+          "seviye": "gollü",
+          "toplam": 3.15,
+          "deplasman": 2.21
+        }
+      },
+      "entries": [
+        {
+          "senaryo": "0",
+          "metin": "Gençlerbirliği son maçında Amed Sportif ile 2-2 berabere kaldı ve son 5 maçta 2 beraberlik aldı. Galatasaray son deplasmanda Trabzonspor karşısında 4-0 kaybetti. Konuk ekip bu maçta tempoyu düşürebilir. Ev sahibinin direnci maçı kilitleyebilir. Bizim hesabımıza göre bu ihtimal az gözükse de beraberliği kuponumda tutacağım.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "0-2",
+          "metin": "Galatasaray son maçında Kasımpaşa'yı 3-1 yendi. Konuk ekip maç başına 2'ye yakın gollük pozisyon üretiyor. Gençlerbirliği ise son maçında Amed Sportif ile 2-2 berabere kaldı ve genel olarak galibiyete hasret kaldı. Ev sahibi ekip savunma direncini artırsa da konuk ekibin hücum gücü çok yüksek. Bu maçı boş geçmek istemeyenler çifte şans deneyebilir.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1",
+          "metin": "Gençlerbirliği son maçında Amed Sportif ile 2-2 berabere kaldı. Ev sahibi ekip maça hücumda hareketli başlasa da savunmada ciddi açıklar veriyor. Galatasaray karşısında işleri çok zor olacak. Yine de ev sahibinin duran toplardaki etkisini göz ardı etmemek lazım. Risk alanlar için bu ihtimal bir seçenek olabilir.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0",
+          "metin": "Gençlerbirliği son maçında Amed Sportif ile 2-2 berabere kaldı. Ev sahibi ekip iç sahada puanlar almayı bildi. Galatasaray'ın deplasmandaki dalgalı yapısı bu maçı riske sokabilir. Konuk ekip Trabzonspor deplasmanında 4 gol yemişti. Gençlerbirliği savunmada kapanıp puan arayacak. Kuponunu geniş tutmak isteyenler bu tercihi değerlendirebilir.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0-2",
+          "metin": "Galatasaray son maçında Kasımpaşa'yı 3-1 yendi ama daha önce Trabzonspor deplasmanında 4-0 kaybetti. Gençlerbirliği ise son maçında Amed Sportif ile 2-2 berabere kaldı. İki takımın istatistiklerindeki dalgalanma maçın her sonuca açık olduğunu gösteriyor. Sürpriz sonuçlar arayanlar için bu maç tam bir bulmaca. Tüm ihtimalleri değerlendirmek gerek.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "2",
+          "metin": "Galatasaray son maçında Kasımpaşa'yı 3-1 yendi ve son 5 maçın 4'ünü kazandı. Konuk ekip maç başına 2'den fazla gol atarak sahada rakiplerine baskı kuruyor. Gençlerbirliği ise son maçında Amed Sportif ile 2-2 berabere kaldı ve son haftalarda savunmada çok zorlanıyor. Galatasaray bu deplasmanda oyunu kontrol edip galibiyete uzanır. Ana kupon tercihim direkt 2 olacak.",
+          "onerilen": true
+        }
+      ]
+    },
+    {
+      "id": 80,
+      "week_id": 6,
+      "mac_no": 5,
+      "ev_takim": "Fenerbahçe",
+      "deplasman_takim": "Corendon Alanyaspor",
+      "lig": "Super Lig",
+      "mac_tarihi": "2026-10-17T19:00:00",
+      "home_team_id": 22,
+      "away_team_id": 21,
+      "fotmob_match_id": null,
+      "secilen_senaryo": null,
+      "final_metin": null,
+      "final_metin_guncellenme_at": null,
+      "final_metin_guncelleyen_email": null,
+      "video_linki": null,
+      "video_eklenme_at": null,
+      "esleme_durumu": "eslesti",
+      "lig_haftasi": "8. Hafta",
+      "model_p1": 0.7248597304256595,
+      "model_p0": 0.1775374393672036,
+      "model_p2": 0.09760283020713702,
+      "model_kademe": "tek",
+      "model_onerilen": "1",
+      "model_version": "harman-v1-2026-10",
+      "model_facts": {
+        "ev": "Fenerbahçe",
+        "as_of": "2026-10-17",
+        "banko": true,
+        "kolon": 1,
+        "kademe": "tek",
+        "onerilen": "1",
+        "uyarilar": [
+          "Kadro, sakatlık, hakem ve hava durumu hesaba katılmadı; tahmin maçtan günler önce üretilir."
+        ],
+        "deplasman": "Corendon Alanyaspor",
+        "elo_farki": 200.7,
+        "guc_farki": "belirgin",
+        "ihtimaller": {
+          "p0": 0.1775374393672036,
+          "p1": 0.7248597304256595,
+          "p2": 0.09760283020713702
+        },
+        "senaryolar": [
+          {
+            "ihtimal": 0.7248597304256595,
+            "senaryo": "1",
+            "onerilen": true,
+            "guven_dili": "güçlü ihtimal"
+          },
+          {
+            "ihtimal": 0.1775374393672036,
+            "senaryo": "0",
+            "onerilen": false,
+            "guven_dili": "zor ihtimal"
+          },
+          {
+            "ihtimal": 0.09760283020713702,
+            "senaryo": "2",
+            "onerilen": false,
+            "guven_dili": "zor ihtimal"
+          },
+          {
+            "ihtimal": 0.9023971697928631,
+            "senaryo": "1-0",
+            "onerilen": false,
+            "guven_dili": "güvenli kapanış"
+          },
+          {
+            "ihtimal": 0.2751402695743406,
+            "senaryo": "0-2",
+            "onerilen": false,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 1.0000000000000002,
+            "senaryo": "1-0-2",
+            "onerilen": false,
+            "guven_dili": "tam kapsama"
+          }
+        ],
+        "ev_avantaji": "modelde sabit (yaklaşık yarım gollük ev avantajı)",
+        "favori_taraf": "ev",
+        "model_version": "harman-v1-2026-10",
+        "gol_beklentisi": {
+          "ev": 2.31,
+          "seviye": "gollü",
+          "toplam": 3.09,
+          "deplasman": 0.78
+        }
+      },
+      "entries": [
+        {
+          "senaryo": "0",
+          "metin": "Alanyaspor son maçında Erzurumspor ile 0-0 berabere kaldı ve kontrollü oynadı. Fenerbahçe de Gaziantep deplasmanından golsüz beraberlikle dönmüştü. İki takımın oyun yapıları bazen kilitlenmelere yol açabiliyor. Bizim hesabımıza göre beraberlik düşük bir ihtimal görünse de, konuk ekibin savunma odaklı oyunu bu skoru masada tutuyor. Fenerbahçe'nin yoğun presine karşı Alanyaspor direnç gösterebilir. Zor bir senaryo olsa da bu ihtimali göz ardı edemiyorum. Beraberlik seçeneğini denemek isteyenler için mantıklı bir yol.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "0-2",
+          "metin": "Alanyaspor son 5 lig maçında 2 galibiyet ve 2 beraberlik alarak istikrarlı bir çizgi yakaladı. Fenerbahçe'nin ise Beşiktaş karşısında aldığı 2-1'lik yenilgi ev sahibinin hata yapabileceğini gösteriyor. Konuk ekip düşük blok ve kompakt savunmayla sahaya çıkıp puan çıkarabilir. Bizim hesabımıza göre ev sahibinin galibiyetine güvenmeyenler için bu alan oldukça cazip duruyor. Alanyaspor'un deplasman direncini ve Fenerbahçe'nin dalgalı anlarını hesaba katmak lazım. Riskten kaçınmak isteyenler bu tercihi değerlendirebilir.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1",
+          "metin": "Fenerbahçe son maçında Rizespor'u 3-0 yendi ve formunu sürdürdü. Evinde Eyüpspor karşısında 8 gol atan sarı-lacivertliler, maç başına 2'ye yakın gollük pozisyon üretiyor. Alanyaspor ise son olarak Erzurumspor ile 0-0 berabere kaldı, deplasmanda ise Çorum'u 2-1 yendi ama savunmada zorlanıyor. Bizim hesabımıza göre ev sahibinin galibiyeti %72 gibi yüksek bir orana sahip. Yine de Alanyaspor'un kompakt yapısını küçümsememek lazım. Fenerbahçe'nin hücum gücü bu maçı rahat koparır. Ana kupon tercihim direkt 1 olacak.",
+          "onerilen": true
+        },
+        {
+          "senaryo": "1-0",
+          "metin": "Fenerbahçe evinde Eyüpspor'u 8-0 mağlup ederek çok güçlü bir iç saha performansı sergiledi. Alanyaspor ise son maçında Erzurumspor ile golsüz berabere kaldı ve hücumda zorlandı. Ev sahibinin yüksek gol üretimi maçı kazanmasını bekletiyor ama olası bir kilitlenme riskine karşı beraberliği de yanımıza alıyoruz. Bizim hesabımıza göre bu iki sonucun toplamı kuponları korumak için güvenli bir alan yaratıyor. Fenerbahçe maçı verir gibi görünmese de temkini elden bırakmamak gerek. Bu çifte şans tercihi kuponlarda rahatça yer bulur.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0-2",
+          "metin": "Fenerbahçe son maçında Rizespor'u 3-0 yendi ancak sezon genelinde gol standartlarında dalgalanmalar yaşanabiliyor. Alanyaspor ise son olarak Erzurumspor ile 0-0 berabere kaldı ve her sonuca açık bir takım görünümünde. İki ekibin farklı arketip yapıları maç içinde sürprizlere kapı aralayabilir. Bizim hesabımıza göre bu mücadele haftanın en öngörülemez karşılaşmalarından biri konumunda. Tüm ihtimalleri değerlendirip şansa yer bırakmak istemeyenler için bu tercih mantıklı duruyor. Hepsini kapatarak rahat bir hafta sonu geçirebilirsiniz.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "2",
+          "metin": "Alanyaspor deplasmanda Çorum'u 2-1 yendi ve dış sahada etkili olabildiğini gösterdi. Fenerbahçe ise iç sahada Beşiktaş'a 2-1 kaybetti ve zaman zaman açık verebiliyor. Konuk ekibin hızlı geçiş oyunları ev sahibinin savunmasını zorlayabilir. Bizim hesabımıza göre deplasman galibiyeti düşük bir yüzdeye sahip. Yine de Alanyaspor'un dış saha direncini unutmamak gerekiyor. Risk alıp sürpriz arayanlar için bu senaryo değerlendirilebilir. Maçın gidişatı konuk ekibin lehine dönebilir.",
+          "onerilen": false
+        }
+      ]
+    },
+    {
+      "id": 81,
+      "week_id": 6,
+      "mac_no": 6,
+      "ev_takim": "Kasımpaşa",
+      "deplasman_takim": "Samsunspor",
+      "lig": "Super Lig",
+      "mac_tarihi": "2026-10-18T13:30:00",
+      "home_team_id": 13,
+      "away_team_id": 10,
+      "fotmob_match_id": null,
+      "secilen_senaryo": null,
+      "final_metin": null,
+      "final_metin_guncellenme_at": null,
+      "final_metin_guncelleyen_email": null,
+      "video_linki": null,
+      "video_eklenme_at": null,
+      "esleme_durumu": "eslesti",
+      "lig_haftasi": "8. Hafta",
+      "model_p1": 0.3998193419814595,
+      "model_p0": 0.29002996314000096,
+      "model_p2": 0.3101506948785395,
+      "model_kademe": "uclu",
+      "model_onerilen": "1-0-2",
+      "model_version": "harman-v1-2026-10",
+      "model_facts": {
+        "ev": "Kasımpaşa",
+        "as_of": "2026-10-18",
+        "banko": false,
+        "kolon": 3,
+        "kademe": "uclu",
+        "onerilen": "1-0-2",
+        "uyarilar": [
+          "Kadro, sakatlık, hakem ve hava durumu hesaba katılmadı; tahmin maçtan günler önce üretilir."
+        ],
+        "deplasman": "Samsunspor",
+        "elo_farki": 27.4,
+        "guc_farki": "denk",
+        "ihtimaller": {
+          "p0": 0.29002996314000096,
+          "p1": 0.3998193419814595,
+          "p2": 0.3101506948785395
+        },
+        "senaryolar": [
+          {
+            "ihtimal": 0.3998193419814595,
+            "senaryo": "1",
+            "onerilen": false,
+            "guven_dili": "gerçekçi ihtimal"
+          },
+          {
+            "ihtimal": 0.29002996314000096,
+            "senaryo": "0",
+            "onerilen": false,
+            "guven_dili": "sürpriz ihtimali"
+          },
+          {
+            "ihtimal": 0.3101506948785395,
+            "senaryo": "2",
+            "onerilen": false,
+            "guven_dili": "sürpriz ihtimali"
+          },
+          {
+            "ihtimal": 0.6898493051214605,
+            "senaryo": "1-0",
+            "onerilen": false,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 0.6001806580185405,
+            "senaryo": "0-2",
+            "onerilen": false,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 1.0,
+            "senaryo": "1-0-2",
+            "onerilen": true,
+            "guven_dili": "tam kapsama"
+          }
+        ],
+        "ev_avantaji": "modelde sabit (yaklaşık yarım gollük ev avantajı)",
+        "favori_taraf": "ev",
+        "model_version": "harman-v1-2026-10",
+        "gol_beklentisi": {
+          "ev": 1.28,
+          "seviye": "orta",
+          "toplam": 2.43,
+          "deplasman": 1.15
+        }
+      },
+      "entries": [
+        {
+          "senaryo": "0",
+          "metin": "Kasımpaşa evinde oynadığı son 2 maçta Konyaspor ile 0-0 ve Amed Sportif ile 2-2 berabere kaldı. Samsunspor son maçında Trabzonspor'a 3-0 kaybederek kötü gidişini sürdürdü. İki takımın mücadelesinde skor dengede kalabilir. Kasımpaşa'nın evinde 2 beraberlik alması bu ihtimali güçlendiriyor. Samsunspor da deplasmanda puan arayacaktır. Maçın berabere bitme ihtimali az görülse de kuponda tutulabilir.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "0-2",
+          "metin": "Samsunspor son maçında Trabzonspor'a 3-0 yenildi ve üst üste 5 yenilgi aldı. Kasımpaşa ise son maçında Galatasaray deplasmanında 3-1 kaybetti, evindeki son maçında Konyaspor ile 0-0 berabere kaldı. Ev sahibinin galibiyetine güvenmek zor görünüyor. Samsunspor deplasmanda puan ya da puanlar alabilir. Kasımpaşa'nın evindeki son 2 maçta 2 beraberlik alması da bu tercihi destekliyor.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1",
+          "metin": "Kasımpaşa geçen hafta Galatasaray deplasmanında 3-1 kaybetti ama bu kez evinde oynuyor. Samsunspor son maçında Trabzonspor'a 3-0 yenildi ve üst üste 5 yenilgi aldı. Konuk ekibin deplasmanda işi zor görünüyor. Kasımpaşa son 5 maçta 1 galibiyet, 3 beraberlik aldı. Yine de Samsunspor'u küçümsememek lazım, sahada her şey olabiliyor. Ev sahibi galibiyeti bana göre kuponlarda değerlendirilmeli.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0",
+          "metin": "Kasımpaşa geçen hafta Galatasaray deplasmanında 3-1 yenildi ama iç sahada dirençli bir görüntü çiziyor. Evinde oynadığı son 2 maçta 2 beraberlik aldı. Samsunspor ise son maçında Trabzonspor'a 3-0 kaybetti ve üst üste 5 yenilgi aldı. Konuk ekibin deplasmanda işi çok zor. Kasımpaşa evinde kaybetmemeye oynayacaktır. Bu yüzden beraberliği koruyacağım.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0-2",
+          "metin": "Kasımpaşa son maçında Galatasaray deplasmanında 3-1 yenilirken, Samsunspor da evinde Trabzonspor'a 3-0 kaybetti. İki takımın da son haftalardaki form durumu kafaları karıştırıyor. Kasımpaşa evindeki son maçında Konyaspor ile 0-0 berabere kalmıştı. Samsunspor ise üst üste 5 yenilgi aldı ama bu deplasmanda her sonuç çıkabilir. Maçın bu kadar açık olması üç ihtimali de zorunlu kılıyor. Ana kupon tercihim 1-0-2 olacak.",
+          "onerilen": true
+        },
+        {
+          "senaryo": "2",
+          "metin": "Samsunspor son maçında evinde Trabzonspor'a 3-0 yenildi ama deplasmanda farklı bir oyun arayacak. Kasımpaşa ise son maçında Galatasaray deplasmanında 3-1 kaybetti ve evindeki son maçında Konyaspor ile 0-0 berabere kaldı. Samsunspor'un deplasmanda Erzurumspor'a 1-0 kaybetmesi taraftarı üzmüştü. Konuk ekip bu kez çıkış arıyor. Kasımpaşa'nın savunma zaafları değerlendirilebilir.",
+          "onerilen": false
+        }
+      ]
+    },
+    {
+      "id": 82,
+      "week_id": 6,
+      "mac_no": 7,
+      "ev_takim": "Kocaelispor",
+      "deplasman_takim": "Göztepe",
+      "lig": "Super Lig",
+      "mac_tarihi": "2026-10-18T16:00:00",
+      "home_team_id": 19,
+      "away_team_id": 15,
+      "fotmob_match_id": null,
+      "secilen_senaryo": null,
+      "final_metin": null,
+      "final_metin_guncellenme_at": null,
+      "final_metin_guncelleyen_email": null,
+      "video_linki": null,
+      "video_eklenme_at": null,
+      "esleme_durumu": "eslesti",
+      "lig_haftasi": "8. Hafta",
+      "model_p1": 0.3009469789610163,
+      "model_p0": 0.2913362897339016,
+      "model_p2": 0.40771673130508224,
+      "model_kademe": "uclu",
+      "model_onerilen": "1-0-2",
+      "model_version": "harman-v1-2026-10",
+      "model_facts": {
+        "ev": "Kocaelispor",
+        "as_of": "2026-10-18",
+        "banko": false,
+        "kolon": 3,
+        "kademe": "uclu",
+        "onerilen": "1-0-2",
+        "uyarilar": [
+          "Kadro, sakatlık, hakem ve hava durumu hesaba katılmadı; tahmin maçtan günler önce üretilir."
+        ],
+        "deplasman": "Göztepe",
+        "elo_farki": -48.8,
+        "guc_farki": "hafif",
+        "ihtimaller": {
+          "p0": 0.2913362897339016,
+          "p1": 0.3009469789610163,
+          "p2": 0.40771673130508224
+        },
+        "senaryolar": [
+          {
+            "ihtimal": 0.3009469789610163,
+            "senaryo": "1",
+            "onerilen": false,
+            "guven_dili": "sürpriz ihtimali"
+          },
+          {
+            "ihtimal": 0.2913362897339016,
+            "senaryo": "0",
+            "onerilen": false,
+            "guven_dili": "sürpriz ihtimali"
+          },
+          {
+            "ihtimal": 0.40771673130508224,
+            "senaryo": "2",
+            "onerilen": false,
+            "guven_dili": "gerçekçi ihtimal"
+          },
+          {
+            "ihtimal": 0.5922832686949179,
+            "senaryo": "1-0",
+            "onerilen": false,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 0.6990530210389838,
+            "senaryo": "0-2",
+            "onerilen": false,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 1.0,
+            "senaryo": "1-0-2",
+            "onerilen": true,
+            "guven_dili": "tam kapsama"
+          }
+        ],
+        "ev_avantaji": "modelde sabit (yaklaşık yarım gollük ev avantajı)",
+        "favori_taraf": "deplasman",
+        "model_version": "harman-v1-2026-10",
+        "gol_beklentisi": {
+          "ev": 1.06,
+          "seviye": "düşük skorlu",
+          "toplam": 2.15,
+          "deplasman": 1.09
+        }
+      },
+      "entries": [
+        {
+          "senaryo": "0",
+          "metin": "Göztepe son beş maçında iki kez sahadan beraberlikle ayrıldı. Son lig maçında Rizespor ile ikişer golle berabere kaldılar. Alanyaspor deplasmanından da aynı skorla puan çıkardılar. Kocaelispor ise son maçında Beşiktaş deplasmanında yenildi. İki takımın maç başına ürettiği skor ortalamaları birbirine oldukça yakın. Saha ortasında sert bir mücadele ve taktik savaş izleyeceğiz. Taraflar birbirine üstünlük kurmakta zorlanacak ve oyun kilitlenecek. Dengeli giden bu zorlu eşleşmede eşitlik bozulmayabilir.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "0-2",
+          "metin": "Göztepe son maçında Rizespor ile sahasında ikişer golle berabere kaldı. Alanyaspor deplasmanından da aynı skorla beraberlikle döndüler. Kocaelispor'un savunma direnci yüksek olsa da hücumda zorlanabiliyorlar. Konuk ekip skoru bulma konusunda ligin hareketli takımlarından biri. Ev sahibinin Beşiktaş karşısındaki son mağlubiyeti soru işaretleri yaratıyor. Göztepe oyunu tutarak en azından sahadan puanla ayrılmasını bilecektir. Bu iki ihtimalli seçenek kuponlar için güvenli bir liman.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1",
+          "metin": "Kocaelispor son beş lig maçında üç galibiyet alarak sahasında etkili bir grafik çizdi. Gaziantep FK ve Samsunspor maçlarını kazandılar. Son maçta Beşiktaş deplasmanından iki yiyerek mağlup ayrıldılar. Yine de Göztepe'nin son dönemdeki puan kayıplarını iyi değerlendirebilirler. Rakibin savunma açıklarını yakalayarak sahada üstünlük kuracaklar. Göztepe'nin deplasmandaki dirençli yapısını unutmamak gerekiyor. İç sahada tempoyu elinde tutan taraf ev sahibi olacak. Bu ihtimal düşük görünse de ev sahibi galibiyeti kuponlarda yer alabilir.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0",
+          "metin": "Kocaelispor evinde oynadığı son iki maçı galibiyetle kapatmayı bildi. Gaziantep FK engelini kayıpsız geçip Samsunspor'u tek golle yendiler. Beşiktaş deplasmanındaki son yenilgi moralleri bozsa da iç sahada farklılar. Göztepe ise son beş maçında galibiyet alamadı ve zorlanıyor. Konuk ekibin deplasmandaki puan alma çabası işi zorlaştıracaktır. Ev sahibi bu maçta taraftar desteğiyle oyunu kontrol edecek. Risk almak istemeyenler için bu senaryo mantıklı duruyor.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0-2",
+          "metin": "Büyük ikramiyeyi favorileri bilenler değil, sürprizi önceden görenler alır. Kocaelispor'un galibiyetleriyle Göztepe'nin beraberlikleri tablonun ortada olduğunu gösteriyor. İki tarafın da son maçlarındaki skor istikrarsızlığı işleri karıştırıyor. Sahada kimin üstünlük kuracağı maç anındaki hamlelere bağlı olacak. Taraf bahsi yapmak bu veriler ışığında oldukça riskli duruyor. Üç ihtimalin de eşit ağırlıkta olduğu bu kapışmada açık kapı bırakıyoruz. Ana kupon tercihim 1-0-2 olacak.",
+          "onerilen": true
+        },
+        {
+          "senaryo": "2",
+          "metin": "Göztepe maç başına ikiye yakın gol atarak hücumda etkili bir görüntü veriyor. Son maçta Rizespor karşısında evinde iki gol buldular. Galatasaray ve Alanyaspor deplasmanlarında da rakip fileleri havalandırdılar. Kocaelispor ise evinde son olarak Gaziantep FK'yı mağlup etmeyi başardı. Konuk ekip hızlı hücumlarla rakip savunmanın dengesini bozmaya çalışacak. Ev sahibinin savunma arkasında vereceği boşluklar skoru belirleyebilir. Gerçekçi bir ihtimal olarak konuk ekibin galibiyeti düşünülebilir.",
+          "onerilen": false
+        }
+      ]
+    },
+    {
+      "id": 83,
+      "week_id": 6,
+      "mac_no": 8,
+      "ev_takim": "İstanbul Başakşehir",
+      "deplasman_takim": "Gaziantep FK",
+      "lig": "Super Lig",
+      "mac_tarihi": "2026-10-18T19:00:00",
+      "home_team_id": 24,
+      "away_team_id": 8,
+      "fotmob_match_id": null,
+      "secilen_senaryo": null,
+      "final_metin": null,
+      "final_metin_guncellenme_at": null,
+      "final_metin_guncelleyen_email": null,
+      "video_linki": null,
+      "video_eklenme_at": null,
+      "esleme_durumu": "eslesti",
+      "lig_haftasi": "8. Hafta",
+      "model_p1": 0.6389732332327271,
+      "model_p0": 0.2139182683276611,
+      "model_p2": 0.14710849843961188,
+      "model_kademe": "tek",
+      "model_onerilen": "1",
+      "model_version": "harman-v1-2026-10",
+      "model_facts": {
+        "ev": "İstanbul Başakşehir",
+        "as_of": "2026-10-18",
+        "banko": true,
+        "kolon": 1,
+        "kademe": "tek",
+        "onerilen": "1",
+        "uyarilar": [
+          "Kadro, sakatlık, hakem ve hava durumu hesaba katılmadı; tahmin maçtan günler önce üretilir."
+        ],
+        "deplasman": "Gaziantep FK",
+        "elo_farki": 157.4,
+        "guc_farki": "belirgin",
+        "ihtimaller": {
+          "p0": 0.2139182683276611,
+          "p1": 0.6389732332327271,
+          "p2": 0.14710849843961188
+        },
+        "senaryolar": [
+          {
+            "ihtimal": 0.6389732332327271,
+            "senaryo": "1",
+            "onerilen": true,
+            "guven_dili": "ağırlıklı ihtimal"
+          },
+          {
+            "ihtimal": 0.2139182683276611,
+            "senaryo": "0",
+            "onerilen": false,
+            "guven_dili": "sürpriz ihtimali"
+          },
+          {
+            "ihtimal": 0.14710849843961188,
+            "senaryo": "2",
+            "onerilen": false,
+            "guven_dili": "zor ihtimal"
+          },
+          {
+            "ihtimal": 0.8528915015603882,
+            "senaryo": "1-0",
+            "onerilen": false,
+            "guven_dili": "güvenli kapanış"
+          },
+          {
+            "ihtimal": 0.36102676676727297,
+            "senaryo": "0-2",
+            "onerilen": false,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 1.0,
+            "senaryo": "1-0-2",
+            "onerilen": false,
+            "guven_dili": "tam kapsama"
+          }
+        ],
+        "ev_avantaji": "modelde sabit (yaklaşık yarım gollük ev avantajı)",
+        "favori_taraf": "ev",
+        "model_version": "harman-v1-2026-10",
+        "gol_beklentisi": {
+          "ev": 2.12,
+          "seviye": "gollü",
+          "toplam": 3.15,
+          "deplasman": 1.03
+        }
+      },
+      "entries": [
+        {
+          "senaryo": "0",
+          "metin": "Risk almak isteyenler için bu maçta beraberlik ihtimali masada duruyor. İstanbul Başakşehir son maçı Konyaspor ile 0-0 berabere bitirdi ve hücumda zorlandı. Gaziantep FK ise Fenerbahçe ile evinde 0-0 golsüz eşitliği bozamadı. İki takımın da son maçlarında skoru üretememesi orta blokta kilitli bir oyunun sinyalini veriyor. Gaziantep FK deplasmanda dirençli bir görüntü çizerken ev sahibi takımı durdurmaya çalışacaktır. Maçın temposu düşük kalabilir ve dengeli bir şekilde ilerleyebilir. Bu senaryoyu kuponunda görmek isteyenler için mantıklı bir duraktır.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "0-2",
+          "metin": "Ev sahibinin galibiyetine güvenmeyenler için bu senaryo mantıklı bir alternatif oluşturuyor. Gaziantep FK deplasmanda Kocaelispor'a 0-2 kaybetmiş olsa da Göztepe deplasmanında 4-2 kazanmayı bildi. İstanbul Başakşehir son maçında Konyaspor ile 0-0 berabere kaldı ve hücumda istediğini alamadı. Konuk ekip bu deplasmanda puan ya da puanlarla ayrılmanın yollarını arayacaktır. Ev sahibi takımın maç boyunca topu tutmasına rağmen skoru bulamaması bekleniyor. Gaziantep FK savunmada kalıp skoru korumaya çalışacaktır.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1",
+          "metin": "İstanbul Başakşehir son maçı Konyaspor ile 0-0 beraberlik bitmesine rağmen iç sahada etkili bir görüntü çiziyor. Evinde oynadığı en son maçta Gençlerbirliği'ni 4-0 yenmeyi bildiler. Gaziantep FK ise son lig maçında Çorum FK'ya evinde 3-0 mağlup oldu ve deplasmanda Kocaelispor'a 2-0 kaybetti. İstanbul Başakşehir ev sahibi avantajını kullanarak maçı koparacaktır. Konuk ekibin savunma zaafları ortadayken ev sahibinin hücum hattı bu fırsatı değerlendirecektir. Yine de Gaziantep'in duran top gücünü göz ardı etmemek gerekir. Ana kupon tercihim direkt 1 olacak.",
+          "onerilen": true
+        },
+        {
+          "senaryo": "1-0",
+          "metin": "Daha temkinli oynamak isteyenler için İstanbul Başakşehir'in yenilmezlik senaryosu güçlü bir seçenek sunuyor. Ev sahibi takım evinde oynadığı son maçta Gençlerbirliği'ni 4-0 mağlup etmeyi başardı. Gaziantep FK ise son lig maçında Çorum FK'ya evinde 3-0 kaybetti ve deplasmanda Kocaelispor'a 2-0 yenildi. İstanbul Başakşehir oyunu kontrol altında tutarak rakibine boyun eğmeyecektir. Konuk ekibin hücum hattı deplasmanda zorlanırken ev sahibi savunması hata yapmayacaktır. Maçın berabere bitme riski bulunsa da ev sahibi maçı kaybetmeyecektir.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0-2",
+          "metin": "Haftanın en zor maçlarından biri olarak üç ihtimali de açık bırakmak gerekir. İstanbul Başakşehir son maçı Konyaspor ile 0-0 berabere tamamladı ve hücumda dalgalı bir grafik çizdi. Gaziantep FK ise son maçında Çorum FK'ya evinde 3-0 yenildi ve istikrarsız bir görüntü verdi. İki takımın da sezon istatistiklerindeki dalgalanmalar maçın her sonuca gebe olduğunu gösteriyor. Ev sahibinin topa sahip olma oyunu ile konuk ekibin duran top etkisinden ne çıkacağı kestirilemiyor. Tüm ihtimalleri değerlendirmek isteyenler için bu kapıyı açık tutmak en güvenlisidir.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "2",
+          "metin": "Sürpriz arayanlar için Gaziantep FK'nın deplasman performansı dikkat çekici bir veri sunuyor. Konuk ekip Göztepe deplasmanında 4-2 gibi net bir skorla kazanmıştı. İstanbul Başakşehir ise son maçında Konyaspor deplasmanından 0-0'lık beraberlikle döndü ve evinde Galatasaray'a 3-2 kaybetti. İstanbul ekibinin savunmasındaki açıklar bu senaryoda konuk ekibin işine yarayabilir. Gaziantep FK duran toplarla etkili olup rakibini sahasında avlayabilir. Tabii ki ev sahibinin topa sahip olma oranı yüksek olacak ama deplasman ekibi kontra şansını iyi arayacaktır. Bu sürpriz tercihi değerlendirebilirsiniz.",
+          "onerilen": false
+        }
+      ]
+    },
+    {
+      "id": 84,
+      "week_id": 6,
+      "mac_no": 9,
+      "ev_takim": "Trabzonspor",
+      "deplasman_takim": "Beşiktaş",
+      "lig": "Super Lig",
+      "mac_tarihi": "2026-10-19T20:00:00",
+      "home_team_id": 18,
+      "away_team_id": 23,
+      "fotmob_match_id": null,
+      "secilen_senaryo": null,
+      "final_metin": null,
+      "final_metin_guncellenme_at": null,
+      "final_metin_guncelleyen_email": null,
+      "video_linki": null,
+      "video_eklenme_at": null,
+      "esleme_durumu": "eslesti",
+      "lig_haftasi": "8. Hafta",
+      "model_p1": 0.30728242821204454,
+      "model_p0": 0.2661386475076378,
+      "model_p2": 0.4265789242803176,
+      "model_kademe": "uclu",
+      "model_onerilen": "1-0-2",
+      "model_version": "harman-v1-2026-10",
+      "model_facts": {
+        "ev": "Trabzonspor",
+        "as_of": "2026-10-19",
+        "banko": false,
+        "kolon": 3,
+        "kademe": "uclu",
+        "onerilen": "1-0-2",
+        "uyarilar": [
+          "Kadro, sakatlık, hakem ve hava durumu hesaba katılmadı; tahmin maçtan günler önce üretilir."
+        ],
+        "deplasman": "Beşiktaş",
+        "elo_farki": -51.7,
+        "guc_farki": "hafif",
+        "ihtimaller": {
+          "p0": 0.2661386475076378,
+          "p1": 0.30728242821204454,
+          "p2": 0.4265789242803176
+        },
+        "senaryolar": [
+          {
+            "ihtimal": 0.30728242821204454,
+            "senaryo": "1",
+            "onerilen": false,
+            "guven_dili": "sürpriz ihtimali"
+          },
+          {
+            "ihtimal": 0.2661386475076378,
+            "senaryo": "0",
+            "onerilen": false,
+            "guven_dili": "sürpriz ihtimali"
+          },
+          {
+            "ihtimal": 0.4265789242803176,
+            "senaryo": "2",
+            "onerilen": false,
+            "guven_dili": "gerçekçi ihtimal"
+          },
+          {
+            "ihtimal": 0.5734210757196824,
+            "senaryo": "1-0",
+            "onerilen": false,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 0.6927175717879555,
+            "senaryo": "0-2",
+            "onerilen": false,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 1.0,
+            "senaryo": "1-0-2",
+            "onerilen": true,
+            "guven_dili": "tam kapsama"
+          }
+        ],
+        "ev_avantaji": "modelde sabit (yaklaşık yarım gollük ev avantajı)",
+        "favori_taraf": "deplasman",
+        "model_version": "harman-v1-2026-10",
+        "gol_beklentisi": {
+          "ev": 1.43,
+          "seviye": "orta",
+          "toplam": 2.9,
+          "deplasman": 1.47
+        }
+      },
+      "entries": [
+        {
+          "senaryo": "0",
+          "metin": "Trabzonspor son maçı olan Samsunspor deplasmanında 3-0 galibiyetle sahadan 3 puanla ayrıldı. İki takımın maç başına gol beklentileri birbirine çok yakın seviyede seyrediyor. Trabzonspor evinde oynadığı son maçta Galatasaray'ı 4-0 yenmişti, Beşiktaş ise son maçında Kocaelispor'u 2-1 mağlup etti. Zorlu geçen bu kapışmada taraflar birbirine üstünlük kuramayabilir. Her iki ekibin de orta sahadaki sert mücadelesi skoru kilitleyebilir. Maçın bu dengeli yapısıyla beraberlik seçeneği kuponlarda yer almayı hak ediyor.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "0-2",
+          "metin": "Beşiktaş son maçı olan Kocaelispor mücadelesini 2-1 kazanarak formunu korudu. Konuk ekip deplasmanda Fenerbahçe'yi 2-1 yendiği maçtaki gibi bu sahada da etkili kontra oyununu sahaya yansıtacaktır. Trabzonspor son maçında Samsunspor'u 3-0 yense de evinde oynayacağı bu zorlu dokunulmazlık sınavında hata yapabilir. Beşiktaş'ın maç başına ürettiği yüksek şut sayısı ev sahibinin savunmasını zorlayacak kapasitede. Trabzonspor'un evindeki son maçında Galatasaray'ı 4-0 yenmesi yine de ev sahibini tamamen devre dışı bırakmıyor. Kuponunu sağlama almak isteyenler için bu ikili seçenek oldukça güvenli duruyor.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1",
+          "metin": "Trabzonspor son maçı olan Samsunspor deplasmanından 3-0 galibiyetle ayrılmayı bildi. Ev sahibi bu karşılaşmada maç başına 2'ye yakın gollük pozisyon üreten dinamik bir oyun sergiliyor. Beşiktaş deplasmanlarda zorlanırken ev sahibinin bu hücum gücü öne çıkıyor. Yine de Beşiktaş'ın skor üretme potansiyelini küçümsememek lazım. Trabzonspor'un bu form durumuyla ev sahibi galibiyeti düşük bir ihtimal gibi görünse de sahada dengeyi bozabilir. Risk almak isteyenler için ev sahibi galibiyeti bu maçta denenebilir bir seçenek.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0",
+          "metin": "Trabzonspor son maçı olan Samsunspor deplasmanından 3-0 galibiyetle dönmeyi başardı. Ev sahibi takım kendi sahasında oynadığı son maçta Galatasaray'ı 4-0 mağlup ederek savunma direncini gösterdi. Beşiktaş ise son maçında Kocaelispor'u 2-1 yense de deplasmanlarda her zaman aynı skoru bulamıyor. Siyah-beyazlıların hücum gücü yüksek olsa da Trabzonspor evinde bu tempoya direnecektir. Karşılaşmada konuk ekibin kazanma ihtimaline karşı ev sahibi skoru tutmayı başarabilir. Temkinli oynamak isteyenler için bu iki ihtimal kuponlarda mantıklı bir tercih olacaktır.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0-2",
+          "metin": "Trabzonspor son maçı olan Samsunspor deplasmanından 3-0 galibiyetle dönerken, Beşiktaş da son maçında Kocaelispor'u 2-1 mağlup etti. İki takımın da maç başına gol beklentileri ve oyun akışları birbirine çok yakın seviyede bulunuyor. Trabzonspor evindeki son maçta Galatasaray'ı 4-0 yenmişti, Beşiktaş ise deplasmanda Fenerbahçe engelini 2-1 ile geçmeyi bilmişti. Sahadaki bu yüksek tempo ve iki ekibin de skoru değiştirebilecek hücum silahları maçın her sonuca açık olduğunu gösteriyor. Büyük ikramiyeyi hedefleyenler için bu zorlu kapışmada tüm kapıları aralamak en akılcı yol olacak. Ana kupon tercihim 1-0-2 olacak.",
+          "onerilen": true
+        },
+        {
+          "senaryo": "2",
+          "metin": "Beşiktaş son maçı olan Kocaelispor mücadelesinden 2-1 galibiyetle ayrıldı. Siyah-beyazlılar maç başına 2'den fazla gollük pozisyon üreten etkili bir hücum hattına sahip. Trabzonspor ise son maçında Samsunspor'u 3-0 yense de savunmada bazı maçlarda açıklar verebiliyor. Beşiktaş'ın deplasmanda Fenerbahçe'yi 2-1 yendiği maçı hatırlarsak bu tarz deplasmanları iyi oynuyorlar. Trabzonspor'un evdeki son maçında Galatasaray'ı 4-0 yendiğini de unutmamak gerekiyor. Tüm bu veriler ışığında konuk ekibin bu zorlu deplasmandan galibiyetle döneceğini düşünüyorum.",
+          "onerilen": false
+        }
+      ]
+    },
+    {
+      "id": 85,
+      "week_id": 6,
+      "mac_no": 10,
+      "ev_takim": "Everton",
+      "deplasman_takim": "Chelsea",
+      "lig": "Premier League",
+      "mac_tarihi": "2026-10-17T14:30:00",
+      "home_team_id": 56,
+      "away_team_id": 49,
+      "fotmob_match_id": null,
+      "secilen_senaryo": null,
+      "final_metin": null,
+      "final_metin_guncellenme_at": null,
+      "final_metin_guncelleyen_email": null,
+      "video_linki": null,
+      "video_eklenme_at": null,
+      "esleme_durumu": "eslesti",
+      "lig_haftasi": "7. Hafta",
+      "model_p1": 0.35682111047882203,
+      "model_p0": 0.2767958126125754,
+      "model_p2": 0.3663830769086025,
+      "model_kademe": "uclu",
+      "model_onerilen": "1-0-2",
+      "model_version": "harman-v1-2026-10",
+      "model_facts": {
+        "ev": "Everton",
+        "as_of": "2026-10-17",
+        "banko": false,
+        "kolon": 3,
+        "kademe": "uclu",
+        "onerilen": "1-0-2",
+        "uyarilar": [
+          "Kadro, sakatlık, hakem ve hava durumu hesaba katılmadı; tahmin maçtan günler önce üretilir."
+        ],
+        "deplasman": "Chelsea",
+        "elo_farki": 8.9,
+        "guc_farki": "denk",
+        "ihtimaller": {
+          "p0": 0.2767958126125754,
+          "p1": 0.35682111047882203,
+          "p2": 0.3663830769086025
+        },
+        "senaryolar": [
+          {
+            "ihtimal": 0.35682111047882203,
+            "senaryo": "1",
+            "onerilen": false,
+            "guven_dili": "gerçekçi ihtimal"
+          },
+          {
+            "ihtimal": 0.2767958126125754,
+            "senaryo": "0",
+            "onerilen": false,
+            "guven_dili": "sürpriz ihtimali"
+          },
+          {
+            "ihtimal": 0.3663830769086025,
+            "senaryo": "2",
+            "onerilen": false,
+            "guven_dili": "gerçekçi ihtimal"
+          },
+          {
+            "ihtimal": 0.6336169230913975,
+            "senaryo": "1-0",
+            "onerilen": false,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 0.6431788895211779,
+            "senaryo": "0-2",
+            "onerilen": false,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 1.0,
+            "senaryo": "1-0-2",
+            "onerilen": true,
+            "guven_dili": "tam kapsama"
+          }
+        ],
+        "ev_avantaji": "modelde sabit (yaklaşık yarım gollük ev avantajı)",
+        "favori_taraf": "ev",
+        "model_version": "harman-v1-2026-10",
+        "gol_beklentisi": {
+          "ev": 1.35,
+          "seviye": "orta",
+          "toplam": 2.83,
+          "deplasman": 1.49
+        }
+      },
+      "entries": [
+        {
+          "senaryo": "0",
+          "metin": "Son 5 lig maçında tam 4 beraberlik alan Everton, adeta beraberlik uzmanı bir görüntü çiziyor. Son olarak Hull City deplasmanından 2-2'lik skorla dönen ev sahibi, bu maçta da düğümü çözmekte zorlanabilir. Chelsea ise evinde AFC Bournemouth'u 5-1 yendikten sonra deplasmanda aynı skorer kimliği göstermekte zorlanıyor. İki takımın aralarındaki güç dengesi ve oyun yapıları bu ihtimali güçlendiriyor. Maç boyunca orta saha mücadelesi ön planda olacak ve taraflar birbirine üstünlük kuramayacaktır. Bizim hesabımıza göre %27 ihtimalle berabere bitecek bu maçta taraflar puanları paylaşabilir.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "0-2",
+          "metin": "Evinde oynadığı son 2 maçta 1 galibiyet alan Everton, hücumda bazen tıkanabiliyor ve maçı koparamıyor. Son olarak Hull City deplasmanında 2-2 berabere kalan ev sahibinin galibiyete uzanması bu sefer kolay görünmüyor. Chelsea ise son maçında evinde AFC Bournemouth'u 5-1 yenerek hücum gücünü açıkça kanıtladı. Konuk ekibin Brentford deplasmanındaki 3-0'lık yenilgisi soru işaretleri yaratsa da, deplasman ekibi bu maçta en az bir puanla ayrılacak güce sahip. Ev sahibinin tek başına maçı koparamayacağı senaryoda deplasman puanla dönecektir.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1",
+          "metin": "Evinde oynadığı son 2 maçta 1 galibiyet çıkaran Everton, sahasında rakiplerine kolay boyun eğmiyor. Tottenham deplasmanından puansız dönmeyen ekip, bu kez konuk edeceği rakibi karşısında iç saha direncini sahaya yansıtacaktır. Son maçında Hull City deplasmanından 2-2'lik beraberlikle ayrılan ev sahibi, savunma disiplinini elden bırakmıyor. Chelsea'nin deplasmandaki kırılgan yapısını iyi okuyan ev sahibi, maç boyunca kontrolü elinde tutmaya çalışacaktır. Konuk ekibin Brentford deplasmanında 3-0 kaybettiğini hatırlarsak, ev sahibinin bu avantajı değerlendirme şansı yüksek. Maçın genelinde tempoyu belirleyen taraf Everton olacaktır.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0",
+          "metin": "Deplasmanda oynadığı son 2 maçta 2 yenilgi alan Chelsea, dış sahada güven vermekten çok uzakta. Brentford deplasmanından 3-0 mağlup ayrılan konuk ekip, bu kez Everton karşısında işinin zor olduğunu biliyor. Everton son maçında Hull City ile 2-2 berabere kalırken, kendi evinde oynadığı son 2 maçta yenilgi yüzü görmedi. Ev sahibinin kompakt savunma anlayışı, deplasman ekibinin hücumlarını kesmek için fazlasıyla yeterli görünüyor. Chelsea'nin deplasmandaki bu zaafını göz önüne alarak ev sahibinin kaybetmeyeceğini düşünüyorum; bu yüzden beraberliği kuponumda tutacağım.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0-2",
+          "metin": "Deplasmanda oynadığı son 2 maçta 2 yenilgi alan Chelsea, dış sahada oldukça dalgalı bir görüntü çiziyor. Konuk ekip son olarak evinde AFC Bournemouth'u 5-1 yense de, deplasman karnesi soru işaretleriyle dolu. Everton ise son 5 lig maçının 4'ünde sahadan beraberlikle ayrıldı ve son maçında Hull City ile 2-2 berabere kaldı. İki tarafın da istikrarsız form grafiği maçın tek bir sonuca bağlanmasını imkansız kılıyor; ev sahibi iç sahada direnecektir ama konuk ekibin potansiyeli de göz ardı edilemez. Ana kupon tercihim 1-0-2 olacak.",
+          "onerilen": true
+        },
+        {
+          "senaryo": "2",
+          "metin": "Son maçında evinde AFC Bournemouth'u 5-1 gibi net bir skorla mağlup eden Chelsea, hücum hattındaki formunu konuşturdu. Bu kez deplasmanda sahne alacak olan konuk ekip, Brentford deplasmanındaki 3-0'lık yenilgiyi telafi etmek isteyecektir. Everton'ın son 5 maçının dördünde berabere kalması, ev sahibinin galibiyet üretmekte yaşadığı kısır döngüyü net gösteriyor. Chelsea'nin maç başına bulduğu skor üretimi ve rakip savunmayı zorlayan yapısı bu deplasmanda etkili olabilir. Konuk ekibin hücum gücü bu zorlu deplasmandan 3 puanla dönmesi için yeterli seviyede.",
+          "onerilen": false
+        }
+      ]
+    },
+    {
+      "id": 86,
+      "week_id": 6,
+      "mac_no": 11,
+      "ev_takim": "Brentford",
+      "deplasman_takim": "Liverpool",
+      "lig": "Premier League",
+      "mac_tarihi": "2026-10-17T17:00:00",
+      "home_team_id": 52,
+      "away_team_id": 37,
+      "fotmob_match_id": null,
+      "secilen_senaryo": null,
+      "final_metin": null,
+      "final_metin_guncellenme_at": null,
+      "final_metin_guncelleyen_email": null,
+      "video_linki": null,
+      "video_eklenme_at": null,
+      "esleme_durumu": "eslesti",
+      "lig_haftasi": "7. Hafta",
+      "model_p1": 0.3873597012937208,
+      "model_p0": 0.27566495125125695,
+      "model_p2": 0.3369753474550222,
+      "model_kademe": "uclu",
+      "model_onerilen": "1-0-2",
+      "model_version": "harman-v1-2026-10",
+      "model_facts": {
+        "ev": "Brentford",
+        "as_of": "2026-10-17",
+        "banko": false,
+        "kolon": 3,
+        "kademe": "uclu",
+        "onerilen": "1-0-2",
+        "uyarilar": [
+          "Kadro, sakatlık, hakem ve hava durumu hesaba katılmadı; tahmin maçtan günler önce üretilir."
+        ],
+        "deplasman": "Liverpool",
+        "elo_farki": 26.4,
+        "guc_farki": "denk",
+        "ihtimaller": {
+          "p0": 0.27566495125125695,
+          "p1": 0.3873597012937208,
+          "p2": 0.3369753474550222
+        },
+        "senaryolar": [
+          {
+            "ihtimal": 0.3873597012937208,
+            "senaryo": "1",
+            "onerilen": false,
+            "guven_dili": "gerçekçi ihtimal"
+          },
+          {
+            "ihtimal": 0.27566495125125695,
+            "senaryo": "0",
+            "onerilen": false,
+            "guven_dili": "sürpriz ihtimali"
+          },
+          {
+            "ihtimal": 0.3369753474550222,
+            "senaryo": "2",
+            "onerilen": false,
+            "guven_dili": "sürpriz ihtimali"
+          },
+          {
+            "ihtimal": 0.6630246525449778,
+            "senaryo": "1-0",
+            "onerilen": false,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 0.6126402987062791,
+            "senaryo": "0-2",
+            "onerilen": false,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 1.0,
+            "senaryo": "1-0-2",
+            "onerilen": true,
+            "guven_dili": "tam kapsama"
+          }
+        ],
+        "ev_avantaji": "modelde sabit (yaklaşık yarım gollük ev avantajı)",
+        "favori_taraf": "ev",
+        "model_version": "harman-v1-2026-10",
+        "gol_beklentisi": {
+          "ev": 1.54,
+          "seviye": "gollü",
+          "toplam": 3.15,
+          "deplasman": 1.61
+        }
+      },
+      "entries": [
+        {
+          "senaryo": "0",
+          "metin": "Brentford son 5 lig maçında 4 beraberlik aldı. Son olarak Aston Villa deplasmanından 2-2 beraberlikle ayrıldılar. Liverpool ise son lig maçında evinde Manchester City'ye 3-0 kaybetti. İki takımın bu denge durumu maçın kilitlenme ihtimalini artırıyor. Bu senaryo sürpriz ihtimali taşısa da, tarafların sık berabere kalması beraberliği mantıklı kılıyor.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "0-2",
+          "metin": "Liverpool deplasmanda Bournemouth'u 1-0 yenmeyi başardı. Son lig maçında evinde Manchester City'ye 3-0 kaybetti. Ev sahibi Brentford ise son maçında Aston Villa ile 2-2 berabere kaldı. Konuk ekibin dış sahada gösterdiği bu kazanma alışkanlığı değerli. Ev sahibinin iç sahadaki son Chelsea galibiyetini de hesaba katmak lazım.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1",
+          "metin": "Brentford evinde Chelsea'yi 3-0 yendikten sonra bu maça moralli çıkıyor. Son maçta Aston Villa deplasmanından 2-2 beraberlikle döndüler. Liverpool'un deplasmandaki Bournemouth galibiyetini de göz ardı edemiyorum.Yine de ev sahibinin iç sahadaki bu net galibiyetini düşündüğümüzde, bu senaryo gerçekçi bir ihtimal olarak öne çıkıyor.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0",
+          "metin": "Brentford evinde oynadığı son 2 maçta yenilgi yüzü görmedi. Son olarak Aston Villa deplasmanından 2-2 beraberlikle döndüler. Liverpool ise son maçında evinde Manchester City'ye 3-0 kaybetti. Konuk ekibin dış sahada Bournemouth'u 1-0 yendiğini de unutmamak gerek. Ev sahibinin kendi sahasındaki bu direnci skoru korumaya yetecektir.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0-2",
+          "metin": "Büyük ikramiyeyi favorileri bilenler değil, sürprizi önceden görenler alır. Brentford son maçında Aston Villa ile 2-2 berabere kalırken, Liverpool evinde Manchester City'ye 3-0 kaybetti. İki tarafın da son dönemde istikrarsız sonuçlar alması işleri karıştırıyor. Sahadaki bu denge ve sürpriz açık tablo nedeniyle üç ihtimali de açık tutmak gerekiyor. Ana kupon tercihim 1-0-2 olacak.",
+          "onerilen": true
+        },
+        {
+          "senaryo": "2",
+          "metin": "Liverpool deplasmanda oynadığı son 2 maçta 2 galibiyet aldı. Son deplasmanda Bournemouth'u 1-0 yendiler. Ev sahibi ise son lig maçında Aston Villa ile 2-2 berabere kaldı. Konuk ekibin dış sahada kazandığı bu maçlar dikkat çekici. Yine de Brentford'un iç sahadaki direncini küçümsememek lazım.",
+          "onerilen": false
+        }
+      ]
+    },
+    {
+      "id": 87,
+      "week_id": 6,
+      "mac_no": 12,
+      "ev_takim": "Real Betis",
+      "deplasman_takim": "Barcelona",
+      "lig": "LaLiga",
+      "mac_tarihi": "2026-10-17T19:30:00",
+      "home_team_id": 81,
+      "away_team_id": 69,
+      "fotmob_match_id": null,
+      "secilen_senaryo": null,
+      "final_metin": null,
+      "final_metin_guncellenme_at": null,
+      "final_metin_guncelleyen_email": null,
+      "video_linki": null,
+      "video_eklenme_at": null,
+      "esleme_durumu": "eslesti",
+      "lig_haftasi": "9. Hafta",
+      "model_p1": 0.21116503847127643,
+      "model_p0": 0.20959150904294005,
+      "model_p2": 0.5792434524857835,
+      "model_kademe": "tek",
+      "model_onerilen": "2",
+      "model_version": "harman-v1-2026-10",
+      "model_facts": {
+        "ev": "Real Betis",
+        "as_of": "2026-10-17",
+        "banko": true,
+        "kolon": 1,
+        "kademe": "tek",
+        "onerilen": "2",
+        "uyarilar": [
+          "Kadro, sakatlık, hakem ve hava durumu hesaba katılmadı; tahmin maçtan günler önce üretilir."
+        ],
+        "deplasman": "Barcelona",
+        "elo_farki": -116.0,
+        "guc_farki": "net",
+        "ihtimaller": {
+          "p0": 0.20959150904294005,
+          "p1": 0.21116503847127643,
+          "p2": 0.5792434524857835
+        },
+        "senaryolar": [
+          {
+            "ihtimal": 0.21116503847127643,
+            "senaryo": "1",
+            "onerilen": false,
+            "guven_dili": "sürpriz ihtimali"
+          },
+          {
+            "ihtimal": 0.20959150904294005,
+            "senaryo": "0",
+            "onerilen": false,
+            "guven_dili": "sürpriz ihtimali"
+          },
+          {
+            "ihtimal": 0.5792434524857835,
+            "senaryo": "2",
+            "onerilen": true,
+            "guven_dili": "ağırlıklı ihtimal"
+          },
+          {
+            "ihtimal": 0.4207565475142165,
+            "senaryo": "1-0",
+            "onerilen": false,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 0.7888349615287236,
+            "senaryo": "0-2",
+            "onerilen": false,
+            "guven_dili": "geniş kapsama"
+          },
+          {
+            "ihtimal": 1.0,
+            "senaryo": "1-0-2",
+            "onerilen": false,
+            "guven_dili": "tam kapsama"
+          }
+        ],
+        "ev_avantaji": "modelde sabit (yaklaşık yarım gollük ev avantajı)",
+        "favori_taraf": "deplasman",
+        "model_version": "harman-v1-2026-10",
+        "gol_beklentisi": {
+          "ev": 1.42,
+          "seviye": "gollü",
+          "toplam": 3.65,
+          "deplasman": 2.23
+        }
+      },
+      "entries": [
+        {
+          "senaryo": "0",
+          "metin": "Deportivo A Coruña deplasmanında 1-1 berabere kalan Real Betis dengeyi arayacak. İki takımın da maç başı yüksek skor ürettiği biliniyor. Barcelona son beş maçını kazanarak gelirken deplasmanda da müthiş bir seri yakaladı. Real Betis ise kendi sahasındaki son üç maçından galibiyetle ayrılmayı bildi. Mücadelenin ortasında iki ekibin de birbirini tartması ve skorda eşitlik bulması beklenebilir. Maçın gidişatında tarafların savunmada hata yapmak istememesi beraberlik ihtimalini güçlendiriyor. Bu karşılaşmanın ortada geçeceğini düşünen futbol severler için ideal bir tercih olabilir. Bizim hesabımıza göre bu ihtimal düşük görünse de beraberlik seçeneği kuponlarda denenebilir.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "0-2",
+          "metin": "Deplasmanda üst üste üç maç kazanan Barcelona bu deplasmanda da kaybetmeyebilir. Konuk ekip Sevilla deplasmanından üç puanla dönerken son lig maçında Getafe'yi rahat geçti. Real Betis her ne kadar iç sahada formda olsa da karşısında ligin en güçlü hücum hattı bulunuyor. Ev sahibinin maç başı yediği gol ortalaması Barcelona'nın skor bulmasını kolaylaştıracaktır. Barcelona'nın bu deplasmandan puan ya da puanlarla ayrılması yüksek bir ihtimal olarak öne çıkıyor. Kuponunu sağlama almak ve tek ihtimalle sınırlamak istemeyenler bu çifte şans seçeneğini rahatlıkla değerlendirebilir. Maçın genel gidişatı konuk ekibin yenilmeyeceğini net bir şekilde gösteriyor.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1",
+          "metin": "Osasuna'yı evinde 5-2 yenmesi Real Betis'in gücünü gösteriyor. Ev sahibi ekip son beş maçın dördünden galibiyetle ayrıldı. Son lig maçında Osasuna engelini farklı geçerken hücumda çok etkiliydi. Konuk ekip Barcelona ise ligin en formda takımlarından biri ve deplasmanda çok zor yeniliyor. Real Betis'in sahasında oynayacağı bu mücadelede ev sahibine şans tanımak isteyenler bu senaryoyu değerlendirebilir. Rakibin ligdeki kusursuz serisi göz önüne alındığında bu seçim ciddi bir risk barındırıyor. Yine de sahadaki sürprizi kovalayanlar için ev sahibinin bu maçı kazanması sürpriz ihtimali olarak kuponlarda yer alabilir.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0",
+          "metin": "Evinde oynadığı son üç maçı kazanan Real Betis sahaya iddialı çıkıyor. Real Betis son olarak Osasuna karşısında beş gol bularak taraftarını sevindirdi. Deplasman ekibi Barcelona her ne kadar ligin en skorer takımı olsa da bazen dış sahada zorlanabiliyor. Ev sahibi ekibin kendi sahasındaki bu dirençli yapısı yenilgisizlik senaryosunu mantıklı kılıyor. Barcelona gibi güçlü bir rakibe karşı puan almak zor olsa da Betis formda. Kuponunda riski azaltmak ve ev sahibine güvenmek isteyenler için bu tercih oldukça mantıklı görünüyor. Karşılaşmanın sert geçeceğini ve ev sahibinin kaybetmeyeceğini düşünerek bu seçeneği kuponumda tutacağım.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0-2",
+          "metin": "İki takımın da yüksek skor ortalamasına sahip olması bu maçı kestirilemez kılıyor. Real Betis evinde son üç maçını kazanırken Barcelona da deplasmanda beş maçlık galibiyet serisiyle geliyor. Maçın her türlü sonuca açık olduğunu söylemek yanlış olmaz. İki ekibin de açık oyundan üretim yapabilen yapısı skorda sürekli bir dalgalanma yaratabilir. Ev sahibinin direnci ile konuk ekibin hücum gücü çarpıştığında her sonuç masada kalıyor. Maç boyunca temposu düşmeyecek bu zorlu mücadelede risk almak istemeyenler tüm ihtimalleri değerlendirmeli. Haftanın en çetin eşleşmelerinden biri olan bu doksan dakikada sürprizi önceden görmek isteyenler için en mantıklı yol her kapıyı açık bırakmaktır.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "2",
+          "metin": "Sevilla deplasmanından 3-1 galibiyetle dönen Barcelona çok formda. Konuk ekip son beş maçını kazanırken rakip kalelere toplamda yirmi iki gol bıraktı. Son lig maçında Getafe'yi evinde üç golle geçen Barcelona hücum hattıyla göz kamaştırıyor. Real Betis ise kendi evinde güçlü rakiplere karşı direnç gösterse de bu kez işi çok daha zor olacak. Barcelona'nın deplasmandaki son üç maçını kazanması bu maçı da favori olarak tamamlamasını sağlıyor. Ev sahibinin savunma zaafları konuk ekibin işini kolaylaştırabilir. Maç boyunca topu ayağında tutacak olan Barcelona galibiyete uzanan taraf olacaktır. Ana kupon tercihim direkt 2 olacak.",
+          "onerilen": true
+        }
+      ]
+    },
+    {
+      "id": 88,
+      "week_id": 6,
+      "mac_no": 13,
+      "ev_takim": "Real Madrid",
+      "deplasman_takim": "Sevilla",
+      "lig": "LaLiga",
+      "mac_tarihi": "2026-10-18T22:00:00",
+      "home_team_id": 82,
+      "away_team_id": 77,
+      "fotmob_match_id": null,
+      "secilen_senaryo": null,
+      "final_metin": null,
+      "final_metin_guncellenme_at": null,
+      "final_metin_guncelleyen_email": null,
+      "video_linki": null,
+      "video_eklenme_at": null,
+      "esleme_durumu": "eslesti",
+      "lig_haftasi": "9. Hafta",
+      "model_p1": 0.7259769441521746,
+      "model_p0": 0.1777802061203579,
+      "model_p2": 0.09624284972746755,
+      "model_kademe": "tek",
+      "model_onerilen": "1",
+      "model_version": "harman-v1-2026-10",
+      "model_facts": {
+        "ev": "Real Madrid",
+        "as_of": "2026-10-18",
+        "banko": true,
+        "kolon": 1,
+        "kademe": "tek",
+        "onerilen": "1",
+        "uyarilar": [
+          "Kadro, sakatlık, hakem ve hava durumu hesaba katılmadı; tahmin maçtan günler önce üretilir."
+        ],
+        "deplasman": "Sevilla",
+        "elo_farki": 200.5,
+        "guc_farki": "belirgin",
+        "ihtimaller": {
+          "p0": 0.1777802061203579,
+          "p1": 0.7259769441521746,
+          "p2": 0.09624284972746755
+        },
+        "senaryolar": [
+          {
+            "ihtimal": 0.7259769441521746,
+            "senaryo": "1",
+            "onerilen": true,
+            "guven_dili": "güçlü ihtimal"
+          },
+          {
+            "ihtimal": 0.1777802061203579,
+            "senaryo": "0",
+            "onerilen": false,
+            "guven_dili": "zor ihtimal"
+          },
+          {
+            "ihtimal": 0.09624284972746755,
+            "senaryo": "2",
+            "onerilen": false,
+            "guven_dili": "zor ihtimal"
+          },
+          {
+            "ihtimal": 0.9037571502725326,
+            "senaryo": "1-0",
+            "onerilen": false,
+            "guven_dili": "güvenli kapanış"
+          },
+          {
+            "ihtimal": 0.27402305584782544,
+            "senaryo": "0-2",
+            "onerilen": false,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 1.0,
+            "senaryo": "1-0-2",
+            "onerilen": false,
+            "guven_dili": "tam kapsama"
+          }
+        ],
+        "ev_avantaji": "modelde sabit (yaklaşık yarım gollük ev avantajı)",
+        "favori_taraf": "ev",
+        "model_version": "harman-v1-2026-10",
+        "gol_beklentisi": {
+          "ev": 2.39,
+          "seviye": "gollü",
+          "toplam": 3.16,
+          "deplasman": 0.78
+        }
+      },
+      "entries": [
+        {
+          "senaryo": "0",
+          "metin": "Sevilla son 5 lig maçının birinde Espanyol ile 1-1 berabere kaldı. İki takımın mücadelesinde dengeli bir oyun ortaya çıkabilir. Real Madrid maç başına 2'ye yakın gollük pozisyon üretse de konuk ekip düşük blokla savunma yapacaktır. Deplasman ekibinin son maçında Barcelona'ya 1-3 kaybettiğini unutmamak gerekir. Maçın kilitlenme ihtimali her zaman masadadır. Risk alanlar için beraberlik düşünülebilir.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "0-2",
+          "metin": "Sevilla deplasmanda Deportivo A Coruña'yı yenerken dış sahada puan alabileceğini gösterdi. Real Madrid son deplasman maçında Atletico Madrid'e 1-2 kaybetti ve savunmada açıklar verdi. Konuk ekibin kontrollü savunma planı ev sahibinin hücumlarını yavaşlatabilir. Tabii ki ev sahibi takımın maç başına yüksek gol beklentisi önemli bir risk unsurudur. Maçı boş geçmek istemeyenler bu seçeneği değerlendirebilir.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1",
+          "metin": "Real Madrid son 5 maçta 3 galibiyet alırken Villarreal'i 1-0 yendi. Maç başına 2'ye yakın gollük pozisyon üreten ev sahibi, Sevilla karşısında oyunun kontrolünü elinde tutacaktır. Sevilla son maçında Barcelona'ya 1-3 kaybetti ve deplasmanda zorlanıyor. Yine de rakibin kontrollü savunma anlayışını küçümsememek lazım. Sahasındaki üstün formuyla ev sahibinin bu maçı alması beklenir. Ana kupon tercihim direkt 1 olacak.",
+          "onerilen": true
+        },
+        {
+          "senaryo": "1-0",
+          "metin": "Real Madrid evinde oynadığı son 2 maçın tamamını kazanarak saha avantajını kullandı. Villarreal galibiyeti bunun en net kanıtıdır. Sevilla ise son maçında evinde Barcelona'ya 1-3 yenildi ve hücumda zorlandı. Ev sahibinin maç başına 2'ye yakın gollük pozisyon üretimi bu maçta da baskı kurmasını sağlayacaktır. Konuk ekibin savunma direncini de hesaba katmak gerekir. Kuponunu sağlama almak isteyenler için bu seçim idealdir.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0-2",
+          "metin": "Burası haftanın en zor maçlarından biri olarak dikkat çekiyor. Real Madrid son maçında Villarreal'i 1-0 geçerken, Sevilla evinde Barcelona'ya 1-3 kaybetti. Ev sahibinin yüksek gol üretimi ile konuk ekibin düşük bloklu savunması farklı senaryolara açık kapı bırakıyor. İki tarafın form grafiğindeki dalgalanmalar net bir tahmin yapmayı zorlaştırıyor. Tüm ihtimalleri kapatmak isteyenler için bu tercih kaçınılmazdır.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "2",
+          "metin": "Sevilla deplasmanda Deportivo A Coruña'yı 1-0 yendi ve dış sahada direnç gösterdi. Real Madrid ise son deplasman maçında Atletico Madrid'e 1-2 kaybetti. Konuk ekip kontrollü savunma anlayışıyla rakibine alan bırakmayacaktır. Tabii ki ev sahibinin maç başına 2'ye yakın gollük pozisyon üreten gücünü göz ardı edemeyiz. Sürpriz arayanlar için deplasman galibiyeti mantıklı bir alternatiftir.",
+          "onerilen": false
+        }
+      ]
+    },
+    {
+      "id": 89,
+      "week_id": 6,
+      "mac_no": 14,
+      "ev_takim": "Milan",
+      "deplasman_takim": "Atalanta",
+      "lig": "Serie A",
+      "mac_tarihi": "2026-10-18T19:00:00",
+      "home_team_id": 116,
+      "away_team_id": 131,
+      "fotmob_match_id": null,
+      "secilen_senaryo": null,
+      "final_metin": null,
+      "final_metin_guncellenme_at": null,
+      "final_metin_guncelleyen_email": null,
+      "video_linki": null,
+      "video_eklenme_at": null,
+      "esleme_durumu": "eslesti",
+      "lig_haftasi": "7. Hafta",
+      "model_p1": 0.46603142072874987,
+      "model_p0": 0.27295437065858963,
+      "model_p2": 0.26101420861266045,
+      "model_kademe": "cift",
+      "model_onerilen": "1-0",
+      "model_version": "harman-v1-2026-10",
+      "model_facts": {
+        "ev": "Milan",
+        "as_of": "2026-10-18",
+        "banko": false,
+        "kolon": 2,
+        "kademe": "cift",
+        "onerilen": "1-0",
+        "uyarilar": [
+          "Kadro, sakatlık, hakem ve hava durumu hesaba katılmadı; tahmin maçtan günler önce üretilir."
+        ],
+        "deplasman": "Atalanta",
+        "elo_farki": 73.0,
+        "guc_farki": "hafif",
+        "ihtimaller": {
+          "p0": 0.27295437065858963,
+          "p1": 0.46603142072874987,
+          "p2": 0.26101420861266045
+        },
+        "senaryolar": [
+          {
+            "ihtimal": 0.46603142072874987,
+            "senaryo": "1",
+            "onerilen": false,
+            "guven_dili": "gerçekçi ihtimal"
+          },
+          {
+            "ihtimal": 0.27295437065858963,
+            "senaryo": "0",
+            "onerilen": false,
+            "guven_dili": "sürpriz ihtimali"
+          },
+          {
+            "ihtimal": 0.26101420861266045,
+            "senaryo": "2",
+            "onerilen": false,
+            "guven_dili": "sürpriz ihtimali"
+          },
+          {
+            "ihtimal": 0.7389857913873394,
+            "senaryo": "1-0",
+            "onerilen": true,
+            "guven_dili": "geniş kapsama"
+          },
+          {
+            "ihtimal": 0.5339685792712501,
+            "senaryo": "0-2",
+            "onerilen": false,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 0.9999999999999999,
+            "senaryo": "1-0-2",
+            "onerilen": false,
+            "guven_dili": "tam kapsama"
+          }
+        ],
+        "ev_avantaji": "modelde sabit (yaklaşık yarım gollük ev avantajı)",
+        "favori_taraf": "ev",
+        "model_version": "harman-v1-2026-10",
+        "gol_beklentisi": {
+          "ev": 1.54,
+          "seviye": "orta",
+          "toplam": 2.82,
+          "deplasman": 1.28
+        }
+      },
+      "entries": [
+        {
+          "senaryo": "0",
+          "metin": "Milan, son lig maçında Sassuolo ile deplasmanda 1-1 berabere kaldı ve son beş maçının üçünde sahadan beraberlikle ayrıldı. Ev sahibi ekip kontrollü savunma anlayışıyla oynuyor ve maçlarda skoru tutmaya çalışıyor. Atalanta ise son maçında Juventus'a deplasmanda 0-2 kaybetti ve dış sahada aradığını bulamıyor. İki takımın aralarındaki mücadelelerde denge bozulmazsa oyun kilitlenebilir. Maç boyunca iki taraf da orta alanda birbirini durdurmaya çalışacak ve temposuz bir futbol izleyeceğiz. Beraberlik bu denge ortamında ciddi bir ihtimal olarak öne çıkıyor. Kuponunda riski azaltmak isteyenler için bu senaryo mantıklı görünüyor.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "0-2",
+          "metin": "Atalanta, son lig maçında Juventus deplasmanından 0-2 mağlup ayrıldı ve dış saha maçlarında galibiyet üretmekte zorlanıyor. Konuk ekip son dönemde üst üste aldığı yenilgileri telafi etmek için bu maçta savunma güvenliğini önde tutacak. Milan ise son Sassuolo deplasmanından 1-1'lik beraberlikle döndü ve evinde daha üretken olsa da zaman zaman kilidi açmakta zorlanıyor. Ev sahibinin maç başı skor üretme ortalaması yüksek değil ve bu durum maçı ortada tutuyor. Atalanta'nın skora tutunma ve puan çıkarma ihtimali bu tabloda güçleniyor. Temkinli oynamak isteyenler bu tercihi kuponuna yazabilir.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1",
+          "metin": "Milan, son lig maçında Sassuolo deplasmanından 1-1 beraberlikle ayrıldı ve bu maçta ev sahibi olmanın avantajını arayacak. Sahasında oynadığı son maçta Lecce'yi 3-0 mağlup eden ev sahibi ekip, topla daha fazla oynayan ve oyunun kontrolünü elinde tutan bir yapıda sahaya çıkıyor. Atalanta ise son maçında Juventus deplasmanında 0-2 mağlup oldu ve son dönemde dış sahada üst üste yenilgiler yaşadı. Ev sahibinin maç başına ürettiği gollü pozisyon sayısı rakibine göre daha yüksek seviyede seyrediyor. Atalanta'nın deplasmandaki savunma zaafları göz önüne alındığında, ev sahibi bu maçta sonuca gitmeyi başaracaktır. Ana kupon tercihim direkt 1 olacak.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0",
+          "metin": "Milan, son lig maçında Sassuolo deplasmanında 1-1 beraberlik elde ederken evinde oynadığı son maçta Lecce'yi 3-0 yendi. Ev sahibi ekip sahasında topu tutan ve rakibine az pozisyon veren sağlam bir savunma kurgusuna sahip. Atalanta ise son deplasman maçında Juventus'a 0-2 kaybetti ve dış sahada son iki maçını boş geçti. Konuk ekibin hücum hattındaki düşük verimliliği ev sahibinin işini kolaylaştırıyor. Maç boyunca Milan oyunu domine etse de konuk ekibin direnci skoru tek farklı tutabilir. Bu yüzden beraberlik ihtimalini de yanımıza alarak sağlam bir adım atıyoruz. Ana kupon tercihim 1-0 olacak.",
+          "onerilen": true
+        },
+        {
+          "senaryo": "1-0-2",
+          "metin": "Milan son maçında Sassuolo ile 1-1 berabere kalırken, Atalanta ise Juventus deplasmanından 0-2'lik yenilgiyle döndü. Ev sahibi ekip sahasında maçları kontrol etmeye çalışsa da lig genelindeki dalgalı sonuçlar her sonuca kapı aralıyor. Atalanta dış sahada kaybetse bile oyun içinde sürpriz yapabilecek potansiyele sahip bir takım görünümünde. İki tarafın istatistiklerindeki dengesizlik maçın tek bir tarafa idol olmasını engelliyor. Bu yüzden mücadelenin gidişatını öngörmek gerçekten zor bir tablo sunuyor. Tüm ihtimalleri açık bırakarak bu zorlu dokunulmaz maçı kuponda tamamen kapatıyorum.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "2",
+          "metin": "Atalanta, son lig maçında Juventus deplasmanından 0-2'lik yenilgiyle döndü ve dış sahada işler yolunda gitmiyor. Konuk ekip son üç maçında üç yenilgi alarak form düşüklüğü yaşasa da bu deplasmanda sürpriz arayacak. Milan ise son maçında Sassuolo ile deplasmanda 1-1 berabere kaldı ve evinde daha etkili bir görüntü çiziyor. Atalanta'nın geçiş oyunlarındaki hızı ve dikine oynama isteği ev sahibinin savunmasını zorlayabilir. Maç boyunca konuk ekibin kontralardan bulacağı fırsatlar skoru değiştirebilir. Risk almayı seven ve sürpriz arayanlar için bu seçenek değerlendirilebilir.",
+          "onerilen": false
+        }
+      ]
+    },
+    {
+      "id": 90,
+      "week_id": 6,
+      "mac_no": 15,
+      "ev_takim": "Juventus",
+      "deplasman_takim": "Lazio",
+      "lig": "Serie A",
+      "mac_tarihi": "2026-10-18T21:45:00",
+      "home_team_id": 135,
+      "away_team_id": 128,
+      "fotmob_match_id": null,
+      "secilen_senaryo": null,
+      "final_metin": null,
+      "final_metin_guncellenme_at": null,
+      "final_metin_guncelleyen_email": null,
+      "video_linki": null,
+      "video_eklenme_at": null,
+      "esleme_durumu": "eslesti",
+      "lig_haftasi": "7. Hafta",
+      "model_p1": 0.6372266373275535,
+      "model_p0": 0.22528051753045344,
+      "model_p2": 0.1374928451419931,
+      "model_kademe": "tek",
+      "model_onerilen": "1",
+      "model_version": "harman-v1-2026-10",
+      "model_facts": {
+        "ev": "Juventus",
+        "as_of": "2026-10-18",
+        "banko": true,
+        "kolon": 1,
+        "kademe": "tek",
+        "onerilen": "1",
+        "uyarilar": [
+          "Kadro, sakatlık, hakem ve hava durumu hesaba katılmadı; tahmin maçtan günler önce üretilir."
+        ],
+        "deplasman": "Lazio",
+        "elo_farki": 195.6,
+        "guc_farki": "belirgin",
+        "ihtimaller": {
+          "p0": 0.22528051753045344,
+          "p1": 0.6372266373275535,
+          "p2": 0.1374928451419931
+        },
+        "senaryolar": [
+          {
+            "ihtimal": 0.6372266373275535,
+            "senaryo": "1",
+            "onerilen": true,
+            "guven_dili": "ağırlıklı ihtimal"
+          },
+          {
+            "ihtimal": 0.22528051753045344,
+            "senaryo": "0",
+            "onerilen": false,
+            "guven_dili": "sürpriz ihtimali"
+          },
+          {
+            "ihtimal": 0.1374928451419931,
+            "senaryo": "2",
+            "onerilen": false,
+            "guven_dili": "zor ihtimal"
+          },
+          {
+            "ihtimal": 0.8625071548580069,
+            "senaryo": "1-0",
+            "onerilen": false,
+            "guven_dili": "güvenli kapanış"
+          },
+          {
+            "ihtimal": 0.36277336267244653,
+            "senaryo": "0-2",
+            "onerilen": false,
+            "guven_dili": "temkinli kapsama"
+          },
+          {
+            "ihtimal": 1.0,
+            "senaryo": "1-0-2",
+            "onerilen": false,
+            "guven_dili": "tam kapsama"
+          }
+        ],
+        "ev_avantaji": "modelde sabit (yaklaşık yarım gollük ev avantajı)",
+        "favori_taraf": "ev",
+        "model_version": "harman-v1-2026-10",
+        "gol_beklentisi": {
+          "ev": 1.54,
+          "seviye": "düşük skorlu",
+          "toplam": 2.36,
+          "deplasman": 0.82
+        }
+      },
+      "entries": [
+        {
+          "senaryo": "0",
+          "metin": "Juventus son maçında Cagliari deplasmanından bir puanla dönmüştü. Lazio ise Milan ile oynadığı karşılaşmada sahadan beraberlikle ayrıldı. İki takımın maç başı gol ortalamaları ve oyun yapıları kilitli bir mücadeleye işaret ediyor. Konuk ekibin son deplasmanlarında Venezia'yı yenmesi formda olduğunu gösteriyor. Yine de ev sahibi takımın kontrolü elden bırakmayan yapısı skoru dengeleyebilir. Dirençli geçen bu karşılaşmanın beraberlikle sonuçlanma ihtimali yüksek görünüyor.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "0-2",
+          "metin": "Lazio son lig maçında Monza'yı 3-1 yenerek çıkışını sürdürdü. Juventus ise Cagliari deplasmanından 1-1'lik beraberlikle döndü. Konuk ekibin hücum hattı maç başına iki gole yaklaşan bir üretim gücüne sahip. Ev sahibi takımın son haftalardaki skor dalgalanmaları bu ihtimali güçlendiriyor. Maç boyunca disiplini elden bırakmayan konuk ekip sahadan en az bir puanla ayrılacaktır.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1",
+          "metin": "Juventus evinde Atalanta'yı iki golle geçerken Parma karşısında da hata yapmadı. Lazio ise son maçında Monza'yı 3-1 mağlup etti. Ev sahibi ekip maç başına ortalama bir buçuk gollük net üretim yaparken savunmada rakibine çok az alan bırakıyor. Konuk ekibin son haftalardaki çıkışına rağmen Torino'daki bu zorlu atmosferde sahadan galibiyetle ayrılmaları bekleniyor. Savunma disiplinini elden bırakmayan ev sahibi ekip sahasındaki bu kritik mücadeleyi kazanacaktır. Ana kupon tercihim direkt 1 olacak.",
+          "onerilen": true
+        },
+        {
+          "senaryo": "1-0",
+          "metin": "Juventus son maçında Cagliari deplasmanında 1-1 berabere kaldı. Lazio ise son lig sınavında Monza'yı 3-1 yenmeyi başardı. Ev sahibi takım maç başına kalesinde sadece yarım gol görerek ligin en sağlam savunmalarından birini sergiliyor. Konuk ekibin son dönemdeki form grafiği dikkat çekici olsa da Torino'dan puansız ayrılmama ihtimalleri düşük. Ev sahibinin savunma direnci rakibe galibiyet şansı tanımayacaktır.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "1-0-2",
+          "metin": "Juventus son olarak Cagliari ile 1-1 berabere kalırken Milan karşısında da sahadan aynı skorla ayrıldı. Lazio da son maçında Monza'yı 3-1 yenerek formunu gösterdi. İki takımın istatistikleri ve birbirine yakın oyun anlayışları maçın her sonuca açık olduğunu gösteriyor. Ev sahibinin sağlam savunması ile konuk ekibin akıcı hücum gücü sahada dengeli bir tablo yaratıyor. Üç ihtimalin de masada olduğu bu zor mücadelede tüm kapıları açık bırakmak en mantıklı yol.",
+          "onerilen": false
+        },
+        {
+          "senaryo": "2",
+          "metin": "Lazio son olarak Monza karşısında aldığı 3-1'lik galibiyetle formunu sürdürdü. Juventus ise son maçında Cagliari ile berabere kalarak sahadan tek puanla ayrıldı. Konuk ekibin maç başına iki golü bulan hücum hattı deplasmanda da etkili olabiliyor. Ev sahibi takımın savunma direncini kırabilecek bir tempoya sahipler. Sürpriz arayanlar için deplasman ekibinin bu zorlu deplasmandan galibiyetle dönmesi güçlü bir ihtimal.",
+          "onerilen": false
+        }
+      ]
+    }
+  ]
+}

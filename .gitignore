@@ -32,3 +32,5 @@ Thumbs.db
 .coverage
 htmlcov/
 
+.venv-test/
+
