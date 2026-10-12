@@ -174,6 +174,51 @@ def search_teams(query: str, limit: int = 15) -> List[Dict[str, Any]]:
     ]
 
 
+# ==================== 2b. Form özeti (LLM'in ev/deplasman ve "son maç" yorumunu yanlış yapmaması için kod hesaplar) ====================
+
+_SONUC = {"W": "galibiyet", "D": "beraberlik", "L": "yenilgi"}
+
+
+def _count_text(matches: List[Dict[str, Any]]) -> Optional[str]:
+    parts = [f"{sum(1 for m in matches if m.get('sonuc') == k)} {v}" for k, v in _SONUC.items() if any(m.get("sonuc") == k for m in matches)]
+    return ", ".join(parts) or None
+
+
+def summarize_form(maclar: Optional[List[Dict[str, Any]]]) -> Optional[Dict[str, Any]]:
+    """son_5_mac_formu.maclar (EN YENİ BAŞTA; skor = takımın kendi golü önce; saha H=ev, A=deplasman) -> hazır cümleler + sayılar.
+    Takım/rakip adları çekimsiz yazılır ("Alanyaspor 1-2 yenilgi"); LLM kendi ev/deplasman sayımı yapmak yerine bunları alıntılar."""
+    if not maclar:
+        return None
+    maclar = list(maclar)
+    home = [m for m in maclar if m.get("saha") == "H"]
+    away = [m for m in maclar if m.get("saha") == "A"]
+    out: Dict[str, Any] = {"son_5": _count_text(maclar), "evde": _count_text(home), "deplasman": _count_text(away)}
+    cumleler = []
+    if out["son_5"]:
+        cumleler.append(f"Son {len(maclar)} lig maçı: {out['son_5']}.")
+    if home and out["evde"]:
+        cumleler.append(f"Evinde oynadığı son {len(home)} maç: {out['evde']}." if len(home) > 1 else f"Evinde oynadığı son maç: {out['evde']}.")
+    if away and out["deplasman"]:
+        cumleler.append(f"Deplasmanda oynadığı son {len(away)} maç: {out['deplasman']}." if len(away) > 1 else f"Deplasmanda oynadığı son maç: {out['deplasman']}.")
+    last = maclar[0]
+    out["son_mac"] = {"rakip": last.get("rakip"), "saha": "ev" if last.get("saha") == "H" else "deplasman", "skor": last.get("skor"), "sonuc": _SONUC.get(last.get("sonuc"))}
+    if out["son_mac"]["sonuc"]:
+        cumleler.append(f"Son maçı: {last.get('rakip')} ({out['son_mac']['saha']}) {last.get('skor')} {out['son_mac']['sonuc']}.")
+    for key, group, label in (("evde_son_mac", home, "Evinde oynadığı en son maç"), ("deplasman_son_mac", away, "Deplasmanda oynadığı en son maç")):
+        if group:
+            m = group[0]
+            out[key] = {"rakip": m.get("rakip"), "skor": m.get("skor"), "sonuc": _SONUC.get(m.get("sonuc"))}
+            if len(group) > 1 and m is not last and out[key]["sonuc"]:
+                cumleler.append(f"{label}: {m.get('rakip')} {m.get('skor')} {out[key]['sonuc']}.")
+    streak = 1
+    while streak < len(maclar) and maclar[streak].get("sonuc") == maclar[0].get("sonuc"):
+        streak += 1
+    if streak >= 2 and _SONUC.get(maclar[0].get("sonuc")):
+        cumleler.append(f"Üst üste {streak} {_SONUC[maclar[0].get('sonuc')]}.")
+    out["cumleler"] = cumleler
+    return out
+
+
 # ==================== 3. İki katmanlı veri toplama ====================
 
 def _fetch_rich_team_data(team_id: int, team_name: str) -> Dict[str, Any]:
@@ -315,6 +360,9 @@ def build_match_data(home: Dict[str, Any], away: Dict[str, Any], sportoto_round_
         if not team_data:
             team_data = _fetch_fallback_team_data(team_id)
         if team_data:
+            ozet = summarize_form((team_data.get("son_5_mac_formu") or {}).get("maclar"))
+            if ozet:
+                team_data["form_ozeti"] = ozet
             data[side] = team_data
 
     _translate_names_in_place(data)
