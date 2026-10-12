@@ -60,9 +60,16 @@ def test_fetch_model_prediction_returns_none_on_any_failure(behavior):
 
 
 @pytest.mark.parametrize("date", [None, "", float("nan"), pd.NaT])
-def test_no_valid_date_skips_model_without_calling_matchforge(date):
-    assert stf.fetch_model_prediction(HOME, AWAY, date, league_id=8) is None
-    assert FakeClient.calls == []
+def test_missing_date_falls_back_to_today_instead_of_silently_skipping(date):
+    """Tarih eksikse (eski kayıt/eksik veri) model ATLANMAZ: bugünün tarihiyle çalışır (maçlar üretim anında gelecek maç)."""
+    r = stf.fetch_model_prediction(HOME, AWAY, date, league_id=8)
+    assert r is not None and len(FakeClient.calls) == 1
+    sent = FakeClient.calls[0][1]["matches"][0]["match_date"]
+    assert pd.Timestamp(sent).date() == pd.Timestamp.utcnow().date()
+
+
+def test_unparseable_date_falls_back_to_today():
+    assert stf.fetch_model_prediction(HOME, AWAY, "bu bir tarih degil", league_id=8) is not None
 
 
 def test_missing_team_id_skips_model():
@@ -124,3 +131,35 @@ def test_every_caller_passes_match_date_to_generate():
     calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and getattr(n.func, "id", None) == "_generate_for_match"]
     assert len(calls) >= 2
     assert all(len(c.args) + len(c.keywords) >= 5 for c in calls), "bir çağıran mac_tarihi geçirmiyor"
+
+
+# ---------------- maç tarihi kaydı (kök neden: tarih DB'ye hiç yazılmıyordu) ----------------
+SPORTOTO_MATCH = {"mac_no": 15, "ev_takim": "Juventus", "deplasman_takim": "Lazio", "lig_haftasi": "7. Hafta", "mac_tarihi": "2026-10-18T21:45:00"}
+
+
+def test_new_match_insert_stores_match_date(monkeypatch):
+    sql = []
+    monkeypatch.setattr(router, "query_to_df", lambda q, p=None: pd.DataFrame())            # maç yok -> INSERT
+    monkeypatch.setattr(router, "execute_insert", lambda q, p=None: (sql.append((" ".join(q.split()), p)) or {"id": 7}))
+    router._get_or_create_match(1, SPORTOTO_MATCH)
+    q, p = sql[0]
+    assert "INSERT INTO greydb.spor_toto_matches" in q and "mac_tarihi" in q
+    assert p["mac_tarihi"] == "2026-10-18T21:45:00"
+
+
+def test_existing_unapproved_match_update_fills_missing_match_date(monkeypatch):
+    """Eski kayıtlar: hafta yeniden getirilince (UPDATE) mac_tarihi doldurulur."""
+    sql = []
+    monkeypatch.setattr(router, "query_to_df", lambda q, p=None: pd.DataFrame([{"id": 7, "final_metin": None}]))
+    monkeypatch.setattr(router, "execute_insert", lambda q, p=None: sql.append((" ".join(q.split()), p)))
+    router._get_or_create_match(1, SPORTOTO_MATCH)
+    q, p = sql[0]
+    assert "UPDATE greydb.spor_toto_matches" in q and "mac_tarihi" in q and p["mac_tarihi"] == "2026-10-18T21:45:00"
+
+
+def test_approved_match_is_never_updated(monkeypatch):
+    sql = []
+    monkeypatch.setattr(router, "query_to_df", lambda q, p=None: pd.DataFrame([{"id": 7, "final_metin": "onayli metin"}]))
+    monkeypatch.setattr(router, "execute_insert", lambda q, p=None: sql.append(q))
+    mid, approved = router._get_or_create_match(1, SPORTOTO_MATCH)
+    assert approved is True and sql == []

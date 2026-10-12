@@ -328,12 +328,16 @@ def fetch_model_prediction(home: Dict[str, Any], away: Dict[str, Any], mac_tarih
     model olmadan eski akış (yalnızca LLM) çalışmaya devam eder, üretim ASLA bunun yüzünden düşmez."""
     if not home.get("team_id") or not away.get("team_id"):
         return None
-    if mac_tarihi is None or (isinstance(mac_tarihi, str) and not mac_tarihi.strip()) or pd.isna(mac_tarihi):
-        return None
+    # Tarih eksik/bozuksa modeli ATLAMAK yerine bugünün tarihiyle çalıştır (Spor Toto maçları üretim anında gelecek maçtır; bugün <= maç günü,
+    # yani sızıntı olmaz). Sessiz atlama, tarih kaydı hatasını aylarca gizlerdi.
     try:
-        date = pd.Timestamp(mac_tarihi).isoformat()
+        missing = mac_tarihi is None or (isinstance(mac_tarihi, str) and not mac_tarihi.strip()) or pd.isna(mac_tarihi)
+        date = pd.Timestamp(mac_tarihi).isoformat() if not missing else None
     except (ValueError, TypeError):
-        return None
+        date = None
+    if date is None:
+        date = pd.Timestamp.utcnow().tz_localize(None).normalize().isoformat()
+        print(f"[spor_toto] maç tarihi eksik/geçersiz ({mac_tarihi!r}); model bugünün tarihiyle çalıştırıldı: {date}")
     payload = {"matches": [{
         "home_team_id": int(home["team_id"]), "away_team_id": int(away["team_id"]), "league_id": league_id,
         "match_date": date, "home_name": translate_team_name(home.get("name")), "away_name": translate_team_name(away.get("name")),

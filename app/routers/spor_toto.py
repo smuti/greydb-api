@@ -67,25 +67,26 @@ def _get_or_create_match(week_id: int, m: dict) -> tuple[int, bool]:
             execute_insert(
                 """
                 UPDATE greydb.spor_toto_matches
-                SET ev_takim = :ev_takim, deplasman_takim = :deplasman_takim, lig_haftasi = :lig_haftasi
+                SET ev_takim = :ev_takim, deplasman_takim = :deplasman_takim, lig_haftasi = :lig_haftasi,
+                    mac_tarihi = COALESCE(:mac_tarihi, mac_tarihi)
                 WHERE id = :id
                 """,
                 {
                     "ev_takim": m["ev_takim"], "deplasman_takim": m["deplasman_takim"],
-                    "lig_haftasi": m["lig_haftasi"], "id": match_id,
+                    "lig_haftasi": m["lig_haftasi"], "mac_tarihi": m.get("mac_tarihi"), "id": match_id,
                 },
             )
         return match_id, approved
 
     row = execute_insert(
         """
-        INSERT INTO greydb.spor_toto_matches (week_id, mac_no, ev_takim, deplasman_takim, lig_haftasi)
-        VALUES (:week_id, :mac_no, :ev_takim, :deplasman_takim, :lig_haftasi)
+        INSERT INTO greydb.spor_toto_matches (week_id, mac_no, ev_takim, deplasman_takim, lig_haftasi, mac_tarihi)
+        VALUES (:week_id, :mac_no, :ev_takim, :deplasman_takim, :lig_haftasi, :mac_tarihi)
         RETURNING id
         """,
         {
             "week_id": week_id, "mac_no": m["mac_no"], "ev_takim": m["ev_takim"],
-            "deplasman_takim": m["deplasman_takim"], "lig_haftasi": m["lig_haftasi"],
+            "deplasman_takim": m["deplasman_takim"], "lig_haftasi": m["lig_haftasi"], "mac_tarihi": m.get("mac_tarihi"),
         },
     )
     return int(row["id"]), False
