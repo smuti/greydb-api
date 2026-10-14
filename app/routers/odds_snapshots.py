@@ -96,6 +96,18 @@ async def list_odds_snapshots(
     return [_row_to_response(row) for _, row in df.iterrows()]
 
 
+@router.delete("/odds-snapshots/{snapshot_id}")
+async def delete_odds_snapshot(snapshot_id: int):
+    """Oran snapshot kaydını sil"""
+    sql = "DELETE FROM greydb.odds_snapshots WHERE id = :id RETURNING id"
+    df = query_to_df(sql, {"id": snapshot_id}, commit=True)
+
+    if df.empty:
+        raise HTTPException(status_code=404, detail="Snapshot bulunamadı")
+
+    return {"message": "Snapshot silindi", "id": snapshot_id}
+
+
 def _row_to_response(row) -> dict:
     """DataFrame satırını response'a çevir"""
     import pandas as pd
