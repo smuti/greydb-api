@@ -40,6 +40,15 @@ class OddsSnapshotResponse(BaseModel):
     created_at: datetime
 
 
+class OddsSnapshotMatchSummary(BaseModel):
+    """Kaydı olan bir maçın özeti (dropdown/seçim listesi için)"""
+    iddaa_match_id: int
+    home_team: str
+    away_team: str
+    snapshot_count: int
+    last_saved_at: datetime
+
+
 @router.post("/odds-snapshots", response_model=OddsSnapshotResponse)
 async def create_odds_snapshot(snapshot: OddsSnapshotCreate):
     """Yeni oran snapshot'ı kaydet (append-only, her çağrı yeni bir satır ekler)"""
@@ -94,6 +103,32 @@ async def list_odds_snapshots(
     df = query_to_df(sql, params)
 
     return [_row_to_response(row) for _, row in df.iterrows()]
+
+
+@router.get("/odds-snapshots/matches", response_model=List[OddsSnapshotMatchSummary])
+async def list_odds_snapshot_matches(limit: int = 50):
+    """Kaydı olan maçları, en son kaydedilenden başlayarak listele (admin'in hızlıca
+    daha önce baktığı bir maça dönebilmesi için — her maç tek satır)."""
+    sql = """
+        SELECT iddaa_match_id, home_team, away_team,
+               COUNT(*) AS snapshot_count, MAX(created_at) AS last_saved_at
+        FROM greydb.odds_snapshots
+        GROUP BY iddaa_match_id, home_team, away_team
+        ORDER BY MAX(created_at) DESC
+        LIMIT :limit
+    """
+    df = query_to_df(sql, {"limit": limit})
+
+    return [
+        {
+            "iddaa_match_id": int(row["iddaa_match_id"]),
+            "home_team": row["home_team"],
+            "away_team": row["away_team"],
+            "snapshot_count": int(row["snapshot_count"]),
+            "last_saved_at": row["last_saved_at"],
+        }
+        for _, row in df.iterrows()
+    ]
 
 
 @router.delete("/odds-snapshots/{snapshot_id}")
