@@ -111,3 +111,34 @@ def test_baslangic_verisi_gercek_fotmob_adlari_ve_kulup_hazirlik_maclari():
     assert bul("INT", "Friendlies", 917358) == ["Milli maçlar"]
     assert bul("INT", "Club Friendlies") == []
     assert bul("INT", "Champions League", 943230) == ["Şampiyonlar Ligi"]
+
+
+# ---- Lig logosu: kalıcı FotMob lig kimliği; site logoyu kendi sunucusundan sunar ----
+def test_uc_logo_id_doner(monkeypatch):
+    monkeypatch.setattr(tl, "execute_query", lambda sql, params=None: [satir(logo_id=71), satir(anahtar="x", ad="X", oncelik=2, logo_id=None)])
+    ligler = client.get("/api/tracked-leagues").json()["leagues"]
+    assert ligler[0]["logo_id"] == 71 and ligler[1]["logo_id"] is None
+
+
+def test_uc_logo_id_sutununu_sorgular(monkeypatch):
+    sorgular = []
+    monkeypatch.setattr(tl, "execute_query", lambda sql, params=None: sorgular.append(sql) or [])
+    client.get("/api/tracked-leagues")
+    assert "logo_id" in sorgular[0]
+
+
+def test_baslangic_verisinde_her_ligin_logo_kimligi_var():
+    assert all(isinstance(s.get("logo_id"), int) and s["logo_id"] > 0 for s in SEED), [s["anahtar"] for s in SEED if not s.get("logo_id")]
+    beklenen = {"super-lig": 71, "sampiyonlar-ligi": 42, "avrupa-ligi": 73, "konferans-ligi": 10216, "premier-lig": 47,
+                "turkiye-kupasi": 151, "super-kupa": 166, "tff-1-lig": 165, "milli-maclar": 114}
+    mevcut = {s["anahtar"]: s["logo_id"] for s in SEED}
+    assert all(mevcut[k] == v for k, v in beklenen.items())
+
+
+def test_migration_logo_sutununu_ekler_ve_eski_satirlari_doldurur():
+    """Tablo logo_id'siz kurulmuş olabilir: betik sütunu ekler ve boş olanları başlangıç verisinden doldurur (elle girilene dokunmaz)."""
+    import importlib.util, pathlib
+    yol = pathlib.Path(__file__).resolve().parent.parent / "scripts" / "create_tracked_leagues_table.py"
+    kaynak = yol.read_text()
+    assert "ADD COLUMN IF NOT EXISTS logo_id" in kaynak
+    assert "logo_id IS NULL" in kaynak

@@ -6,7 +6,7 @@ from app.services.db import execute_query
 router = APIRouter(tags=["leagues"])
 
 _SQL = """
-SELECT anahtar, ad, oncelik, aktif, fotmob_ids, ulke, ad_kalibi
+SELECT anahtar, ad, oncelik, aktif, fotmob_ids, ulke, ad_kalibi, logo_id
 FROM greydb.tracked_leagues
 WHERE aktif
 ORDER BY oncelik, anahtar
@@ -24,7 +24,7 @@ async def tracked_leagues():
         {
             "anahtar": s["anahtar"], "ad": s["ad"], "oncelik": s["oncelik"],
             "fotmob_ids": list(s["fotmob_ids"] or []),
-            "ulke": s["ulke"], "ad_kalibi": s["ad_kalibi"],
+            "ulke": s["ulke"], "ad_kalibi": s["ad_kalibi"], "logo_id": s.get("logo_id"),
         }
         for s in satirlar
     ]}
