@@ -14,11 +14,13 @@ ANA = {"id": 77, "fotmob_match_id": 5904771, "match_date": datetime(2026, 10, 17
        "ev_ic_id": 10, "ev_id": 7800, "ev_ad": "Gençlerbirliği", "dep_ic_id": 20, "dep_id": 8637, "dep_ad": "Galatasaray"}
 
 
-def kur(monkeypatch, ana=ANA, **tablolar):
+def kur(monkeypatch, ana=ANA, planli=None, **tablolar):
     sorgular = []
 
     def execute_query(sql, params=None):
         sorgular.append((sql, params))
+        if "public.upcoming_matches" in sql:
+            return [planli] if planli else []
         for ad in ("match_advanced_stats", "match_stats", "match_events", "match_lineups", "match_formations", "player_availability", "match_player_stats"):
             if f"public.{ad}" in sql:
                 return tablolar.get(ad, [])
@@ -129,3 +131,39 @@ def test_kendi_kalesine_gol_rakibin_skoruna_yazilir():
     assert kendi["takim"] == "home" and kendi["skor_takimi"] == "away"
     assert normal["takim"] == "away" and normal["skor_takimi"] == "away"
     assert kart["skor_takimi"] is None               # gol olmayan olayda yok
+
+
+# ---- Henüz oynanmamış maç: matches'ta yoksa upcoming_matches'tan (FotMob'a gitmeden maç önü sayfası) ----
+PLANLI = {"fotmob_match_id": 5904780, "match_date": datetime(2026, 10, 25, 17, 0), "round": 9, "lig_id": 71, "lig_ad": "Super Lig",
+          "ev_ad": "Galatasaray", "ev_id": 8637, "dep_ad": "Fenerbahçe", "dep_id": 8695}
+
+
+def test_uc_matches_te_yoksa_planli_maci_doner(monkeypatch):
+    kur(monkeypatch, ana=None, planli=PLANLI)
+    r = client.get("/api/match-detail/5904780")
+    j = r.json()
+    assert r.status_code == 200 and j["kaynak"] == "planli"
+    assert j["mac"]["home"] == {"fotmob_team_id": 8637, "ad": "Galatasaray", "skor": None}
+    assert j["mac"]["away"] == {"fotmob_team_id": 8695, "ad": "Fenerbahçe", "skor": None}
+    assert j["mac"]["tarih"] == "2026-10-25T17:00:00" and j["mac"]["tur"] == "9" and j["mac"]["bitti"] is False and j["mac"]["iptal"] is False
+    assert j["mac"]["lig"] == {"fotmob_league_id": 71, "ad": "Super Lig"}
+    assert j["istatistik"] is None and j["olaylar"] == [] and j["veri"] == {"istatistik": False, "olaylar": False, "kadro": False}
+
+
+def test_uc_ne_matches_ne_planli_varsa_404(monkeypatch):
+    kur(monkeypatch, ana=None, planli=None)
+    assert client.get("/api/match-detail/1").status_code == 404
+
+
+def test_uc_matches_te_varsa_kaynak_mac_ve_planliya_bakilmaz(monkeypatch):
+    sorgular = kur(monkeypatch, planli=PLANLI)
+    j = client.get("/api/match-detail/5904771").json()
+    assert j["kaynak"] == "mac"
+    assert not any("upcoming_matches" in s for s, _ in sorgular)
+
+
+def test_uc_planli_sorgusu_parametreli(monkeypatch):
+    sorgular = kur(monkeypatch, ana=None, planli=PLANLI)
+    client.get("/api/match-detail/5904780")
+    s, p = [x for x in sorgular if "upcoming_matches" in x[0]][0]
+    assert p == {"fid": 5904780} and "5904780" not in s

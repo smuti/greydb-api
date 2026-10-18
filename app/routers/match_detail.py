@@ -18,6 +18,16 @@ JOIN public.teams ev ON ev.id = m.home_team_id
 JOIN public.teams dep ON dep.id = m.away_team_id
 WHERE m.fotmob_match_id = :fid
 """
+# Henüz işlenmemiş (oynanmamış) maç: upcoming_matches'tan; FotMob'a gitmeden maç önü sayfası kurulur.
+_PLANLI = """
+SELECT u.fotmob_match_id, u.match_date, u.round, l.fotmob_league_id AS lig_id, l.name AS lig_ad,
+       u.home_team_name AS ev_ad, u.away_team_name AS dep_ad, ev.fotmob_team_id AS ev_id, dep.fotmob_team_id AS dep_id
+FROM public.upcoming_matches u
+LEFT JOIN public.leagues l ON l.id = u.league_id
+LEFT JOIN public.teams ev ON ev.id = u.home_team_id
+LEFT JOIN public.teams dep ON dep.id = u.away_team_id
+WHERE u.fotmob_match_id = :fid
+"""
 _Q = {
     "istatistik": "SELECT * FROM public.match_stats WHERE match_id = :id",
     "ileri": "SELECT * FROM public.match_advanced_stats WHERE match_id = :id",
@@ -37,7 +47,23 @@ def _iso(d):
 async def match_detail(fotmob_match_id: int):
     ana = execute_query(_ANA, {"fid": fotmob_match_id})
     if not ana:
-        raise HTTPException(status_code=404, detail="Maç veritabanında yok")
+        planli = execute_query(_PLANLI, {"fid": fotmob_match_id})
+        if not planli:
+            raise HTTPException(status_code=404, detail="Maç veritabanında yok")
+        u = planli[0]
+        return {
+            "kaynak": "planli",
+            "mac": {
+                "fotmob_match_id": u["fotmob_match_id"],
+                "lig": {"fotmob_league_id": u["lig_id"], "ad": u["lig_ad"]},
+                "tur": str(u["round"]) if u["round"] is not None else None,
+                "tarih": _iso(u["match_date"]), "bitti": False, "iptal": False,
+                "home": {"fotmob_team_id": u["ev_id"], "ad": u["ev_ad"], "skor": None},
+                "away": {"fotmob_team_id": u["dep_id"], "ad": u["dep_ad"], "skor": None},
+            },
+            "istatistik": None, "olaylar": [], "kadro": kadro_listesi([], None, None, None), "sakat_cezali": [], "oyuncu_istatistik": [],
+            "veri": {"istatistik": False, "olaylar": False, "kadro": False},
+        }
     m = ana[0]
     p = {"id": m["id"]}
     ev, dep = m["ev_ic_id"], m["dep_ic_id"]
@@ -56,6 +82,7 @@ async def match_detail(fotmob_match_id: int):
 
     taraf = lambda t: "home" if t == ev else "away" if t == dep else None   # noqa: E731
     return {
+        "kaynak": "mac",
         "mac": {
             "fotmob_match_id": m["fotmob_match_id"],
             "lig": {"fotmob_league_id": m["lig_id"], "ad": m["lig_ad"]},
