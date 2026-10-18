@@ -60,11 +60,12 @@ def eslestir(iddaa_olaylari: List[Dict[str, Any]], maclar: List[Dict[str, Any]],
     Dönen: eslesen {fotmob_match_id: iddaa_i}, belirsiz [mac], eslesmeyen [mac].
     Bir iddaa olayı birden çok maça aday ise ya da bir maçın birden çok adayı varsa hiçbiri yazılmaz.
     """
-    # Aynı maç program ve canlı listede iki ayrı 'i' ile gelir ama 'bri' aynıdır: tek olay say, canlı listedeki (büyük) kimliği al
+    # Aynı maç program ve canlı listede iki ayrı 'i' ile gelir ama 'bri' aynıdır: tek olay say; program listesindeki kimliği (iddaa.com/program/futbol?hd=<id>) tercih et, yalnız canlıda varsa onu al
     tekil: Dict[Any, Dict[str, Any]] = {}
     for e in iddaa_olaylari:
         k = e.get("bri") or ("i", e["i"])
-        if k not in tekil or e["i"] > tekil[k]["i"]:
+        oncelik = lambda x: (x.get("_liste", 0), x["i"])   # noqa: E731  (0 = program listesi, 1 = canlı)
+        if k not in tekil or oncelik(e) < oncelik(tekil[k]):
             tekil[k] = e
     iddaa_olaylari = list(tekil.values())
     adaylar: Dict[Any, List[Any]] = {}
