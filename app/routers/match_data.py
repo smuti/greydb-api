@@ -10,8 +10,9 @@ from typing import Optional, List
 from datetime import datetime, timedelta
 import httpx
 import asyncio
+import time
 
-from app.services.db import execute_query, execute_insert
+from app.services.db import execute_query, execute_insert, transaction
 from app.services.match_saver import save_full_match_data
 
 router = APIRouter(
@@ -72,6 +73,34 @@ async def fetch_match_details(match_id: int) -> dict:
             )
         
         return response.json()
+
+
+# process-finished ve refill-missing-data aynı anda çalışmasın (aynı maçı iki kez işlemesin).
+_isleme_kilidi = asyncio.Lock()
+
+
+def _kilit_kontrol():
+    if _isleme_kilidi.locked():
+        raise HTTPException(status_code=409, detail="Başka bir maç işleme çalışıyor, bitince tekrar deneyin")
+
+
+def _maci_kaydet_ve_isaretle(data: dict, upcoming_id: int) -> None:
+    """Bir maçın tüm tablolarını ve upcoming_matches işaretini TEK işlemde yazar (yarım kayıt kalmaz).
+    Bloklayıcıdır: iş parçacığında çağrılır."""
+    with transaction():
+        save_full_match_data(data)
+        execute_insert(
+            "UPDATE public.upcoming_matches SET is_processed = true, updated_at = NOW() WHERE id = :id",
+            {"id": upcoming_id},
+        )
+
+
+def _refill_kaydet(match_data) -> None:
+    import json
+    if isinstance(match_data, str):
+        match_data = json.loads(match_data)
+    with transaction():
+        save_full_match_data(match_data)
 
 
 def parse_match_info(data: dict) -> dict:
@@ -248,6 +277,12 @@ async def process_finished_matches(
         limit_per_league: Her lig için maksimum kontrol edilecek maç sayısı
         dry_run: True ise sadece kontrol et, kaydetme
     """
+    _kilit_kontrol()
+    async with _isleme_kilidi:
+        return await _bitmis_maclari_isle(fotmob_league_id, limit_per_league, dry_run)
+
+
+async def _bitmis_maclari_isle(fotmob_league_id: Optional[int], limit_per_league: int, dry_run: bool) -> ProcessResult:
     result = ProcessResult(
         total_checked=0,
         finished_count=0,
@@ -268,7 +303,7 @@ async def process_finished_matches(
     if fotmob_league_id:
         leagues_query += f" AND l.fotmob_league_id = {fotmob_league_id}"
     
-    leagues = execute_query(leagues_query)
+    leagues = await asyncio.to_thread(execute_query, leagues_query)
     
     if not leagues:
         return result
@@ -287,19 +322,18 @@ async def process_finished_matches(
                 um.match_date,
                 um.home_team_name,
                 um.away_team_name,
-                um.round,
-                '{league_name}' as league_name,
-                {league["fotmob_league_id"]} as fotmob_league_id,
-                {league_id} as league_id
+                um.round
             FROM public.upcoming_matches um
-            WHERE um.league_id = {league_id}
+            WHERE um.league_id = :league_id
             AND um.is_processed = false
             AND um.match_date < NOW()
             ORDER BY um.match_date ASC
-            LIMIT {limit_per_league}
+            LIMIT :limit
         """
         
-        league_matches = execute_query(matches_query)
+        league_matches = await asyncio.to_thread(
+            execute_query, matches_query, {"league_id": league_id, "limit": limit_per_league}
+        )
         
         # Bu lig için maçları kontrol et
         for match in league_matches:
@@ -307,7 +341,9 @@ async def process_finished_matches(
             fotmob_match_id = match["fotmob_match_id"]
             
             try:
+                t1 = time.monotonic()
                 data = await fetch_match_details(fotmob_match_id)
+                t_fotmob = time.monotonic() - t1
                 info = parse_match_info(data)
                 
                 # Maç bitti mi?
@@ -339,15 +375,11 @@ async def process_finished_matches(
                             # - match_events (gol, kart, değişiklik)
                             # - player_availability (sakatlık, ceza)
                             # - h2h_stats
-                            match_id = save_full_match_data(data)
-                            
-                            # upcoming_matches'ta is_processed=true yap
-                            mark_processed_query = """
-                                UPDATE public.upcoming_matches 
-                                SET is_processed = true, updated_at = NOW()
-                                WHERE id = :id
-                            """
-                            execute_insert(mark_processed_query, {"id": match["id"]})
+                            # Hepsi TEK işlemde (+ upcoming_matches.is_processed=true) ve iş parçacığında:
+                            # olay döngüsü kilitlenmez, hata olursa yarım kayıt kalmaz.
+                            t0 = time.monotonic()
+                            await asyncio.to_thread(_maci_kaydet_ve_isaretle, data, match["id"])
+                            print(f"[process-finished] {fotmob_match_id} kaydedildi: fotmob {t_fotmob:.1f}s, kayıt {time.monotonic() - t0:.1f}s")
                             
                             result.processed_count += 1
                             
@@ -377,42 +409,36 @@ async def refill_missing_data(limit: int = 20):
     raw_match_details'i olan ama diğer tabloları boş olan maçları doldur.
     Örn: Önceki turda sadece matches tablosuna kaydedilmiş maçlar.
     """
-    # raw_match_details'i olan ama match_stats'ı olmayan maçları bul
-    query = """
-        SELECT m.id, m.fotmob_match_id, m.raw_match_details
-        FROM public.matches m
-        LEFT JOIN public.match_stats ms ON m.id = ms.match_id
-        WHERE m.raw_match_details IS NOT NULL
-        AND ms.match_id IS NULL
-        AND m.finished = true
-        LIMIT :limit
-    """
-    matches = execute_query(query.replace(":limit", str(limit)))
-    
-    filled_count = 0
-    errors = []
-    
-    for match in matches:
-        try:
-            import json
-            match_data = match["raw_match_details"]
-            
-            # Eğer string ise parse et
-            if isinstance(match_data, str):
-                match_data = json.loads(match_data)
-            
-            # Tüm ilgili tabloları doldur
-            save_full_match_data(match_data)
-            filled_count += 1
-            
-        except Exception as e:
-            errors.append(f"Match {match['fotmob_match_id']}: {str(e)}")
-    
-    return {
-        "total_found": len(matches),
-        "filled": filled_count,
-        "errors": errors
-    }
+    _kilit_kontrol()
+    async with _isleme_kilidi:
+        # raw_match_details'i olan ama match_stats'ı olmayan maçları bul
+        query = """
+            SELECT m.id, m.fotmob_match_id, m.raw_match_details
+            FROM public.matches m
+            LEFT JOIN public.match_stats ms ON m.id = ms.match_id
+            WHERE m.raw_match_details IS NOT NULL
+            AND ms.match_id IS NULL
+            AND m.finished = true
+            LIMIT :limit
+        """
+        matches = await asyncio.to_thread(execute_query, query, {"limit": int(limit)})
+
+        filled_count = 0
+        errors = []
+
+        for match in matches:
+            try:
+                # Her maç ayrı işlemde ve iş parçacığında: olay döngüsü kilitlenmez, hata olursa o maç yarım kalmaz
+                await asyncio.to_thread(_refill_kaydet, match["raw_match_details"])
+                filled_count += 1
+            except Exception as e:
+                errors.append(f"Match {match['fotmob_match_id']}: {str(e)}")
+
+        return {
+            "total_found": len(matches),
+            "filled": filled_count,
+            "errors": errors
+        }
 
 
 @router.get("/stats")
