@@ -20,5 +20,5 @@ SEED = [
     {"anahtar": "uluslar-ligi", "ad": "UEFA Uluslar Ligi", "oncelik": 13, "ulke": "INT", "ad_kalibi": r"nations league"},
     # Milli maç adları FotMob'da henüz doğrulanmadı; gerçek adlar görülünce daraltılır.
     {"anahtar": "milli-maclar", "ad": "Milli maçlar", "oncelik": 14, "ulke": "INT",
-     "ad_kalibi": r"world cup qualification|euro qualification|^euro$|^(fifa )?world cup$|friendlies"},
+     "ad_kalibi": r"world cup qualification|euro qualification|^euro$|^(fifa )?world cup$|^friendlies$"},
 ]

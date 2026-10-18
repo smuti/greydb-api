@@ -101,3 +101,13 @@ def test_baslangic_verisi_beklenen_maclari_eslestirir():
     assert bul("TUR", "1. Lig") == ["TFF 1. Lig"]
     assert bul("SUI", "Cup", 164) == []
     assert bul("INT", "CAF Champions League Qualification") == []
+
+
+def test_baslangic_verisi_gercek_fotmob_adlari_ve_kulup_hazirlik_maclari():
+    def bul(ulke, ad, lig_id=0):
+        return [s["ad"] for s in SEED if lig_id in (s.get("fotmob_ids") or []) or (
+            s.get("ulke") == ulke and s.get("ad_kalibi") and re.search(s["ad_kalibi"], ad, re.IGNORECASE))]
+
+    assert bul("INT", "Friendlies", 917358) == ["Milli maçlar"]
+    assert bul("INT", "Club Friendlies") == []
+    assert bul("INT", "Champions League", 943230) == ["Şampiyonlar Ligi"]
