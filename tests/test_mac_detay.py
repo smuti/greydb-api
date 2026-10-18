@@ -10,7 +10,7 @@ from app.services.mac_detay import cift_istatistik, olay_listesi, kadro_listesi
 client = TestClient(app)
 
 ANA = {"id": 77, "fotmob_match_id": 5904771, "match_date": datetime(2026, 10, 17, 13, 0), "round": 8, "finished": True, "cancelled": False,
-       "home_score": 0, "away_score": 1, "lig_id": 71, "lig_ad": "Super Lig",
+       "home_score": 0, "away_score": 1, "lig_id": 71, "lig_ad": "Super Lig", "lig_ulke": "TUR",
        "ev_ic_id": 10, "ev_id": 7800, "ev_ad": "Gençlerbirliği", "dep_ic_id": 20, "dep_id": 8637, "dep_ad": "Galatasaray"}
 
 
@@ -84,7 +84,7 @@ def test_uc_maci_ve_tum_bolumleri_doner(monkeypatch):
     assert r.status_code == 200
     assert j["mac"]["home"] == {"fotmob_team_id": 7800, "ad": "Gençlerbirliği", "skor": 0}
     assert j["mac"]["away"] == {"fotmob_team_id": 8637, "ad": "Galatasaray", "skor": 1}
-    assert j["mac"]["lig"] == {"fotmob_league_id": 71, "ad": "Super Lig"} and j["mac"]["tur"] == "8"
+    assert j["mac"]["lig"] == {"fotmob_league_id": 71, "ad": "Super Lig", "ulke": "TUR"} and j["mac"]["tur"] == "8"
     assert j["mac"]["tarih"] == "2026-10-17T13:00:00Z" and j["mac"]["bitti"] is True
     assert j["istatistik"]["xg"] == {"home": 0.5, "away": 1.8}
     assert j["olaylar"][0]["takim"] == "away" and j["kadro"]["home"]["dizilis"] == "4-4-2"
@@ -134,7 +134,7 @@ def test_kendi_kalesine_gol_rakibin_skoruna_yazilir():
 
 
 # ---- Henüz oynanmamış maç: matches'ta yoksa upcoming_matches'tan (FotMob'a gitmeden maç önü sayfası) ----
-PLANLI = {"fotmob_match_id": 5904780, "match_date": datetime(2026, 10, 25, 17, 0), "round": 9, "lig_id": 71, "lig_ad": "Super Lig",
+PLANLI = {"fotmob_match_id": 5904780, "match_date": datetime(2026, 10, 25, 17, 0), "round": 9, "lig_id": 71, "lig_ad": "Super Lig", "lig_ulke": "TUR",
           "ev_ad": "Galatasaray", "ev_id": 8637, "dep_ad": "Fenerbahçe", "dep_id": 8695}
 
 
@@ -146,7 +146,7 @@ def test_uc_matches_te_yoksa_planli_maci_doner(monkeypatch):
     assert j["mac"]["home"] == {"fotmob_team_id": 8637, "ad": "Galatasaray", "skor": None}
     assert j["mac"]["away"] == {"fotmob_team_id": 8695, "ad": "Fenerbahçe", "skor": None}
     assert j["mac"]["tarih"] == "2026-10-25T17:00:00Z" and j["mac"]["tur"] == "9" and j["mac"]["bitti"] is False and j["mac"]["iptal"] is False
-    assert j["mac"]["lig"] == {"fotmob_league_id": 71, "ad": "Super Lig"}
+    assert j["mac"]["lig"] == {"fotmob_league_id": 71, "ad": "Super Lig", "ulke": "TUR"}
     assert j["istatistik"] is None and j["olaylar"] == [] and j["veri"] == {"istatistik": False, "olaylar": False, "kadro": False}
 
 

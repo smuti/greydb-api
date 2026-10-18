@@ -9,7 +9,7 @@ router = APIRouter(tags=["match-detail"])
 
 _ANA = """
 SELECT m.id, m.fotmob_match_id, m.match_date, m.round, m.finished, m.cancelled, m.home_score, m.away_score,
-       l.fotmob_league_id AS lig_id, l.name AS lig_ad,
+       l.fotmob_league_id AS lig_id, l.name AS lig_ad, l.country_code AS lig_ulke,
        ev.id AS ev_ic_id, ev.fotmob_team_id AS ev_id, ev.name AS ev_ad,
        dep.id AS dep_ic_id, dep.fotmob_team_id AS dep_id, dep.name AS dep_ad
 FROM public.matches m
@@ -20,7 +20,7 @@ WHERE m.fotmob_match_id = :fid
 """
 # Henüz işlenmemiş (oynanmamış) maç: upcoming_matches'tan; FotMob'a gitmeden maç önü sayfası kurulur.
 _PLANLI = """
-SELECT u.fotmob_match_id, u.match_date, u.round, l.fotmob_league_id AS lig_id, l.name AS lig_ad,
+SELECT u.fotmob_match_id, u.match_date, u.round, l.fotmob_league_id AS lig_id, l.name AS lig_ad, l.country_code AS lig_ulke,
        u.home_team_name AS ev_ad, u.away_team_name AS dep_ad, ev.fotmob_team_id AS ev_id, dep.fotmob_team_id AS dep_id
 FROM public.upcoming_matches u
 LEFT JOIN public.leagues l ON l.id = u.league_id
@@ -60,7 +60,7 @@ async def match_detail(fotmob_match_id: int):
             "kaynak": "planli",
             "mac": {
                 "fotmob_match_id": u["fotmob_match_id"],
-                "lig": {"fotmob_league_id": u["lig_id"], "ad": u["lig_ad"]},
+                "lig": {"fotmob_league_id": u["lig_id"], "ad": u["lig_ad"], "ulke": u["lig_ulke"]},
                 "tur": str(u["round"]) if u["round"] is not None else None,
                 "tarih": _utc(u["match_date"]), "bitti": False, "iptal": False,
                 "home": {"fotmob_team_id": u["ev_id"], "ad": u["ev_ad"], "skor": None},
@@ -90,7 +90,7 @@ async def match_detail(fotmob_match_id: int):
         "kaynak": "mac",
         "mac": {
             "fotmob_match_id": m["fotmob_match_id"],
-            "lig": {"fotmob_league_id": m["lig_id"], "ad": m["lig_ad"]},
+            "lig": {"fotmob_league_id": m["lig_id"], "ad": m["lig_ad"], "ulke": m["lig_ulke"]},
             "tur": str(m["round"]) if m["round"] is not None else None,
             "tarih": _utc(m["match_date"]),
             "bitti": bool(m["finished"]), "iptal": bool(m["cancelled"]),
