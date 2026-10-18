@@ -2,8 +2,13 @@
 import pytest
 
 from app.services.kupon_hesap import (
-    bacak_sonucu, en_yuksek_odeme, kombinasyon_sayisi, kupon_sonucu, toplam_oran,
+    DESTEKLENMIYOR, VERI_YOK, bacak_sonucu, en_yuksek_odeme, kombinasyon_sayisi, kupon_sonucu, toplam_oran,
 )
+
+
+def M(h, a, **kw):
+    """Maç verisi: skor + isteğe bağlı devre skoru (ht), istatistik, olaylar, oyuncular."""
+    return {"home": h, "away": a, "home_name": "Galatasaray", "away_name": "Fenerbahçe", **kw}
 
 
 def b(oran, sonuc="pending"):
@@ -15,31 +20,31 @@ def b(oran, sonuc="pending"):
     ("1", 2, 1, "won"), ("1", 1, 1, "lost"), ("0", 1, 1, "won"), ("0", 2, 1, "lost"), ("2", 0, 1, "won"), ("2", 1, 0, "lost"),
 ])
 def test_mac_sonucu_iddaa_secimleriyle(pick, h, a, beklenen):
-    assert bacak_sonucu("Maç Sonucu", pick, h, a) == beklenen
+    assert bacak_sonucu("Maç Sonucu", pick, M(h, a)) == beklenen
 
 
 def test_mac_sonucu_x_ve_metin_secimleri_de_calisir():
-    assert bacak_sonucu("Maç Sonucu", "X", 1, 1) == "won"
-    assert bacak_sonucu("Maç Sonucu", "Beraberlik", 0, 2) == "lost"
+    assert bacak_sonucu("Maç Sonucu", "X", M(1, 1)) == "won"
+    assert bacak_sonucu("Maç Sonucu", "Beraberlik", M(0, 2)) == "lost"
 
 
 @pytest.mark.parametrize("market", ["Altı/Üstü 2,5", "Alt/Üst 2.5", "Alt/Üst 2,5"])
 def test_alt_ust_virgullu_ve_noktali_cizgi(market):
-    assert bacak_sonucu(market, "Üst", 2, 1) == "won"
-    assert bacak_sonucu(market, "Üst", 1, 1) == "lost"
-    assert bacak_sonucu(market, "Alt", 1, 1) == "won"
-    assert bacak_sonucu(market, "Alt", 2, 1) == "lost"
+    assert bacak_sonucu(market, "Üst", M(2, 1)) == "won"
+    assert bacak_sonucu(market, "Üst", M(1, 1)) == "lost"
+    assert bacak_sonucu(market, "Alt", M(1, 1)) == "won"
+    assert bacak_sonucu(market, "Alt", M(2, 1)) == "lost"
 
 
 def test_tam_sayili_cizgide_esitlik_iade():
-    assert bacak_sonucu("Alt/Üst 2", "Üst", 1, 1) == "void"
-    assert bacak_sonucu("Alt/Üst 2", "Alt", 2, 0) == "void"
+    assert bacak_sonucu("Alt/Üst 2", "Üst", M(1, 1)) == "void"
+    assert bacak_sonucu("Alt/Üst 2", "Alt", M(2, 0)) == "void"
 
 
 def test_karsilikli_gol():
-    assert bacak_sonucu("Karşılıklı Gol", "Var", 1, 1) == "won"
-    assert bacak_sonucu("Karşılıklı Gol", "Var", 2, 0) == "lost"
-    assert bacak_sonucu("Karşılıklı Gol", "Yok", 2, 0) == "won"
+    assert bacak_sonucu("Karşılıklı Gol", "Var", M(1, 1)) == "won"
+    assert bacak_sonucu("Karşılıklı Gol", "Var", M(2, 0)) == "lost"
+    assert bacak_sonucu("Karşılıklı Gol", "Yok", M(2, 0)) == "won"
 
 
 @pytest.mark.parametrize("pick,h,a,beklenen", [
@@ -47,12 +52,11 @@ def test_karsilikli_gol():
     ("1-0", 1, 1, "won"), ("1/2", 1, 1, "lost"), ("0-2", 0, 1, "won"),   # iddaa yazımı: 0 = beraberlik
 ])
 def test_cifte_sans_farkli_yazimlar(pick, h, a, beklenen):
-    assert bacak_sonucu("Çifte Şans", pick, h, a) == beklenen
+    assert bacak_sonucu("Çifte Şans", pick, M(h, a)) == beklenen
 
 
-def test_desteklenmeyen_market_none_doner():
-    assert bacak_sonucu("İlk Yarı/Maç Sonucu", "1/1", 2, 1) is None
-    assert bacak_sonucu("Handikaplı Maç Sonucu", "1", 2, 1) is None
+def test_bilinmeyen_market_desteklenmiyor():
+    assert bacak_sonucu("Uydurma Market", "1", M(2, 1)) == DESTEKLENMIYOR
 
 
 # ---- Toplam oran ----
