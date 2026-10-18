@@ -92,3 +92,15 @@ def test_iddaa_ulasilamazsa_502_ve_yazmaz(monkeypatch):
     monkeypatch.setattr(r, "olaylari_cek", patla)
     assert client.post("/api/iddaa/eslestir?dry_run=false", headers=ANAHTAR).status_code == 502
     assert yazilan == []
+
+
+def test_liste_ufku_yalniz_mac_oncesi_listeden_alinir(monkeypatch):
+    # Canlı listede çok ileri tarihli tek tük olay olabilir; "henüz programa girmedi" ufku bunlarla uzamaz
+    olaylar = [
+        {"i": 1, "bri": 1, "hn": "Tottenham ", "an": "Coventry", "d": D, "_liste": 0},
+        {"i": 2, "bri": 2, "hn": "Baska", "an": "Takim", "d": D + 5 * 86400, "_liste": 1},
+    ]
+    satirlar = [mac(20, "Uzak", "Mac", KICK + timedelta(days=2))]
+    kur(monkeypatch, olaylar=olaylar, satirlar=satirlar)
+    j = client.post("/api/iddaa/eslestir", headers=ANAHTAR).json()
+    assert j["eslesmeyen"][0]["neden"] == "pencere_disi"

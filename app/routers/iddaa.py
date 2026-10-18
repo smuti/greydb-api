@@ -71,7 +71,7 @@ def olaylari_cek():
         for tip in (0, 1):   # 0: maç önü program, 1: canlı
             yanit = istemci.get(_LISTE, params={"st": 1, "type": tip})
             yanit.raise_for_status()
-            olaylar += yanit.json()["data"]["events"]
+            olaylar += [{**e, "_liste": tip} for e in yanit.json()["data"]["events"]]
     return olaylar
 
 
@@ -116,7 +116,7 @@ async def iddaa_eslestir(dry_run: bool = True, x_cron_anahtari: str = Header(def
         iddaa_yaz(sonuc["eslesen"])
     ad = lambda m: f"{m['home']} - {m['away']}"   # noqa: E731
     saat = lambda m: m["match_date"].isoformat() + "Z"   # noqa: E731
-    ufuk = max((e["d"] for e in olaylar), default=None)
+    ufuk = max((e["d"] for e in olaylar if e.get("_liste", 0) == 0), default=None)   # canlı listede çok ileri tek tük olay olabilir
     eslesmeyen = []
     for m in sorted(sonuc["eslesmeyen"], key=lambda m: m["match_date"]):
         neden, aday = _neden(m, olaylar, simdi, ufuk)
