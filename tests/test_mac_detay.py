@@ -110,7 +110,9 @@ def test_uc_sorgular_parametreli(monkeypatch):
     client.get("/api/match-detail/5904771")
     assert all("5904771" not in s and "77" not in s for s, _ in sorgular)       # f-string ile gömülmez
     assert sorgular[0][1] == {"fid": 5904771}
-    assert all(p == {"id": 77} for s, p in sorgular[1:])
+    iddaa = [x for x in sorgular if "iddaa_event_id" in x[0]]
+    assert len(iddaa) == 1 and iddaa[0][1] == {"fid": 5904771}                    # iddaa kimliği de parametreli
+    assert all(p == {"id": 77} for s, p in sorgular[1:] if "iddaa_event_id" not in s)
 
 
 def test_uc_ham_json_ve_buyuk_alanlari_donmez(monkeypatch):
@@ -167,3 +169,15 @@ def test_uc_planli_sorgusu_parametreli(monkeypatch):
     client.get("/api/match-detail/5904780")
     s, p = [x for x in sorgular if "upcoming_matches" in x[0]][0]
     assert p == {"fid": 5904780} and "5904780" not in s
+
+
+def test_uc_iddaa_event_id_baglandiysa_doner_degilse_none(monkeypatch):
+    kur(monkeypatch, ana={**ANA, "iddaa_event_id": 3320665})
+    assert client.get("/api/match-detail/5904771").json()["mac"]["iddaa_event_id"] == 3320665
+    kur(monkeypatch)
+    assert client.get("/api/match-detail/5904771").json()["mac"]["iddaa_event_id"] is None
+
+
+def test_uc_planli_macta_da_iddaa_event_id_doner(monkeypatch):
+    kur(monkeypatch, ana=None, planli={**PLANLI, "iddaa_event_id": 3320626})
+    assert client.get("/api/match-detail/5904780").json()["mac"]["iddaa_event_id"] == 3320626
