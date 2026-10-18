@@ -14,7 +14,7 @@ client = TestClient(app)
 
 def satir(**k):
     d = {"anahtar": "super-lig", "ad": "Süper Lig", "oncelik": 1, "aktif": True,
-         "fotmob_ids": [71], "ulke": None, "ad_kalibi": None}
+         "fotmob_ids": [71], "ulke": None, "ad_kalibi": None, "logo_id": None}
     d.update(k)
     return d
 
@@ -40,7 +40,7 @@ def test_uc_ligleri_beklenen_bicimde_dondurur(monkeypatch):
     r = client.get("/api/tracked-leagues")
     assert r.status_code == 200
     ligler = r.json()["leagues"]
-    assert ligler[0] == {"anahtar": "super-lig", "ad": "Süper Lig", "oncelik": 1, "fotmob_ids": [71], "ulke": None, "ad_kalibi": None}
+    assert ligler[0] == {"anahtar": "super-lig", "ad": "Süper Lig", "oncelik": 1, "fotmob_ids": [71], "ulke": None, "ad_kalibi": None, "logo_id": None}
     assert ligler[1]["fotmob_ids"] == []          # null liste yerine boş liste
     assert ligler[1]["ad_kalibi"] == "^(uefa )?europa league$"
 
