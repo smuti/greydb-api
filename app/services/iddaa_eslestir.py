@@ -12,9 +12,10 @@ TOLERANS_SN = 1800
 BENZERLIK_ESIGI = 0.76
 
 _HARF = str.maketrans({"ø": "o", "Ø": "O", "æ": "ae", "Æ": "AE", "ð": "d", "đ": "d", "ł": "l", "Ł": "L", "ı": "i", "ß": "ss"})
-_DOLGU = {"fc", "cf", "afc", "fk", "ac", "as", "ss", "us", "the", "calcio", "sk", "if", "bk", "ud", "cd", "rcd", "sv", "vfb", "vfl", "tsg", "hotspur", "moscow", "rc", "eindhoven", "kaliningrad", "montero"}
+_DOLGU = {"fc", "cf", "afc", "fk", "ac", "as", "ss", "us", "the", "calcio", "sk", "if", "bk", "ud", "cd", "rcd", "sv", "vfb", "vfl", "tsg", "hotspur", "moscow", "rc", "eindhoven", "kaliningrad", "montero", "wanderers", "hove", "albion"}
 # iddaa'nın Türkçe/farklı yazımları → bizim yazım
-_ESLEME = {"munih": "munchen", "muenchen": "munchen", "lizbon": "cp", "prag": "prague", "milano": "milan", "internazionale": "inter"}
+_ESLEME = {"munih": "munchen", "muenchen": "munchen", "lizbon": "cp", "prag": "prague", "milano": "milan", "internazionale": "inter",
+            "saint": "st", "kopenhag": "kobenhavn", "marsilya": "marseille", "bilbao": "club"}
 # Kadın ve genç takım işaretleri: erkek A takımıyla karışmamalı
 _ISARET = {"u15", "u16", "u17", "u18", "u19", "u20", "u21", "u23", "k", "w", "women", "ii", "b", "reserves", "youth"}
 

@@ -101,3 +101,16 @@ def test_ayni_sportradar_kimligi_iki_listede_tek_olay_sayilir_program_kimligi_se
 def test_yalniz_canli_listede_olan_maciin_canli_kimligi_kalir():
     olaylar = [dict(ev(3320665, "Juventus", "Lazio"), bri=9, _liste=1)]
     assert eslestir(olaylar, [mac(2, "Juventus", "Lazio")])["eslesen"] == {2: 3320665}
+
+
+def test_gercek_tahmin_verisindeki_ad_farklari():
+    for a, b in [("Wolverhampton", "Wolverhampton Wanderers"), ("Saint Pauli", "St. Pauli"), ("Kopenhag", "FC København"),
+                 ("Marsilya", "Marseille"), ("Athletic Bilbao", "Athletic Club"), ("Brighton", "Brighton & Hove Albion"),
+                 ("Hamburg", "Hamburger SV"), ("Wolfsburg", "VfL Wolfsburg")]:
+        assert takim_benzer(a, b), (a, b)
+
+
+def test_yeni_takma_adlar_yanlis_eslesme_uretmez():
+    for a, b in [("West Ham", "West Bromwich Albion"), ("Manchester City", "Manchester United"), ("Brighton", "Brentford"),
+                 ("Athletic Bilbao", "Atletico Madrid"), ("St. Pauli", "Pauli Dortmund")]:
+        assert not takim_benzer(a, b), (a, b)
