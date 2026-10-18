@@ -85,7 +85,7 @@ def test_uc_maci_ve_tum_bolumleri_doner(monkeypatch):
     assert j["mac"]["home"] == {"fotmob_team_id": 7800, "ad": "Gençlerbirliği", "skor": 0}
     assert j["mac"]["away"] == {"fotmob_team_id": 8637, "ad": "Galatasaray", "skor": 1}
     assert j["mac"]["lig"] == {"fotmob_league_id": 71, "ad": "Super Lig"} and j["mac"]["tur"] == "8"
-    assert j["mac"]["tarih"] == "2026-10-17T13:00:00" and j["mac"]["bitti"] is True
+    assert j["mac"]["tarih"] == "2026-10-17T13:00:00Z" and j["mac"]["bitti"] is True
     assert j["istatistik"]["xg"] == {"home": 0.5, "away": 1.8}
     assert j["olaylar"][0]["takim"] == "away" and j["kadro"]["home"]["dizilis"] == "4-4-2"
     assert j["sakat_cezali"] == [{"takim": "home", "oyuncu": "Z", "durum": "injured", "neden": "Diz", "donus": "2026-11-01"}]
@@ -145,7 +145,7 @@ def test_uc_matches_te_yoksa_planli_maci_doner(monkeypatch):
     assert r.status_code == 200 and j["kaynak"] == "planli"
     assert j["mac"]["home"] == {"fotmob_team_id": 8637, "ad": "Galatasaray", "skor": None}
     assert j["mac"]["away"] == {"fotmob_team_id": 8695, "ad": "Fenerbahçe", "skor": None}
-    assert j["mac"]["tarih"] == "2026-10-25T17:00:00" and j["mac"]["tur"] == "9" and j["mac"]["bitti"] is False and j["mac"]["iptal"] is False
+    assert j["mac"]["tarih"] == "2026-10-25T17:00:00Z" and j["mac"]["tur"] == "9" and j["mac"]["bitti"] is False and j["mac"]["iptal"] is False
     assert j["mac"]["lig"] == {"fotmob_league_id": 71, "ad": "Super Lig"}
     assert j["istatistik"] is None and j["olaylar"] == [] and j["veri"] == {"istatistik": False, "olaylar": False, "kadro": False}
 

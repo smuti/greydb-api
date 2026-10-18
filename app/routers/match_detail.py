@@ -43,6 +43,11 @@ def _iso(d):
     return d.isoformat() if d is not None else None
 
 
+def _utc(d):
+    """match_date saat dilimsiz saklanıyor ama FotMob'un UTC saati (doğrulandı); istemci yanlış yorumlamasın diye Z eklenir."""
+    return d.isoformat() + "Z" if d is not None else None
+
+
 @router.get("/match-detail/{fotmob_match_id}")
 async def match_detail(fotmob_match_id: int):
     ana = execute_query(_ANA, {"fid": fotmob_match_id})
@@ -57,7 +62,7 @@ async def match_detail(fotmob_match_id: int):
                 "fotmob_match_id": u["fotmob_match_id"],
                 "lig": {"fotmob_league_id": u["lig_id"], "ad": u["lig_ad"]},
                 "tur": str(u["round"]) if u["round"] is not None else None,
-                "tarih": _iso(u["match_date"]), "bitti": False, "iptal": False,
+                "tarih": _utc(u["match_date"]), "bitti": False, "iptal": False,
                 "home": {"fotmob_team_id": u["ev_id"], "ad": u["ev_ad"], "skor": None},
                 "away": {"fotmob_team_id": u["dep_id"], "ad": u["dep_ad"], "skor": None},
             },
@@ -87,7 +92,7 @@ async def match_detail(fotmob_match_id: int):
             "fotmob_match_id": m["fotmob_match_id"],
             "lig": {"fotmob_league_id": m["lig_id"], "ad": m["lig_ad"]},
             "tur": str(m["round"]) if m["round"] is not None else None,
-            "tarih": _iso(m["match_date"]),
+            "tarih": _utc(m["match_date"]),
             "bitti": bool(m["finished"]), "iptal": bool(m["cancelled"]),
             "home": {"fotmob_team_id": m["ev_id"], "ad": m["ev_ad"], "skor": m["home_score"]},
             "away": {"fotmob_team_id": m["dep_id"], "ad": m["dep_ad"], "skor": m["away_score"]},
