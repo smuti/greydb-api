@@ -7,7 +7,8 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     # Database
-    database_url: str = "postgresql://postgres:FKVMHcMBuXpmdMoaulQRmJftkPDRLcAW@trolley.proxy.rlwy.net:31538/railway"
+    # Zorunlu: DATABASE_URL ortam değişkeni (Railway) ya da .env. Kodda varsayılan adres/şifre BULUNMAZ.
+    database_url: str
     
     # API
     api_title: str = "GreyDB API"
