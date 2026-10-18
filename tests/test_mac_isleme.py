@@ -192,32 +192,75 @@ def test_lig_adindaki_tirnak_sorguyu_bozmaz(monkeypatch):
     assert not any("d'Ivoire" in s for s in sorgular)
 
 
+class _Tx:
+    def __init__(self, kayit):
+        self.kayit = kayit
+
+    def __enter__(self):
+        self.kayit.append("enter")
+
+    def __exit__(self, *a):
+        self.kayit.append("exit")
+        return False
+
+
+def refill_kur(monkeypatch, kayit, satirlar, stats_yazilan, save=None):
+    """satirlar: refill'in bulduğu maçlar. stats_yazilan: save sonrası match_stats satırı oluşan matches.id'leri."""
+    sorgular = []
+
+    def execute_query(sql, params=None):
+        sorgular.append(sql)
+        if "FROM public.match_stats" in sql and "ms.match_id = m.id" not in sql:
+            return [{"n": 1}] if (params or {}).get("id") in stats_yazilan else []
+        return satirlar
+
+    def varsayilan_save(d):
+        kayit.append(("save", d))
+        return d["mid"]
+
+    monkeypatch.setattr(md, "execute_query", execute_query)
+    monkeypatch.setattr(md, "save_full_match_data", save or varsayilan_save)
+    monkeypatch.setattr(md, "transaction", lambda: _Tx(kayit))
+    return sorgular
+
+
 def test_refill_islem_basina_atomik_ve_olay_dongusunu_kilitlemez(monkeypatch):
-    kayit = []
-    monkeypatch.setattr(md, "execute_query", lambda sql, p=None: [{"id": 1, "fotmob_match_id": 5, "raw_match_details": {"a": 1}},
-                                                                   {"id": 2, "fotmob_match_id": 6, "raw_match_details": "{\"a\": 2}"}])
-    iplik = []
-
-    class Tx:
-        def __enter__(self):
-            kayit.append("enter")
-
-        def __exit__(self, *a):
-            kayit.append("exit")
-            return False
+    kayit, iplik = [], []
 
     def save(d):
         iplik.append(threading.current_thread())
-        kayit.append(("save", d))
-        if d == {"a": 2}:
+        kayit.append(("save", d["mid"]))
+        if d["mid"] == 2:
             raise ValueError("kötü veri")
+        return d["mid"]
 
-    monkeypatch.setattr(md, "save_full_match_data", save)
-    monkeypatch.setattr(md, "transaction", lambda: Tx())
+    refill_kur(monkeypatch, kayit, [
+        {"id": 1, "fotmob_match_id": 5, "raw_match_details": {"mid": 1}},
+        {"id": 2, "fotmob_match_id": 6, "raw_match_details": "{\"mid\": 2}"},
+    ], stats_yazilan={1}, save=save)
     r = asyncio.run(md.refill_missing_data(limit=2))
     assert r["total_found"] == 2 and r["filled"] == 1 and len(r["errors"]) == 1
     assert iplik[0] is not threading.main_thread()
     assert kayit.count("enter") == 2 and kayit.count("exit") == 2   # her maç ayrı işlem
+
+
+def test_refill_istatistik_yazilmayan_maci_doldurulan_saymaz(monkeypatch):
+    kayit = []
+    refill_kur(monkeypatch, kayit, [
+        {"id": 1, "fotmob_match_id": 5, "raw_match_details": {"mid": 1}},
+        {"id": 2, "fotmob_match_id": 6, "raw_match_details": {"mid": 2}},
+        {"id": 3, "fotmob_match_id": 7, "raw_match_details": {"mid": 3}},
+    ], stats_yazilan={1})
+    r = asyncio.run(md.refill_missing_data(limit=3))
+    assert r["total_found"] == 3 and r["filled"] == 1 and r["skipped"] == 2 and r["errors"] == []
+
+
+def test_refill_sorgusu_jsonda_istatistigi_olmayan_maclari_secmez(monkeypatch):
+    sorgular = refill_kur(monkeypatch, [], [], stats_yazilan=set())
+    asyncio.run(md.refill_missing_data(limit=5))
+    sql = sorgular[0]
+    assert "content" in sql and "stats" in sql and "jsonb_typeof" in sql, sql
+    assert "'{}'" in sql, "boş {} istatistik de kayıt kodunda yazılmıyor, seçilmemeli"
 
 
 def test_refill_ve_process_ayni_kilidi_paylasir(monkeypatch):

@@ -95,12 +95,14 @@ def _maci_kaydet_ve_isaretle(data: dict, upcoming_id: int) -> None:
         )
 
 
-def _refill_kaydet(match_data) -> None:
+def _refill_kaydet(match_data) -> bool:
+    """Maçı yeniden yazar. match_stats satırı gerçekten oluştuysa True (JSON'da istatistik yoksa kayıt kodu hiçbir şey yazmaz)."""
     import json
     if isinstance(match_data, str):
         match_data = json.loads(match_data)
     with transaction():
-        save_full_match_data(match_data)
+        match_id = save_full_match_data(match_data)
+        return bool(execute_query("SELECT 1 AS n FROM public.match_stats WHERE match_id = :id LIMIT 1", {"id": match_id}))
 
 
 def parse_match_info(data: dict) -> dict:
@@ -419,24 +421,32 @@ async def refill_missing_data(limit: int = 20):
             WHERE m.raw_match_details IS NOT NULL
             AND ms.match_id IS NULL
             AND m.finished = true
+            -- JSON'da istatistik yoksa (FotMob eski/alt lig maçlarına vermiyor) kayıt kodu match_stats yazmaz;
+            -- bu maçlar her seferinde seçilip sırayı tıkamasın
+            AND jsonb_typeof(m.raw_match_details->'content'->'stats') = 'object'
+            AND m.raw_match_details->'content'->'stats' <> '{}'::jsonb
             LIMIT :limit
         """
         matches = await asyncio.to_thread(execute_query, query, {"limit": int(limit)})
 
         filled_count = 0
+        skipped_count = 0
         errors = []
 
         for match in matches:
             try:
                 # Her maç ayrı işlemde ve iş parçacığında: olay döngüsü kilitlenmez, hata olursa o maç yarım kalmaz
-                await asyncio.to_thread(_refill_kaydet, match["raw_match_details"])
-                filled_count += 1
+                if await asyncio.to_thread(_refill_kaydet, match["raw_match_details"]):
+                    filled_count += 1
+                else:
+                    skipped_count += 1
             except Exception as e:
                 errors.append(f"Match {match['fotmob_match_id']}: {str(e)}")
 
         return {
             "total_found": len(matches),
             "filled": filled_count,
+            "skipped": skipped_count,
             "errors": errors
         }
 
