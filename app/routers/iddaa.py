@@ -11,7 +11,7 @@ import httpx
 from fastapi import APIRouter, Header, HTTPException
 
 from app.services.db import execute_query, transaction, execute_insert
-from app.services.iddaa_eslestir import eslestir
+from app.services.iddaa_eslestir import eslestir, takim_benzer, TOLERANS_SN
 
 router = APIRouter(tags=["iddaa"])
 
@@ -37,6 +37,32 @@ WHERE u.fotmob_match_id IS NOT NULL AND u.match_date BETWEEN :bas AND :son
 
 def _anahtar():
     return os.environ.get("CRON_ANAHTARI") or None
+
+
+def _simdi():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+_ACIKLAMA = {
+    "basladi": "Maç başlamış ya da bitmiş: iddaa maç önü listesinde artık yok (beklenen).",
+    "pencere_disi": "iddaa bu maçı henüz programa almadı (listesi yaklaşık 3 gün ilerisine kadar). Yaklaşınca sonraki çalışmada eşleşir.",
+    "ad_sorunu_olasi": "DİKKAT: aynı saatte iddaa'da benzer adlı bir maç var ama iki takım adı birden benzemiyor. Takım adı yazımı sorunu olabilir.",
+    "iddaa_de_yok": "iddaa bu maçı listelemiyor (aynı saatte benzer adlı maç yok). Lig iddaa'da olmayabilir.",
+}
+
+
+def _neden(m, olaylar, simdi, ufuk):
+    """Eşleşmeyen maçın nedeni. (neden, aday listesi) döner."""
+    kick = m["kickoff_ts"]
+    if m["match_date"] < simdi:
+        return "basladi", []
+    if ufuk is not None and kick > ufuk + TOLERANS_SN:
+        return "pencere_disi", []
+    aday = [
+        f"{e['hn'].strip()} - {e['an'].strip()}" for e in olaylar
+        if abs(e["d"] - kick) <= TOLERANS_SN and (takim_benzer(m["home"], e["hn"]) or takim_benzer(m["away"], e["an"]))
+    ]
+    return ("ad_sorunu_olasi", aday[:3]) if aday else ("iddaa_de_yok", [])
 
 
 def olaylari_cek():
@@ -73,18 +99,34 @@ async def iddaa_eslestir(dry_run: bool = True, x_cron_anahtari: str = Header(def
         olaylar = olaylari_cek()
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"iddaa listesi alınamadı: {type(e).__name__}")
-    simdi = datetime.now(timezone.utc).replace(tzinfo=None)
+    simdi = _simdi()
     satirlar = yakin_maclar(simdi - timedelta(hours=6), simdi + timedelta(days=4))
+    # Aynı maç hem matches hem upcoming_matches'ta (farklı saat/yazımla) olabilir: kimlik başına en güncel (son saatli) satır
+    tekil = {}
+    for s_ in satirlar:
+        if s_["fotmob_match_id"] not in tekil or s_["match_date"] > tekil[s_["fotmob_match_id"]]["match_date"]:
+            tekil[s_["fotmob_match_id"]] = s_
     maclar = [
-        {"fotmob_match_id": s["fotmob_match_id"], "home": s["home"], "away": s["away"],
-         "kickoff_ts": s["match_date"].replace(tzinfo=timezone.utc).timestamp()}
-        for s in satirlar
+        {"fotmob_match_id": s_["fotmob_match_id"], "home": s_["home"], "away": s_["away"], "match_date": s_["match_date"],
+         "kickoff_ts": s_["match_date"].replace(tzinfo=timezone.utc).timestamp()}
+        for s_ in tekil.values()
     ]
     sonuc = eslestir(olaylar, maclar)
     if not dry_run and sonuc["eslesen"]:
         iddaa_yaz(sonuc["eslesen"])
-    ad = lambda m: {"fotmob_match_id": m["fotmob_match_id"], "mac": f"{m['home']} - {m['away']}"}   # noqa: E731
+    ad = lambda m: f"{m['home']} - {m['away']}"   # noqa: E731
+    saat = lambda m: m["match_date"].isoformat() + "Z"   # noqa: E731
+    ufuk = max((e["d"] for e in olaylar), default=None)
+    eslesmeyen = []
+    for m in sorted(sonuc["eslesmeyen"], key=lambda m: m["match_date"]):
+        neden, aday = _neden(m, olaylar, simdi, ufuk)
+        eslesmeyen.append({"fotmob_match_id": m["fotmob_match_id"], "mac": ad(m), "saat": saat(m), "neden": neden,
+                           "aciklama": _ACIKLAMA[neden], "aday": aday})
+    por_id = {m["fotmob_match_id"]: m for m in maclar}
     return {
         "dry_run": dry_run, "iddaa_olay": len(olaylar), "toplam_mac": len(maclar), "eslesen": len(sonuc["eslesen"]),
-        "belirsiz": [ad(m) for m in sonuc["belirsiz"]], "eslesmeyen": [ad(m) for m in sonuc["eslesmeyen"]],
+        "iddaa_ufku": datetime.fromtimestamp(ufuk, timezone.utc).isoformat() if ufuk else None,
+        "eslesenler": [{"fotmob_match_id": fid, "mac": ad(por_id[fid]), "iddaa_event_id": i} for fid, i in sonuc["eslesen"].items()],
+        "belirsiz": [{"fotmob_match_id": m["fotmob_match_id"], "mac": ad(m), "saat": saat(m)} for m in sonuc["belirsiz"]],
+        "eslesmeyen": eslesmeyen,
     }
