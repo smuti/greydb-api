@@ -12,7 +12,7 @@ TOLERANS_SN = 1800
 BENZERLIK_ESIGI = 0.76
 
 _HARF = str.maketrans({"ø": "o", "Ø": "O", "æ": "ae", "Æ": "AE", "ð": "d", "đ": "d", "ł": "l", "Ł": "L", "ı": "i", "ß": "ss"})
-_DOLGU = {"fc", "cf", "afc", "fk", "ac", "as", "ss", "us", "the", "calcio", "sk", "if", "bk", "ud", "cd", "rcd", "sv", "vfb", "vfl", "tsg", "hotspur", "moscow", "rc", "eindhoven", "kaliningrad"}
+_DOLGU = {"fc", "cf", "afc", "fk", "ac", "as", "ss", "us", "the", "calcio", "sk", "if", "bk", "ud", "cd", "rcd", "sv", "vfb", "vfl", "tsg", "hotspur", "moscow", "rc", "eindhoven", "kaliningrad", "montero"}
 # iddaa'nın Türkçe/farklı yazımları → bizim yazım
 _ESLEME = {"munih": "munchen", "muenchen": "munchen", "lizbon": "cp", "prag": "prague", "milano": "milan", "internazionale": "inter"}
 # Kadın ve genç takım işaretleri: erkek A takımıyla karışmamalı

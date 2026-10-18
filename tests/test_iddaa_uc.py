@@ -15,6 +15,7 @@ D = int(KICK.replace(tzinfo=timezone.utc).timestamp())
 def kur(monkeypatch, anahtar="gizli", olaylar=None, satirlar=None):
     yazilan = []
     monkeypatch.setattr(r, "_anahtar", lambda: anahtar)
+    monkeypatch.setattr(r, "_simdi", lambda: KICK - timedelta(hours=5))
     monkeypatch.setattr(r, "olaylari_cek", lambda: olaylar if olaylar is not None else [
         {"i": 3320626, "bri": 7, "hn": "Tottenham ", "an": "Coventry", "d": D}])
     monkeypatch.setattr(r, "yakin_maclar", lambda bas, son: satirlar if satirlar is not None else [
@@ -47,14 +48,41 @@ def test_dry_run_false_ile_eslesenleri_yazar(monkeypatch):
     assert j["dry_run"] is False and yazilan == [{11: 3320626}]
 
 
-def test_rapor_belirsiz_ve_eslesmeyenleri_adlariyla_verir(monkeypatch):
+def mac(fid, home, away, saat):
+    return {"fotmob_match_id": fid, "home": home, "away": away, "match_date": saat}
+
+
+def test_eslesmeyenlerin_nedeni_acik_yazilir(monkeypatch):
+    # iddaa listesi KICK'e kadar uzanıyor; "şimdi" = KICK - 5 saat
     satirlar = [
-        {"fotmob_match_id": 11, "home": "Tottenham Hotspur", "away": "Coventry City", "match_date": KICK},
-        {"fotmob_match_id": 12, "home": "Zzz", "away": "Yyy", "match_date": KICK},
+        mac(11, "Tottenham Hotspur", "Coventry City", KICK),                                # eşleşir
+        mac(12, "Oynanmis", "Mac", KICK - timedelta(hours=8)),                              # şimdiden önce başlamış
+        mac(13, "Uzak", "Mac", KICK + timedelta(days=2)),                                   # liste ufkunun ötesinde
+        mac(14, "Tottenham Hotspur", "Wolverhampton", KICK),                                # aynı saatte benzer adlı olay var, ev benziyor deplasman değil
+        mac(15, "Hic", "Yok", KICK),                                                        # aynı saatte olay var ama hiçbiri benzemiyor
+        mac(16, "Bos", "Saat", KICK - timedelta(hours=2)),                                  # saatte iddaa olayı yok
     ]
-    j = client.post("/api/iddaa/eslestir", headers=ANAHTAR).json() if kur(monkeypatch, satirlar=satirlar) is not None else None
-    assert j["toplam_mac"] == 2 and j["eslesen"] == 1 and j["belirsiz"] == []
-    assert j["eslesmeyen"] == [{"fotmob_match_id": 12, "mac": "Zzz - Yyy"}]
+    kur(monkeypatch, satirlar=satirlar)
+    j = client.post("/api/iddaa/eslestir", headers=ANAHTAR).json()
+    neden = {m["fotmob_match_id"]: m["neden"] for m in j["eslesmeyen"]}
+    assert j["eslesen"] == 1
+    assert neden == {12: "basladi", 13: "pencere_disi", 14: "ad_sorunu_olasi", 15: "iddaa_de_yok", 16: "iddaa_de_yok"}
+    ornek = next(m for m in j["eslesmeyen"] if m["fotmob_match_id"] == 14)
+    assert "Tottenham" in ornek["aday"][0] and ornek["aciklama"]
+    assert all(m["aciklama"] and m["saat"] for m in j["eslesmeyen"])
+
+
+def test_ayni_maci_iki_satir_olsa_da_bir_kez_sayar(monkeypatch):
+    satirlar = [mac(11, "Tottenham Hotspur", "Coventry City", KICK), mac(11, "Tottenham", "Coventry", KICK + timedelta(minutes=15))]
+    kur(monkeypatch, satirlar=satirlar)
+    j = client.post("/api/iddaa/eslestir", headers=ANAHTAR).json()
+    assert j["toplam_mac"] == 1 and j["eslesen"] == 1
+
+
+def test_rapor_eslesenleri_adlariyla_listeler(monkeypatch):
+    kur(monkeypatch)
+    j = client.post("/api/iddaa/eslestir", headers=ANAHTAR).json()
+    assert j["eslesenler"] == [{"fotmob_match_id": 11, "mac": "Tottenham Hotspur - Coventry City", "iddaa_event_id": 3320626}]
 
 
 def test_iddaa_ulasilamazsa_502_ve_yazmaz(monkeypatch):

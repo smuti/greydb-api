@@ -95,3 +95,8 @@ def test_ayni_sportradar_kimligi_iki_listede_tek_olay_sayilir():
     olaylar = [dict(ev(3222006, "Tottenham", "Coventry"), bri=7), dict(ev(3320626, "Tottenham ", "Coventry"), bri=7)]
     s = eslestir(olaylar, [mac(1, "Tottenham Hotspur", "Coventry City")])
     assert s["eslesen"] == {1: 3320626} and not s["belirsiz"]   # canlı listedeki kimlik (iddaa.com/program/canli?d=...)
+
+
+def test_sehir_eki_olan_kulup_adi_eslesir():
+    assert takim_benzer("Guabirá", "Guabira Montero")
+    assert not takim_benzer("Guabirá", "Guabira Cochabamba")   # farklı ek = farklı takım olabilir
