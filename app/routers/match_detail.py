@@ -39,6 +39,18 @@ _Q = {
 }
 
 
+def _iddaa_id(fid):
+    """iddaa maç kimliği (scripts/iddaa_eslestir.py yazar). Sütun henüz yoksa ya da bağlanmamışsa None: sayfa bu yüzden çökmez."""
+    for tablo in ("public.matches", "public.upcoming_matches"):
+        try:
+            satir = execute_query(f"SELECT iddaa_event_id FROM {tablo} WHERE fotmob_match_id = :fid", {"fid": fid})
+        except Exception:
+            continue
+        if satir and satir[0]["iddaa_event_id"]:
+            return satir[0]["iddaa_event_id"]
+    return None
+
+
 def _iso(d):
     return d.isoformat() if d is not None else None
 
@@ -59,7 +71,7 @@ async def match_detail(fotmob_match_id: int):
         return {
             "kaynak": "planli",
             "mac": {
-                "fotmob_match_id": u["fotmob_match_id"],
+                "fotmob_match_id": u["fotmob_match_id"], "iddaa_event_id": _iddaa_id(fotmob_match_id),
                 "lig": {"fotmob_league_id": u["lig_id"], "ad": u["lig_ad"], "ulke": u["lig_ulke"]},
                 "tur": str(u["round"]) if u["round"] is not None else None,
                 "tarih": _utc(u["match_date"]), "bitti": False, "iptal": False,
@@ -89,7 +101,7 @@ async def match_detail(fotmob_match_id: int):
     return {
         "kaynak": "mac",
         "mac": {
-            "fotmob_match_id": m["fotmob_match_id"],
+            "fotmob_match_id": m["fotmob_match_id"], "iddaa_event_id": _iddaa_id(fotmob_match_id),
             "lig": {"fotmob_league_id": m["lig_id"], "ad": m["lig_ad"], "ulke": m["lig_ulke"]},
             "tur": str(m["round"]) if m["round"] is not None else None,
             "tarih": _utc(m["match_date"]),
