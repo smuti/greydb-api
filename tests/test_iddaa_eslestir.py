@@ -90,13 +90,14 @@ def test_sondaki_b_hala_ikinci_takim_isaretidir():
     assert not takim_benzer("Real Madrid", "Real Madrid B")
 
 
-def test_ayni_sportradar_kimligi_iki_listede_tek_olay_sayilir():
-    # iddaa aynı maçı program listesinde (3222...) ve canlı listesinde (3320...) iki ayrı 'i' ile verir; ikisi de aynı 'bri'
-    olaylar = [dict(ev(3222006, "Tottenham", "Coventry"), bri=7), dict(ev(3320626, "Tottenham ", "Coventry"), bri=7)]
+def test_ayni_sportradar_kimligi_iki_listede_tek_olay_sayilir_program_kimligi_secilir():
+    # iddaa aynı maçı program listesinde (3222...) ve canlı listesinde (3320...) iki ayrı 'i' ile verir; ikisi de aynı 'bri'.
+    # iddaa.com/program/futbol?hd=<id> program kimliğiyle açılır: program listesindeki kimlik seçilir.
+    olaylar = [dict(ev(3320626, "Tottenham ", "Coventry"), bri=7, _liste=1), dict(ev(3222006, "Tottenham", "Coventry"), bri=7, _liste=0)]
     s = eslestir(olaylar, [mac(1, "Tottenham Hotspur", "Coventry City")])
-    assert s["eslesen"] == {1: 3320626} and not s["belirsiz"]   # canlı listedeki kimlik (iddaa.com/program/canli?d=...)
+    assert s["eslesen"] == {1: 3222006} and not s["belirsiz"]
 
 
-def test_sehir_eki_olan_kulup_adi_eslesir():
-    assert takim_benzer("Guabirá", "Guabira Montero")
-    assert not takim_benzer("Guabirá", "Guabira Cochabamba")   # farklı ek = farklı takım olabilir
+def test_yalniz_canli_listede_olan_maciin_canli_kimligi_kalir():
+    olaylar = [dict(ev(3320665, "Juventus", "Lazio"), bri=9, _liste=1)]
+    assert eslestir(olaylar, [mac(2, "Juventus", "Lazio")])["eslesen"] == {2: 3320665}

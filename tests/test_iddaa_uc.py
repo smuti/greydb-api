@@ -17,7 +17,7 @@ def kur(monkeypatch, anahtar="gizli", olaylar=None, satirlar=None):
     monkeypatch.setattr(r, "_anahtar", lambda: anahtar)
     monkeypatch.setattr(r, "_simdi", lambda: KICK - timedelta(hours=5))
     monkeypatch.setattr(r, "olaylari_cek", lambda: olaylar if olaylar is not None else [
-        {"i": 3320626, "bri": 7, "hn": "Tottenham ", "an": "Coventry", "d": D}])
+        {"i": 3222006, "bri": 7, "hn": "Tottenham ", "an": "Coventry", "d": D}])
     monkeypatch.setattr(r, "yakin_maclar", lambda bas, son: satirlar if satirlar is not None else [
         {"fotmob_match_id": 11, "home": "Tottenham Hotspur", "away": "Coventry City", "match_date": KICK}])
     monkeypatch.setattr(r, "iddaa_yaz", lambda eslesen: yazilan.append(dict(eslesen)))
@@ -45,7 +45,7 @@ def test_varsayilan_kuru_calisma_yazmaz(monkeypatch):
 def test_dry_run_false_ile_eslesenleri_yazar(monkeypatch):
     yazilan = kur(monkeypatch)
     j = client.post("/api/iddaa/eslestir?dry_run=false", headers=ANAHTAR).json()
-    assert j["dry_run"] is False and yazilan == [{11: 3320626}]
+    assert j["dry_run"] is False and yazilan == [{11: 3222006}]
 
 
 def mac(fid, home, away, saat):
@@ -82,7 +82,7 @@ def test_ayni_maci_iki_satir_olsa_da_bir_kez_sayar(monkeypatch):
 def test_rapor_eslesenleri_adlariyla_listeler(monkeypatch):
     kur(monkeypatch)
     j = client.post("/api/iddaa/eslestir", headers=ANAHTAR).json()
-    assert j["eslesenler"] == [{"fotmob_match_id": 11, "mac": "Tottenham Hotspur - Coventry City", "iddaa_event_id": 3320626}]
+    assert j["eslesenler"] == [{"fotmob_match_id": 11, "mac": "Tottenham Hotspur - Coventry City", "iddaa_event_id": 3222006}]
 
 
 def test_iddaa_ulasilamazsa_502_ve_yazmaz(monkeypatch):
