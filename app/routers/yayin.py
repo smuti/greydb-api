@@ -119,9 +119,20 @@ def sil(kod: str) -> None:
 
 
 def toto_maclari(hafta_no: int) -> List[Dict[str, Any]]:
+    """Haftanın maçları. Spor Toto satırlarında FotMob maç kimliği çoğu zaman boştur: kendi eşlediğimiz takım kimlikleri (home/away_team_id) ve maç tarihiyle
+    public.upcoming_matches / public.matches içinden bulunur (±3 gün, en yakın tarih). Takımı eşleşmemiş ya da maçı bulunamayan satırda None kalır."""
     return execute_query(
-        """SELECT m.mac_no, m.fotmob_match_id, m.ev_takim, m.deplasman_takim FROM greydb.spor_toto_matches m
-           JOIN greydb.spor_toto_weeks w ON w.id = m.week_id WHERE w.hafta_no = :h ORDER BY m.mac_no""", {"h": hafta_no})
+        """SELECT m.mac_no, m.ev_takim, m.deplasman_takim,
+                  COALESCE(m.fotmob_match_id, (
+                      SELECT q.fotmob_match_id FROM (
+                          SELECT fotmob_match_id, match_date FROM public.upcoming_matches WHERE home_team_id = m.home_team_id AND away_team_id = m.away_team_id
+                          UNION ALL
+                          SELECT fotmob_match_id, match_date FROM public.matches WHERE home_team_id = m.home_team_id AND away_team_id = m.away_team_id
+                      ) q
+                      WHERE q.fotmob_match_id IS NOT NULL AND m.mac_tarihi IS NOT NULL AND abs(extract(epoch FROM (q.match_date - m.mac_tarihi))) < 3 * 86400
+                      ORDER BY abs(extract(epoch FROM (q.match_date - m.mac_tarihi))) LIMIT 1
+                  )) AS fotmob_match_id
+           FROM greydb.spor_toto_matches m JOIN greydb.spor_toto_weeks w ON w.id = m.week_id WHERE w.hafta_no = :h ORDER BY m.mac_no""", {"h": hafta_no})
 
 
 def takim_logosu(fotmob_team_id: int) -> Optional[Dict[str, Any]]:
