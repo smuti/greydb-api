@@ -1,5 +1,6 @@
 """Kupon bacağının iki takımının FotMob takım kimlikleri (logo için). Bitmiş olma şartı yok: başlamamış maçın logosu da gerekir.
 Sıra: FotMob maç kimliği → iddaa kimliği (sütun yoksa atlanır) → takım adı + tarih (tek aday olmalı). Yarım sonuç döndürmez."""
+import time
 from datetime import timedelta
 from typing import Any, Dict, Optional, Tuple
 
@@ -54,11 +55,15 @@ def takim_kimlikleri(execute_query, bacak: Dict[str, Any], pencere_saat: int = 3
 
 
 
-def doldur(bacaklar, bul, yaz, kuru: bool = True) -> Dict[str, Any]:
+def doldur(bacaklar, bul, yaz, kuru: bool = True, butce_sn: Optional[float] = None, simdi=time.monotonic) -> Dict[str, Any]:
     """Takım kimliği eksik bacakları doldurur. bul(bacak) -> (ev_id, dep_id); yaz(bacak_id, ev_id, dep_id). Kuru çalışmada yazmaz.
-    Hata veren bacak tüm işi durdurmaz; raporda sayılır."""
-    bulunan, bulunamayan, hata, ornek = 0, 0, 0, []
+    Hata veren bacak tüm işi durdurmaz; raporda sayılır. butce_sn dolunca durur (kalanlar bir sonraki çalıştırmaya kalır): uzun istekler sunucuyu ve zamanlayıcıyı kilitlemesin."""
+    bulunan, bulunamayan, hata, ornek, incelenen = 0, 0, 0, [], 0
+    bas = simdi()
     for b in bacaklar:
+        if butce_sn is not None and simdi() - bas > butce_sn:
+            break
+        incelenen += 1
         try:
             ev_id, dep_id = bul(b)
         except Exception:
@@ -72,4 +77,4 @@ def doldur(bacaklar, bul, yaz, kuru: bool = True) -> Dict[str, Any]:
         bulunan += 1
         if not kuru:
             yaz(b["id"], ev_id, dep_id)
-    return {"kuru_calisma": kuru, "incelenen": len(bacaklar), "bulunan": bulunan, "bulunamayan": bulunamayan, "hata": hata, "bulunamayan_ornekler": ornek}
+    return {"kuru_calisma": kuru, "incelenen": incelenen, "kalan": len(bacaklar) - incelenen, "bulunan": bulunan, "bulunamayan": bulunamayan, "hata": hata, "bulunamayan_ornekler": ornek}

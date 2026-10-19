@@ -94,3 +94,11 @@ def test_yedek_bulamazsa_ya_da_hata_verirse_none():
     def bozuk(b):
         raise RuntimeError("ağ yok")
     assert takim_kimlikleri(sahte([]), BACAK, yedek=bozuk) == (None, None)
+
+
+def test_doldur_sure_butcesi_dolunca_durur_kalanlari_sayar():
+    from app.services.kupon_takim import doldur
+    bacaklar = [{"id": i, "ev": "A", "dep": "B", "mac_zamani": datetime(2026, 10, 1)} for i in range(5)]
+    saat = iter([0, 0, 1, 2, 99, 99, 99])      # 3. bacaktan önce bütçe (10 sn) aşılır
+    sonuc = doldur(bacaklar, lambda b: (1, 2), lambda *a: None, kuru=True, butce_sn=10, simdi=lambda: next(saat))
+    assert sonuc["bulunan"] == 3 and sonuc["incelenen"] == 3 and sonuc["kalan"] == 2
