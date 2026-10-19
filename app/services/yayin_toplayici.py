@@ -75,9 +75,10 @@ def analiz_takimlari(lig_adi: str, ev_ad: str, dep_ad: str) -> Tuple[Optional[Di
 
 
 def takim_istatistigi(takim_id: int) -> Tuple[Optional[Dict], Optional[Dict], Optional[Dict]]:
+    """Gol/savunma/xG, takım tipi ve gol zamanlaması: bu sezon TÜM turnuvalardaki maçlar (all_comps=1; istatistik servisi eski sürümse parametreyi yok sayar, kendi ligine düşer)."""
     t = f"{ISTATISTIK}/api/leagues/teams/{takim_id}"
     iyi = lambda x: x if isinstance(x, dict) and "error" not in x else None  # noqa: E731
-    return iyi(_get(f"{t}/stats")), iyi(_get(f"{t}/type")), iyi(_get(f"{t}/goal-timing"))
+    return iyi(_get(f"{t}/stats", all_comps=1)), iyi(_get(f"{t}/type", all_comps=1)), iyi(_get(f"{t}/goal-timing", all_comps=1))
 
 
 def kart_profili(takim_adi: str) -> Optional[Dict[str, Any]]:
@@ -93,8 +94,8 @@ _ORTAK = """SELECT m.match_date AS tarih, m.home_team_id, m.away_team_id, m.home
 _BITMIS = "AND m.finished AND NOT COALESCE(m.cancelled, false) AND m.home_score IS NOT NULL AND m.away_score IS NOT NULL AND m.match_date < :tarih"
 _FORM = f"{_ORTAK} WHERE (m.home_team_id = :t OR m.away_team_id = :t) {_BITMIS} ORDER BY m.match_date DESC LIMIT 5"
 _H2H = f"{_ORTAK} WHERE ((m.home_team_id = :a AND m.away_team_id = :b) OR (m.home_team_id = :b AND m.away_team_id = :a)) {_BITMIS} ORDER BY m.match_date DESC LIMIT 10"
-_SEZON_EV = "SELECT home_score AS a, away_score AS y FROM public.matches WHERE home_team_id = :t AND finished AND NOT COALESCE(cancelled,false) AND home_score IS NOT NULL AND away_score IS NOT NULL AND match_date >= :bas AND match_date < :tarih"
-_SEZON_DEP = "SELECT away_score AS a, home_score AS y FROM public.matches WHERE away_team_id = :t AND finished AND NOT COALESCE(cancelled,false) AND home_score IS NOT NULL AND away_score IS NOT NULL AND match_date >= :bas AND match_date < :tarih"
+_SEZON_EV = "SELECT m.home_score AS a, m.away_score AS y FROM public.matches m JOIN public.leagues l ON l.id = m.league_id WHERE m.home_team_id = :t AND l.fotmob_league_id = :lig AND m.finished AND NOT COALESCE(m.cancelled,false) AND m.home_score IS NOT NULL AND m.away_score IS NOT NULL AND m.match_date >= :bas AND m.match_date < :tarih"
+_SEZON_DEP = "SELECT m.away_score AS a, m.home_score AS y FROM public.matches m JOIN public.leagues l ON l.id = m.league_id WHERE m.away_team_id = :t AND l.fotmob_league_id = :lig AND m.finished AND NOT COALESCE(m.cancelled,false) AND m.home_score IS NOT NULL AND m.away_score IS NOT NULL AND m.match_date >= :bas AND m.match_date < :tarih"
 _TABLO = """SELECT m.match_date AS tarih, m.home_score AS ev_gol, m.away_score AS dep_gol, ev.fotmob_team_id AS ev_id, ev.name AS ev_ad, dep.fotmob_team_id AS dep_id, dep.name AS dep_ad
             FROM public.matches m JOIN public.leagues l ON l.id = m.league_id JOIN public.teams ev ON ev.id = m.home_team_id JOIN public.teams dep ON dep.id = m.away_team_id
             WHERE l.fotmob_league_id = :lig AND m.finished AND NOT COALESCE(m.cancelled,false) AND m.home_score IS NOT NULL AND m.away_score IS NOT NULL
@@ -163,6 +164,7 @@ def mac_hazirla(sira: int, fotmob_match_id: int, logo_taban: str) -> Optional[Di
     ev_ic, dep_ic = _ic_id(ev_id), _ic_id(dep_id)
     tarih_dt = datetime.fromisoformat(g["matchTimeUTCDate"].replace("Z", "+00:00")).replace(tzinfo=None)
     form_ev = form_dep = None
+    lig_fm = g.get("parentLeagueId") or g.get("leagueId")   # maçın yarıştığı turnuva (iç/dış saha ve puan durumu bununla sınırlı)
     if ev_ic and dep_ic:
         form_ev = {"maclar": [], **form_ozeti(execute_query(_FORM, {"t": ev_ic, "tarih": tarih_dt}), ev_ic)}
         form_dep = {"maclar": [], **form_ozeti(execute_query(_FORM, {"t": dep_ic, "tarih": tarih_dt}), dep_ic)}
@@ -170,10 +172,9 @@ def mac_hazirla(sira: int, fotmob_match_id: int, logo_taban: str) -> Optional[Di
         kartlar["h2h"] = P.h2h_karti(h2h_ozeti(execute_query(_H2H, {"a": ev_ic, "b": dep_ic, "tarih": tarih_dt}), ev_ic, dep_ic), ev["name"])
         bas, _ = sezon_araligi(guncel_sezon(tarih_dt.date()))
         kartlar["icDis"] = P.ic_dis_karti(
-            [(r["a"], r["y"]) for r in execute_query(_SEZON_EV, {"t": ev_ic, "bas": bas, "tarih": tarih_dt})],
-            [(r["a"], r["y"]) for r in execute_query(_SEZON_DEP, {"t": dep_ic, "bas": bas, "tarih": tarih_dt})],
+            [(r["a"], r["y"]) for r in execute_query(_SEZON_EV, {"t": ev_ic, "lig": int(lig_fm or 0), "bas": bas, "tarih": tarih_dt})],
+            [(r["a"], r["y"]) for r in execute_query(_SEZON_DEP, {"t": dep_ic, "lig": int(lig_fm or 0), "bas": bas, "tarih": tarih_dt})],
         )
-    lig_fm = g.get("parentLeagueId") or g.get("leagueId")
     if lig_fm:
         bas, bit = sezon_araligi(guncel_sezon(tarih_dt.date()))
         tablo = hesapla(execute_query(_TABLO, {"lig": int(lig_fm), "bas": bas, "bit": bit}))
