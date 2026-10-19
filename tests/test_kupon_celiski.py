@@ -21,3 +21,11 @@ def test_bekleyen_bacaga_dokunmaz_ve_gecersiz_deger_yok_sayilir():
     assert duzeltme_karari("pending", "lost") is None      # bekleyen sonuçlandırma işinin görevi
     assert duzeltme_karari(None, "lost") is None
     assert duzeltme_karari("won", "xyz") is None
+
+
+def test_silme_yalniz_tahminden_tasinan_kuponlar_icin_izinli():
+    from app.services.kupon_celiski import silinebilir_mi
+    assert silinebilir_mi("tahmin:38") is True
+    assert silinebilir_mi("kupon:12") is False      # eski kuponlardan taşınan
+    assert silinebilir_mi(None) is False            # admin'in elle oluşturduğu kupon (kaynak yok): asla
+    assert silinebilir_mi("") is False

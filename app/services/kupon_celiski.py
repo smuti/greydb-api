@@ -9,3 +9,8 @@ def duzeltme_karari(mevcut: Optional[str], motor: Optional[str]) -> Optional[str
     if mevcut not in KESIN or motor not in KESIN:
         return None
     return motor if motor != mevcut else None
+
+
+def silinebilir_mi(kaynak: Optional[str]) -> bool:
+    """Toplu silme betiği yalnızca eski tahminlerden taşınan kuponlara dokunur; admin'in elle oluşturduğu (kaynağı olmayan) kupon asla silinmez."""
+    return bool(kaynak) and kaynak.startswith("tahmin:")
