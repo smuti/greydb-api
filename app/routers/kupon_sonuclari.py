@@ -8,10 +8,11 @@ from typing import Optional
 from fastapi import APIRouter, Header, HTTPException, Query, Request
 
 from app.routers import kuponlar as K
-from app.services.db import execute_query
+from app.services.db import execute_insert, execute_query
 from app.services.kupon_istatistik import sonuc_istatistik
 from app.services.kupon_mac_verisi import mac_bul_bacak, mac_yukle
 from app.services.kupon_sonuclandir import sonuclandir
+from app.services.kupon_takim import doldur, takim_kimlikleri
 
 router = APIRouter(tags=["kuponlar"])
 
@@ -71,3 +72,26 @@ async def otomatik_sonuclandir(dry_run: bool = True, x_cron_anahtari: str = Head
         for kupon_id, bacak_id, s in guncellemeler:
             K.db_bacak_sonucu(kupon_id, bacak_id, s, "otomatik")
     return {"dry_run": dry_run, **rapor, "guncellemeler": [{"kupon_id": a, "bacak_id": b, "sonuc": s} for a, b, s in guncellemeler]}
+
+
+_TAKIMSIZ = """
+SELECT id, ev, dep, mac_zamani, fotmob_match_id, iddaa_event_id FROM greydb.kupon_bacaklari
+WHERE ev_takim_id IS NULL OR dep_takim_id IS NULL ORDER BY mac_zamani DESC LIMIT 1000
+"""
+
+
+@router.post("/kuponlar/takim-kimlikleri")
+async def takim_kimliklerini_doldur(dry_run: bool = True, x_cron_anahtari: str = Header(default="")):
+    """Takım kimliği (logo) eksik bacakları doldurur. Yeni kuponlar kayıtta zaten doldurulur; bu uç eskileri ve sonradan maç tablosuna girenleri tamamlar."""
+    anahtar = _cron_anahtari()
+    if not anahtar:
+        raise HTTPException(status_code=503, detail="Uç kapalı: sunucuda CRON_ANAHTARI tanımlı değil")
+    if not hmac.compare_digest(x_cron_anahtari.encode(), anahtar.encode()):
+        raise HTTPException(status_code=401, detail="Geçersiz anahtar")
+    K._takim_sutunlarini_hazirla()
+    return doldur(
+        execute_query(_TAKIMSIZ),
+        lambda b: takim_kimlikleri(execute_query, b),
+        lambda bid, e, d: execute_insert("UPDATE greydb.kupon_bacaklari SET ev_takim_id = :e, dep_takim_id = :d WHERE id = :i", {"e": e, "d": d, "i": bid}),
+        kuru=dry_run,
+    )

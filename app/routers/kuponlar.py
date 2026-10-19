@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.services.db import execute_insert, execute_query, transaction
 from app.services.kupon_model import KuponHatasi, SEVIYELER, dogrula_olustur, gorunur_mu, kilitle, kupon_ozeti
+from app.services.kupon_takim import takim_kimlikleri
 
 router = APIRouter(tags=["kuponlar"])
 
@@ -58,6 +59,7 @@ def _bacak_satiri(b: Dict[str, Any]) -> Dict[str, Any]:
         "id": b["id"], "sira": b["sira"], "iddaa_event_id": b["iddaa_event_id"], "fotmob_match_id": b["fotmob_match_id"], "ev": b["ev"], "dep": b["dep"],
         "lig": b["lig"], "mac_zamani": b["mac_zamani"].isoformat() + "Z", "bahis_turu": b["bahis_turu"], "secim": b["secim"], "oran": float(b["oran"]),
         "sonuc": b["sonuc"], "sonuc_kaynagi": b["sonuc_kaynagi"],
+        "ev_takim_id": b.get("ev_takim_id"), "dep_takim_id": b.get("dep_takim_id"),     # FotMob takım kimlikleri (logo); gizli bilgi değil
     }
 
 
@@ -74,13 +76,50 @@ def _kupon_satiri(k: Dict[str, Any], bacaklar: List[Dict[str, Any]]) -> Dict[str
     }
 
 
+_TAKIM_SUTUNLARI = ("ALTER TABLE greydb.kupon_bacaklari ADD COLUMN IF NOT EXISTS ev_takim_id INTEGER",
+                    "ALTER TABLE greydb.kupon_bacaklari ADD COLUMN IF NOT EXISTS dep_takim_id INTEGER")
+_takim_sutunlari_hazir = False
+
+
+def _takim_sutunlarini_hazirla() -> None:
+    """Takım kimliği sütunları henüz yoksa ekler (idempotent; ilk kullanımda bir kez). Dağıtım ile migration sırası önemli olmasın."""
+    global _takim_sutunlari_hazir
+    if _takim_sutunlari_hazir:
+        return
+    for q in _TAKIM_SUTUNLARI:
+        execute_insert(q, {})
+    _takim_sutunlari_hazir = True
+
+
+def _takimli(bacaklar: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Her bacağa FotMob takım kimliklerini ekler (logo için). Bulunamazsa None; yazmayı asla engellemez. İşlem (transaction) dışında çağrılır:
+    iddaa_event_id sütunu yoksa sorgu hata verir ve açık işlemi bozardı."""
+    sonuc = []
+    for b in bacaklar:
+        try:
+            ev_id, dep_id = takim_kimlikleri(execute_query, {"fotmob_match_id": b.get("fotmob_match_id"), "iddaa_event_id": b.get("iddaa_event_id"),
+                                                             "ev": b["ev"], "dep": b["dep"], "mac_zamani": _naive_utc(b["mac_zamani"])})
+        except Exception:
+            ev_id, dep_id = None, None
+        sonuc.append({**b, "ev_takim_id": ev_id, "dep_takim_id": dep_id})
+    return sonuc
+
+
+def _naive_utc(z: Any):
+    from datetime import datetime, timezone
+    d = z if isinstance(z, datetime) else datetime.fromisoformat(str(z).replace("Z", "+00:00"))
+    return d.astimezone(timezone.utc).replace(tzinfo=None) if d.tzinfo else d
+
+
 def _bacaklari_yaz(kupon_id: int, bacaklar: List[Dict[str, Any]]) -> None:
     for i, b in enumerate(bacaklar):
         execute_insert(
-            """INSERT INTO greydb.kupon_bacaklari (kupon_id, sira, iddaa_event_id, fotmob_match_id, ev, dep, lig, mac_zamani, bahis_turu, secim, oran, sonuc)
-               VALUES (:kid, :sira, :iddaa, :fotmob, :ev, :dep, :lig, CAST(:zaman AS timestamptz) AT TIME ZONE 'utc', :tur, :secim, :oran, :sonuc)""",
+            """INSERT INTO greydb.kupon_bacaklari (kupon_id, sira, iddaa_event_id, fotmob_match_id, ev, dep, lig, mac_zamani, bahis_turu, secim, oran, sonuc,
+                                                   ev_takim_id, dep_takim_id)
+               VALUES (:kid, :sira, :iddaa, :fotmob, :ev, :dep, :lig, CAST(:zaman AS timestamptz) AT TIME ZONE 'utc', :tur, :secim, :oran, :sonuc, :evt, :dept)""",
             {"kid": kupon_id, "sira": i, "iddaa": b["iddaa_event_id"], "fotmob": b["fotmob_match_id"], "ev": b["ev"], "dep": b["dep"], "lig": b["lig"],
-             "zaman": b["mac_zamani"], "tur": b["bahis_turu"], "secim": b["secim"], "oran": b["oran"], "sonuc": b["sonuc"]},
+             "zaman": b["mac_zamani"], "tur": b["bahis_turu"], "secim": b["secim"], "oran": b["oran"], "sonuc": b["sonuc"],
+             "evt": b.get("ev_takim_id"), "dept": b.get("dep_takim_id")},
         )
 
 
@@ -92,6 +131,8 @@ def db_getir(kupon_id: int) -> Optional[Dict[str, Any]]:
 
 
 def db_ekle(k: Dict[str, Any], email: str) -> Dict[str, Any]:
+    _takim_sutunlarini_hazirla()
+    k = {**k, "bacaklar": _takimli(k["bacaklar"])}
     with transaction():
         yayin = "now() AT TIME ZONE 'utc'" if k["durum"] == "yayinda" else "NULL"
         satir = execute_insert(
@@ -132,6 +173,8 @@ def db_liste(filtre: Dict[str, Any]):
 
 
 def db_guncelle(kupon_id: int, k: Dict[str, Any]) -> Dict[str, Any]:
+    _takim_sutunlarini_hazirla()
+    k = {**k, "bacaklar": _takimli(k["bacaklar"])}
     with transaction():
         execute_insert(
             """UPDATE greydb.kuponlar SET seviye=:seviye, durum=:durum, zamanlama=:zamanlama, one_cikan=:one_cikan, sistem_k=:sistem_k,
