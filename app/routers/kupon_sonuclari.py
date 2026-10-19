@@ -69,7 +69,7 @@ async def sonuclar(request: Request, days: Optional[int] = Query(None, ge=1, le=
 
 
 @router.post("/kuponlar/sonuclandir")
-async def otomatik_sonuclandir(dry_run: bool = True, x_cron_anahtari: str = Header(default="")):
+def otomatik_sonuclandir(dry_run: bool = True, x_cron_anahtari: str = Header(default="")):
     anahtar = _cron_anahtari()
     if not anahtar:
         raise HTTPException(status_code=503, detail="Uç kapalı: sunucuda CRON_ANAHTARI tanımlı değil")
@@ -90,7 +90,7 @@ WHERE ev_takim_id IS NULL OR dep_takim_id IS NULL ORDER BY mac_zamani DESC LIMIT
 
 
 @router.post("/kuponlar/takim-kimlikleri")
-async def takim_kimliklerini_doldur(dry_run: bool = True, x_cron_anahtari: str = Header(default="")):
+def takim_kimliklerini_doldur(dry_run: bool = True, x_cron_anahtari: str = Header(default="")):
     """Takım kimliği (logo) eksik bacakları doldurur. Yeni kuponlar kayıtta zaten doldurulur; bu uç eskileri ve sonradan maç tablosuna girenleri tamamlar."""
     anahtar = _cron_anahtari()
     if not anahtar:
@@ -103,4 +103,5 @@ async def takim_kimliklerini_doldur(dry_run: bool = True, x_cron_anahtari: str =
         lambda b: takim_kimlikleri(execute_query, b, yedek=lambda x: fotmob_takim_kimlikleri(gun_getir, x)),
         lambda bid, e, d: execute_insert("UPDATE greydb.kupon_bacaklari SET ev_takim_id = :e, dep_takim_id = :d WHERE id = :i", {"e": e, "d": d, "i": bid}),
         kuru=dry_run,
+        butce_sn=120,
     )
