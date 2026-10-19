@@ -15,7 +15,7 @@ GW = {"X-Sunucu-Anahtari": "gizli"}
 
 class Sahte:
     def __init__(self):
-        self.kayitlar, self.sayac, self.logolar, self.toto = {}, 0, {}, []
+        self.kayitlar, self.sayac, self.logolar, self.toto, self.ilerlemeler = {}, 0, {}, [], []
 
     def olustur(self, k):
         self.sayac += 1
@@ -28,6 +28,10 @@ class Sahte:
 
     def maclari_yaz(self, kod, maclar, durum, hata):
         self.kayitlar[kod].update({"maclar": copy.deepcopy(maclar), "durum": durum, "hata": hata})
+
+    def ilerleme_yaz(self, kod, biten):
+        self.kayitlar[kod]["kaynak"]["biten"] = biten
+        self.ilerlemeler.append(biten)
 
     def durumu_yaz(self, kod, durum):
         self.kayitlar[kod].update({"durum": durum, "hata": None})
@@ -47,6 +51,7 @@ def sahte(monkeypatch):
     monkeypatch.setattr(r, "kaydi_getir", s.getir)
     monkeypatch.setattr(r, "maclari_yaz", s.maclari_yaz)
     monkeypatch.setattr(r, "durumu_yaz", s.durumu_yaz)
+    monkeypatch.setattr(r, "ilerleme_yaz", s.ilerleme_yaz)
     monkeypatch.setattr(r, "ayari_yaz", s.ayari_yaz)
     monkeypatch.setattr(r, "sil", s.sil)
     monkeypatch.setattr(r, "kayitlari_listele", lambda: [{**k, "mac_sayisi": len(k["maclar"])} for k in s.kayitlar.values()])
@@ -137,3 +142,18 @@ def test_logo_herkese_acik_ve_onbellekli(sahte):
 def test_liste_yalniz_admin(sahte):
     client.post("/api/yayin/hazirla", json=GUN, headers=ADMIN)
     assert len(client.get("/api/yayin", headers=ADMIN).json()["sayfalar"]) == 1
+
+
+def test_ilerleme_her_mac_sonrasi_yazilir_ve_pakette_gorunur(sahte):
+    kod = client.post("/api/yayin/hazirla", json={**GUN, "mac_idler": [11, 0, 22]}, headers=ADMIN).json()["kod"]
+    assert sahte.ilerlemeler == [1, 2, 3]                       # alınamayan maç da sayılır: çubuk takılmaz
+    assert client.get(f"/api/yayin/{kod}").json()["ilerleme"] == {"biten": 3, "toplam": 3}
+
+
+def test_hazirlanirken_ilerleme_kismi_biten_toplami_gecmez(sahte):
+    kod = client.post("/api/yayin/hazirla", json=GUN, headers=ADMIN).json()["kod"]
+    sahte.kayitlar[kod].update({"durum": "hazirlaniyor"})
+    sahte.kayitlar[kod]["kaynak"]["biten"] = 1
+    assert client.get(f"/api/yayin/{kod}").json()["ilerleme"] == {"biten": 1, "toplam": 2}
+    sahte.kayitlar[kod]["kaynak"]["biten"] = 99
+    assert client.get(f"/api/yayin/{kod}").json()["ilerleme"]["biten"] == 2
