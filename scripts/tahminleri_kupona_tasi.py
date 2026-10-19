@@ -59,7 +59,6 @@ def sorgu(sql, params=None, deneme=4):
 
 
 def yaz(k, bacak_kaynagi, bacak_zamani):
-    b = k["bacaklar"][0]
     sonuc_k = kupon_ozeti(k["bacaklar"], None)
     belli = sonuc_k["sonuc"] in ("won", "lost", "void")
     kid = sorgu(
@@ -72,12 +71,13 @@ def yaz(k, bacak_kaynagi, bacak_zamani):
          "sonuc": sonuc_k["sonuc"] if belli else None, "od": sonuc_k["odeme"] if belli else None, "sz": k["guncelleme"] if belli else None,
          "email": k["olusturan_email"], "kaynak": k["kaynak"], "olusturma": k["olusturma"], "guncelleme": k["guncelleme"]},
     )[0]["id"]
-    sorgu(
-        """INSERT INTO greydb.kupon_bacaklari (kupon_id, sira, iddaa_event_id, fotmob_match_id, ev, dep, lig, mac_zamani, bahis_turu, secim, oran, sonuc, sonuc_kaynagi, sonuc_zamani)
-           VALUES (:kid, 0, :iddaa, NULL, :ev, :dep, :lig, CAST(:zaman AS timestamptz) AT TIME ZONE 'utc', :tur, :secim, :oran, :sonuc, :kaynak, :sz)""",
-        {"kid": kid, "iddaa": b["iddaa_event_id"], "ev": b["ev"], "dep": b["dep"], "lig": b["lig"], "zaman": b["mac_zamani"], "tur": b["bahis_turu"], "secim": b["secim"],
-         "oran": b["oran"], "sonuc": b["sonuc"], "kaynak": None if b["sonuc"] == "pending" else bacak_kaynagi, "sz": bacak_zamani if b["sonuc"] != "pending" else None},
-    )
+    for i, b in enumerate(k["bacaklar"]):
+        sorgu(
+            """INSERT INTO greydb.kupon_bacaklari (kupon_id, sira, iddaa_event_id, fotmob_match_id, ev, dep, lig, mac_zamani, bahis_turu, secim, oran, sonuc, sonuc_kaynagi, sonuc_zamani)
+               VALUES (:kid, :sira, :iddaa, NULL, :ev, :dep, :lig, CAST(:zaman AS timestamptz) AT TIME ZONE 'utc', :tur, :secim, :oran, :sonuc, :kaynak, :sz)""",
+            {"kid": kid, "sira": i, "iddaa": b["iddaa_event_id"], "ev": b["ev"], "dep": b["dep"], "lig": b["lig"], "zaman": b["mac_zamani"], "tur": b["bahis_turu"], "secim": b["secim"],
+             "oran": b["oran"], "sonuc": b["sonuc"], "kaynak": None if b["sonuc"] == "pending" else bacak_kaynagi, "sz": bacak_zamani if b["sonuc"] != "pending" else None},
+        )
 
 
 if __name__ == "__main__":
