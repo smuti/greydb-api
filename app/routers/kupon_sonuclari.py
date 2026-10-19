@@ -12,6 +12,7 @@ from app.services.db import execute_insert, execute_query
 from app.services.kupon_istatistik import sonuc_istatistik
 from app.services.kupon_mac_verisi import mac_bul_bacak, mac_yukle
 from app.services.kupon_sonuclandir import sonuclandir
+from app.services.kupon_fotmob import fotmob_mac_bul, fotmob_takim_kimlikleri, gun_getir
 from app.services.kupon_takim import doldur, takim_kimlikleri
 
 router = APIRouter(tags=["kuponlar"])
@@ -33,6 +34,15 @@ def bekleyen_bacaklar(sinir: datetime):
 
 def _cron_anahtari() -> Optional[str]:
     return os.environ.get("CRON_ANAHTARI") or None
+
+
+def mac_bul_yedekli(b):
+    """Önce kendi veritabanımız (istatistik ve olaylarla tam veri), bulunamazsa FotMob günlük listesi (yalnız maç sonu skoru)."""
+    return mac_bul_bacak(execute_query, b) or fotmob_mac_bul(gun_getir, b)
+
+
+def mac_yukle_yedekli(m):
+    return m if m.get("_dis") else mac_yukle(execute_query, m)
 
 
 @router.get("/kuponlar/sonuclar")
@@ -66,8 +76,7 @@ async def otomatik_sonuclandir(dry_run: bool = True, x_cron_anahtari: str = Head
     if not hmac.compare_digest(x_cron_anahtari.encode(), anahtar.encode()):
         raise HTTPException(status_code=401, detail="Geçersiz anahtar")
     simdi = _simdi()
-    guncellemeler, rapor = sonuclandir(
-        bekleyen_bacaklar(simdi), lambda b: mac_bul_bacak(execute_query, b), lambda m: mac_yukle(execute_query, m), simdi)
+    guncellemeler, rapor = sonuclandir(bekleyen_bacaklar(simdi), mac_bul_yedekli, mac_yukle_yedekli, simdi)
     if not dry_run:
         for kupon_id, bacak_id, s in guncellemeler:
             K.db_bacak_sonucu(kupon_id, bacak_id, s, "otomatik")
@@ -91,7 +100,7 @@ async def takim_kimliklerini_doldur(dry_run: bool = True, x_cron_anahtari: str =
     K._takim_sutunlarini_hazirla()
     return doldur(
         execute_query(_TAKIMSIZ),
-        lambda b: takim_kimlikleri(execute_query, b),
+        lambda b: takim_kimlikleri(execute_query, b, yedek=lambda x: fotmob_takim_kimlikleri(gun_getir, x)),
         lambda bid, e, d: execute_insert("UPDATE greydb.kupon_bacaklari SET ev_takim_id = :e, dep_takim_id = :d WHERE id = :i", {"e": e, "d": d, "i": bid}),
         kuru=dry_run,
     )

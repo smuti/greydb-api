@@ -73,3 +73,24 @@ def test_doldur_bulunanı_yazar_kuruda_yazmaz_hatayı_sayar():
     assert kuru["bulunamayan_ornekler"] == ["C - D (02.10.2026)"]
     gercek = doldur(bacaklar, bul, lambda i, e, d: yazilan.append((i, e, d)), kuru=False)
     assert yazilan == [(1, 10, 11)] and gercek["bulunan"] == 1
+
+
+def test_veritabaninda_yoksa_yedek_kaynak_kullanilir_varsa_yedege_gidilmez():
+    cagri = []
+
+    def yedek(b):
+        cagri.append(b["ev"])
+        return 8371, 8696, 5868097
+    assert takim_kimlikleri(sahte([]), BACAK, yedek=yedek) == (8371, 8696)
+    assert cagri == ["Trabzonspor"]
+    q = sahte([("fotmob_match_id = :f", [{"ev_id": 1, "dep_id": 2, "ev_ad": "A", "dep_ad": "B"}])])
+    assert takim_kimlikleri(q, {**BACAK, "fotmob_match_id": 3}, yedek=yedek) == (1, 2)
+    assert cagri == ["Trabzonspor"]                  # ikinci çağrıda yedek kullanılmadı
+
+
+def test_yedek_bulamazsa_ya_da_hata_verirse_none():
+    assert takim_kimlikleri(sahte([]), BACAK, yedek=lambda b: (None, None, None)) == (None, None)
+
+    def bozuk(b):
+        raise RuntimeError("ağ yok")
+    assert takim_kimlikleri(sahte([]), BACAK, yedek=bozuk) == (None, None)
