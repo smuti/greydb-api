@@ -102,3 +102,13 @@ async def reference():
         "leagues": LEAGUE_IDS
     }
 
+
+
+@app.on_event("startup")
+def veri_ozetini_isit():
+    """Sunucu açılırken veri özetini arka planda hazırlar: ilk ziyaretçi 36 milyon değerin sayılmasını beklemesin."""
+    import threading
+
+    from app.services.db import execute_query
+    from app.services.veri_ozeti import isin, ozet_olustur
+    threading.Thread(target=lambda: isin(lambda: ozet_olustur(execute_query)), daemon=True).start()

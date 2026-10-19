@@ -50,7 +50,8 @@ def test_önbellek_süre_dolana_kadar_veritabanına_gitmez():
         return {"mac_sayisi": sayac["n"]}
     assert V.onbellekli(uret, simdi=100.0, ttl=600)["mac_sayisi"] == 1
     assert V.onbellekli(uret, simdi=500.0, ttl=600)["mac_sayisi"] == 1        # 400 sn sonra hâlâ önbellekte
-    assert V.onbellekli(uret, simdi=701.0, ttl=600)["mac_sayisi"] == 2        # süre doldu
+    assert V.onbellekli(uret, simdi=701.0, ttl=600, arka_plan=lambda f: f())["mac_sayisi"] == 1    # süre doldu: eski değer hemen, yenisi arka planda
+    assert V.onbellekli(uret, simdi=702.0, ttl=600)["mac_sayisi"] == 2        # arka plan işi bitti: taze değer
     V.onbellegi_temizle()
 
 
@@ -61,4 +62,38 @@ def test_üretim_hata_verirse_eski_değer_döner():
     def bozuk():
         raise RuntimeError("veritabanı kapalı")
     assert V.onbellekli(bozuk, simdi=50.0, ttl=10)["mac_sayisi"] == 7         # süresi dolmuş ama taze üretilemedi: eskisi
+    V.onbellegi_temizle()
+
+
+def test_suresi_dolmus_deger_hemen_doner_yenisi_arka_planda_hazirlanir():
+    V.onbellegi_temizle()
+    V.onbellekli(lambda: {"mac_sayisi": 1}, simdi=0.0, ttl=10)
+    isler = []
+    # süre doldu: kullanıcı beklemez, eski değer gelir; yenileme arka plana verilir
+    o = V.onbellekli(lambda: {"mac_sayisi": 2}, simdi=50.0, ttl=10, arka_plan=isler.append)
+    assert o["mac_sayisi"] == 1 and len(isler) == 1
+    isler[0]()                                       # arka plan işi çalışınca önbellek tazelenir
+    assert V.onbellekli(lambda: {"mac_sayisi": 3}, simdi=51.0, ttl=10, arka_plan=isler.append)["mac_sayisi"] == 2
+    V.onbellegi_temizle()
+
+
+def test_ayni_anda_tek_yenileme_baslar():
+    V.onbellegi_temizle()
+    V.onbellekli(lambda: {"mac_sayisi": 1}, simdi=0.0, ttl=10)
+    isler = []
+    for _ in range(3):
+        V.onbellekli(lambda: {"mac_sayisi": 2}, simdi=50.0, ttl=10, arka_plan=isler.append)
+    assert len(isler) == 1                           # kuyruk birikmez
+    V.onbellegi_temizle()
+
+
+def test_isinma_degeri_hazirlar_hata_verirse_sessiz_gecer():
+    V.onbellegi_temizle()
+    V.isin(lambda: {"mac_sayisi": 9}, simdi=0.0)
+    assert V.onbellekli(lambda: {"mac_sayisi": 0}, simdi=1.0, ttl=100)["mac_sayisi"] == 9
+    V.onbellegi_temizle()
+
+    def bozuk():
+        raise RuntimeError("db yok")
+    V.isin(bozuk, simdi=0.0)                         # çökmez
     V.onbellegi_temizle()
