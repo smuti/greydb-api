@@ -161,6 +161,7 @@ def test_hazirlanirken_ilerleme_kismi_biten_toplami_gecmez(sahte):
 
 def test_toto_maclari_fotmob_kimligi_bos_ise_takim_kimlikleri_ve_tarihle_bulur(monkeypatch):
     from app.routers import yayin as modul
+    monkeypatch.undo()          # otomatik fixture toto_maclari'yi sahtelemişti: gerçek işlevi sına
     gorulen = {}
     monkeypatch.setattr(modul, "execute_query", lambda sql, p=None: gorulen.update(sql=sql, p=p) or [])
     modul.toto_maclari(11)
