@@ -168,3 +168,21 @@ def test_bacak_sonucu_admin_isaretler_kupon_sonucu_hesaplanir(db):
     assert client.post("/api/kuponlar/1/bacaklar/101/sonuc", json={"sonuc": "belki"}, headers=ADMIN).status_code == 422
     assert client.post("/api/kuponlar/1/bacaklar/101/sonuc", json={"sonuc": "won"}, headers=uye("elit")).status_code == 403
     assert client.post("/api/kuponlar/1/bacaklar/999/sonuc", json={"sonuc": "won"}, headers=ADMIN).status_code == 404
+
+
+# ---- Gizlilik: editör e-postası yalnız admin'e ----
+def test_olusturan_epostasi_anonim_ve_uyeye_gosterilmez_admine_gosterilir(db):
+    hazir(db)
+    for basliklar in ({}, uye("elit")):
+        k = client.get("/api/kuponlar/1", headers=basliklar).json()
+        assert "olusturan_email" not in k, basliklar
+        assert all("olusturan_email" not in x for x in client.get("/api/kuponlar", headers=basliklar).json()["items"])
+    assert client.get("/api/kuponlar/1", headers=ADMIN).json()["olusturan_email"] == "editor@greysports.tv"
+
+
+def test_yazar_suzgeci_epostayla_filtreler_ama_eposta_yanita_girmez(db, monkeypatch):
+    from app.routers import kupon_sonuclari as S
+    gelen = {}
+    monkeypatch.setattr(r, "db_liste", lambda f: (gelen.update(f) or ([], 0)))
+    client.get("/api/kuponlar/sonuclar?yazar=Editor@Greysports.tv")
+    assert gelen["yazar"] == "editor@greysports.tv"

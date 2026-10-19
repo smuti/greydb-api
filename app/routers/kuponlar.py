@@ -115,6 +115,8 @@ def db_liste(filtre: Dict[str, Any]):
         kosul.append("seviye = :seviye"); p["seviye"] = filtre["seviye"]
     if filtre.get("one_cikan") is not None:
         kosul.append("one_cikan = :one"); p["one"] = filtre["one_cikan"]
+    if filtre.get("yazar"):
+        kosul.append("lower(olusturan_email) = :yazar"); p["yazar"] = filtre["yazar"]
     if filtre.get("sonuclanmis") is True:
         kosul.append("sonuc IS NOT NULL")
     elif filtre.get("sonuclanmis") is False:
@@ -185,6 +187,14 @@ class BacakSonucu(BaseModel):
     sonuc: str
 
 
+def _cikti(kupon: Dict[str, Any], k: "Kimlik") -> Dict[str, Any]:
+    """Seviyeye göre kilitle; editör e-postası yalnız admin'e (gizlilik)."""
+    g = kilitle(kupon, k.etkin_seviye)
+    if not k.admin:
+        g.pop("olusturan_email", None)
+    return g
+
+
 def _hata(e: KuponHatasi):
     return HTTPException(status_code=422, detail={"alan": e.alan, "mesaj": e.mesaj})
 
@@ -198,7 +208,7 @@ async def kupon_olustur(govde: KuponGirdisi, request: Request):
         temiz = dogrula_olustur(govde.model_dump())
     except KuponHatasi as e:
         raise _hata(e)
-    return kilitle(db_ekle(temiz, k.email), "elit")
+    return _cikti(db_ekle(temiz, k.email), k)
 
 
 @router.get("/kuponlar")
@@ -208,7 +218,7 @@ async def kupon_listele(request: Request, durum: Optional[str] = None, seviye: O
     filtre = {"durum": durum if k.admin else "yayinda", "seviye": seviye if seviye in SEVIYELER else None, "one_cikan": one_cikan,
               "sonuclanmis": sonuclanmis, "limit": sayfa_boyutu, "offset": (sayfa - 1) * sayfa_boyutu}
     items, toplam = db_liste(filtre)
-    return {"items": [kilitle(i, k.etkin_seviye) for i in items if k.admin or gorunur_mu(i, k.seviye)], "total": toplam, "sayfa": sayfa, "sayfa_boyutu": sayfa_boyutu}
+    return {"items": [_cikti(i, k) for i in items if k.admin or gorunur_mu(i, k.seviye)], "total": toplam, "sayfa": sayfa, "sayfa_boyutu": sayfa_boyutu}
 
 
 @router.get("/kuponlar/{kupon_id}")
@@ -217,12 +227,12 @@ async def kupon_getir(kupon_id: int, request: Request):
     kupon = db_getir(kupon_id)
     if kupon is None or not (k.admin or gorunur_mu(kupon, k.seviye)):
         raise HTTPException(status_code=404, detail="Kupon bulunamadı")
-    return kilitle(kupon, k.etkin_seviye)
+    return _cikti(kupon, k)
 
 
 @router.put("/kuponlar/{kupon_id}")
 async def kupon_guncelle(kupon_id: int, govde: KuponGirdisi, request: Request):
-    admin_gerek(request)
+    yazar = admin_gerek(request)
     mevcut = db_getir(kupon_id)
     if mevcut is None:
         raise HTTPException(status_code=404, detail="Kupon bulunamadı")
@@ -236,7 +246,7 @@ async def kupon_guncelle(kupon_id: int, govde: KuponGirdisi, request: Request):
         temiz = dogrula_olustur(girdi)
     except KuponHatasi as e:
         raise _hata(e)
-    return kilitle(db_guncelle(kupon_id, temiz), "elit")
+    return _cikti(db_guncelle(kupon_id, temiz), yazar)
 
 
 @router.delete("/kuponlar/{kupon_id}")
@@ -249,10 +259,10 @@ async def kupon_sil(kupon_id: int, request: Request):
 
 @router.post("/kuponlar/{kupon_id}/bacaklar/{bacak_id}/sonuc")
 async def bacak_sonucu_isaretle(kupon_id: int, bacak_id: int, govde: BacakSonucu, request: Request):
-    admin_gerek(request)
+    yazar = admin_gerek(request)
     if govde.sonuc not in ("pending", "won", "lost", "void"):
         raise HTTPException(status_code=422, detail={"alan": "sonuc", "mesaj": "pending, won, lost ya da void olmalı"})
     kupon = db_bacak_sonucu(kupon_id, bacak_id, govde.sonuc)
     if kupon is None:
         raise HTTPException(status_code=404, detail="Kupon ya da bacak bulunamadı")
-    return kilitle(kupon, "elit")
+    return _cikti(kupon, yazar)

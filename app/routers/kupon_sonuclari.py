@@ -11,7 +11,6 @@ from app.routers import kuponlar as K
 from app.services.db import execute_query
 from app.services.kupon_istatistik import sonuc_istatistik
 from app.services.kupon_mac_verisi import mac_bul_bacak, mac_yukle
-from app.services.kupon_model import kilitle
 from app.services.kupon_sonuclandir import sonuclandir
 
 router = APIRouter(tags=["kuponlar"])
@@ -37,9 +36,9 @@ def _cron_anahtari() -> Optional[str]:
 
 @router.get("/kuponlar/sonuclar")
 async def sonuclar(request: Request, days: Optional[int] = Query(None, ge=1, le=3650), seviye: Optional[str] = None, sonuc: Optional[str] = None,
-                   bacak: Optional[str] = None, zamanlama: Optional[str] = None, sayfa: int = Query(1, ge=1), sayfa_boyutu: int = Query(20, ge=1, le=100)):
+                   bacak: Optional[str] = None, zamanlama: Optional[str] = None, yazar: Optional[str] = None, sayfa: int = Query(1, ge=1), sayfa_boyutu: int = Query(20, ge=1, le=100)):
     k = K.kimlik(request)
-    kuponlar, _ = K.db_liste({"durum": "yayinda", "sonuclanmis": True, "seviye": seviye if seviye in K.SEVIYELER else None, "limit": 5000, "offset": 0})
+    kuponlar, _ = K.db_liste({"durum": "yayinda", "sonuclanmis": True, "seviye": seviye if seviye in K.SEVIYELER else None, "yazar": yazar.strip().lower() if yazar else None, "limit": 5000, "offset": 0})
     simdi = _simdi()
     if days:
         sinir = (simdi - timedelta(days=days)).isoformat() + "Z"
@@ -55,7 +54,7 @@ async def sonuclar(request: Request, days: Optional[int] = Query(None, ge=1, le=
     kuponlar.sort(key=lambda x: x["sonuc_zamani"] or "", reverse=True)
     ist = sonuc_istatistik(kuponlar, simdi)
     sayfa_kuponlar = kuponlar[(sayfa - 1) * sayfa_boyutu: sayfa * sayfa_boyutu]
-    return {**ist, "items": [kilitle(x, k.etkin_seviye) for x in sayfa_kuponlar], "total": len(kuponlar), "sayfa": sayfa, "sayfa_boyutu": sayfa_boyutu}
+    return {**ist, "items": [K._cikti(x, k) for x in sayfa_kuponlar], "total": len(kuponlar), "sayfa": sayfa, "sayfa_boyutu": sayfa_boyutu}
 
 
 @router.post("/kuponlar/sonuclandir")
