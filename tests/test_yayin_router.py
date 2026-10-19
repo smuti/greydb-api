@@ -157,3 +157,16 @@ def test_hazirlanirken_ilerleme_kismi_biten_toplami_gecmez(sahte):
     assert client.get(f"/api/yayin/{kod}").json()["ilerleme"] == {"biten": 1, "toplam": 2}
     sahte.kayitlar[kod]["kaynak"]["biten"] = 99
     assert client.get(f"/api/yayin/{kod}").json()["ilerleme"]["biten"] == 2
+
+
+def test_toto_maclari_fotmob_kimligi_bos_ise_takim_kimlikleri_ve_tarihle_bulur(monkeypatch):
+    from app.routers import yayin as modul
+    gorulen = {}
+    monkeypatch.setattr(modul, "execute_query", lambda sql, p=None: gorulen.update(sql=sql, p=p) or [])
+    modul.toto_maclari(11)
+    sql = gorulen["sql"]
+    assert gorulen["p"] == {"h": 11}
+    assert "COALESCE(m.fotmob_match_id" in sql                       # doluysa o kullanılır
+    assert "public.upcoming_matches" in sql and "public.matches" in sql
+    assert "home_team_id = m.home_team_id AND away_team_id = m.away_team_id" in sql
+    assert "3 * 86400" in sql                                        # tarih yakınlığı sınırı
