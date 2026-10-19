@@ -19,7 +19,8 @@ def _cift(satir: Optional[Dict[str, Any]]) -> Tuple[Optional[int], Optional[int]
     return None, None
 
 
-def takim_kimlikleri(execute_query, bacak: Dict[str, Any], pencere_saat: int = 36) -> Tuple[Optional[int], Optional[int]]:
+def takim_kimlikleri(execute_query, bacak: Dict[str, Any], pencere_saat: int = 36, yedek=None) -> Tuple[Optional[int], Optional[int]]:
+    """yedek(bacak) -> (ev_id, dep_id, mac_id): veritabanında bulunamazsa başvurulan dış kaynak (FotMob günlük liste); hata verirse yok sayılır."""
     for tablo in _TABLOLAR:
         if bacak.get("fotmob_match_id"):
             s = execute_query(_sorgu(tablo, "m.fotmob_match_id = :f"), {"f": bacak["fotmob_match_id"]})
@@ -41,7 +42,16 @@ def takim_kimlikleri(execute_query, bacak: Dict[str, Any], pencere_saat: int = 3
                                 {"bas": tarih - timedelta(hours=pencere_saat), "son": tarih + timedelta(hours=pencere_saat)})
         uyan += [a for a in adaylar if takim_benzer(bacak["ev"], a["ev_ad"]) and takim_benzer(bacak["dep"], a["dep_ad"])]
     ciftler = {_cift(a) for a in uyan}      # aynı maç iki tabloda da olabilir (yaklaşandan bitmişe geçerken): çift olarak tekilleştirilir
-    return ciftler.pop() if len(ciftler) == 1 and _cift(uyan[0]) != (None, None) else (None, None)
+    sonuc = ciftler.pop() if len(ciftler) == 1 and _cift(uyan[0]) != (None, None) else (None, None)
+    if sonuc == (None, None) and yedek is not None:
+        try:
+            e, d, _ = yedek(bacak)
+        except Exception:
+            e, d = None, None
+        if e is not None and d is not None:
+            return int(e), int(d)
+    return sonuc
+
 
 
 def doldur(bacaklar, bul, yaz, kuru: bool = True) -> Dict[str, Any]:

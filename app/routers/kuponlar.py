@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.services.db import execute_insert, execute_query, transaction
 from app.services.kupon_model import KuponHatasi, SEVIYELER, dogrula_olustur, gorunur_mu, kilitle, kupon_ozeti
+from app.services.kupon_fotmob import fotmob_takim_kimlikleri, gun_getir
 from app.services.kupon_takim import takim_kimlikleri
 
 router = APIRouter(tags=["kuponlar"])
@@ -92,16 +93,22 @@ def _takim_sutunlarini_hazirla() -> None:
 
 
 def _takimli(bacaklar: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Her bacağa FotMob takım kimliklerini ekler (logo için). Bulunamazsa None; yazmayı asla engellemez. İşlem (transaction) dışında çağrılır:
-    iddaa_event_id sütunu yoksa sorgu hata verir ve açık işlemi bozardı."""
+    """Her bacağa FotMob takım kimliklerini (logo) ve bulunabiliyorsa FotMob maç kimliğini ekler; önce veritabanı, bulunamazsa FotMob günlük listesi. Bulunamazsa None;
+    yazmayı asla engellemez. İşlem (transaction) dışında çağrılır: iddaa_event_id sütunu yoksa sorgu hata verirdi ve açık işlemi bozardı."""
     sonuc = []
     for b in bacaklar:
+        mac_id = {"v": None}
+
+        def yedek(bacak, _m=mac_id):
+            e, d, m = fotmob_takim_kimlikleri(gun_getir, bacak)
+            _m["v"] = m
+            return e, d, m
         try:
             ev_id, dep_id = takim_kimlikleri(execute_query, {"fotmob_match_id": b.get("fotmob_match_id"), "iddaa_event_id": b.get("iddaa_event_id"),
-                                                             "ev": b["ev"], "dep": b["dep"], "mac_zamani": _naive_utc(b["mac_zamani"])})
+                                                             "ev": b["ev"], "dep": b["dep"], "mac_zamani": _naive_utc(b["mac_zamani"])}, yedek=yedek)
         except Exception:
             ev_id, dep_id = None, None
-        sonuc.append({**b, "ev_takim_id": ev_id, "dep_takim_id": dep_id})
+        sonuc.append({**b, "ev_takim_id": ev_id, "dep_takim_id": dep_id, "fotmob_match_id": b.get("fotmob_match_id") or mac_id["v"]})
     return sonuc
 
 
