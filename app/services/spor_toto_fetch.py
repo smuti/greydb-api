@@ -34,7 +34,9 @@ _TR_MAP = str.maketrans({"İ": "i", "ı": "i", "ü": "u", "ö": "o", "ş": "s", 
 
 
 def _normalize(name: str) -> str:
-    return re.sub(r"\s+", " ", (name or "").lower().translate(_TR_MAP)).strip()
+    """Eşleştirme için ad: küçük harf, Türkçe harfler sadeleşir, tire boşluk olur, "st" = "saint" ("Paris St Germain" = "Paris Saint-Germain")."""
+    temiz = re.sub(r"[-.]", " ", (name or "").lower().translate(_TR_MAP))
+    return re.sub(r"\s+", " ", re.sub(r"\bst\b", "saint", temiz)).strip()
 
 
 class SporTotoFetchError(Exception):
@@ -104,9 +106,9 @@ def resolve_team(sportoto_team_id: int, sportoto_team_name: str) -> Optional[Dic
     )
     if not cached.empty:
         team_id = cached.iloc[0]["matchforge_team_id"]
-        if pd.isna(team_id):
-            return None
-        return {"team_id": int(team_id)}
+        if not pd.isna(team_id):
+            return {"team_id": int(team_id)}
+        # Eşleşmemiş kayıt kalıcı "yok" sayılmaz: eşleştirme kuralları iyileşmiş olabilir, yeniden denenir (elle bağlama ise doludur ve korunur)
 
     all_teams = query_to_df("SELECT id, fotmob_team_id, name FROM public.teams")
     normalized_target = _normalize(sportoto_team_name)
@@ -135,7 +137,7 @@ def resolve_team(sportoto_team_id: int, sportoto_team_name: str) -> Optional[Dic
         """
         INSERT INTO greydb.spor_toto_team_map (sportoto_team_id, sportoto_team_name, matchforge_team_id)
         VALUES (:sportoto_team_id, :sportoto_team_name, :matchforge_team_id)
-        ON CONFLICT (sportoto_team_id) DO NOTHING
+        ON CONFLICT (sportoto_team_id) DO UPDATE SET matchforge_team_id = COALESCE(greydb.spor_toto_team_map.matchforge_team_id, EXCLUDED.matchforge_team_id)
         """,
         {
             "sportoto_team_id": sportoto_team_id,
