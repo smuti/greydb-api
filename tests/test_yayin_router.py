@@ -56,6 +56,7 @@ def sahte(monkeypatch):
     monkeypatch.setattr(r, "sil", s.sil)
     monkeypatch.setattr(r, "kayitlari_listele", lambda: [{**k, "mac_sayisi": len(k["maclar"])} for k in s.kayitlar.values()])
     monkeypatch.setattr(r, "toto_maclari", lambda h: s.toto)
+    monkeypatch.setattr(r, "toto_etiketi", lambda h: "11. Hafta")
     monkeypatch.setattr(r, "takim_logosu", lambda i: s.logolar.get(i))
     monkeypatch.setattr(r, "bugun_tsi", lambda simdi=None: date(2026, 10, 24))
     monkeypatch.setattr(r.T, "mac_hazirla", lambda sira, mid, taban: None if mid == 0 else {
@@ -106,7 +107,7 @@ def test_toto_eslesmeyen_mac_kalmaz_ama_not_duser(sahte):
     sahte.toto = [{"mac_no": 1, "fotmob_match_id": 5, "ev_takim": "A", "deplasman_takim": "B"}, {"mac_no": 2, "fotmob_match_id": None, "ev_takim": "C", "deplasman_takim": "D"}]
     kod = client.post("/api/yayin/hazirla", json={"tur": "toto", "hafta_no": 11, "yayin_tarihi": "2026-10-25", "yayin_saat": "12:30"}, headers=ADMIN).json()["kod"]
     p = client.get(f"/api/yayin/{kod}").json()
-    assert p["etiket"] == "11. Hafta" and p["programAdi"] == "Ekonomik ve Tek Atış" and [m["sira"] for m in p["maclar"]] == [1]
+    assert p["etiket"] == "11. Hafta" and p["programAdi"] == "Ekonomik ve Tek Atış"   # hafta_no (11) değil Spor Toto etiketi and [m["sira"] for m in p["maclar"]] == [1]
     assert "2. maç (C - D)" in p["hata"]
 
 
@@ -171,3 +172,8 @@ def test_toto_maclari_fotmob_kimligi_bos_ise_takim_kimlikleri_ve_tarihle_bulur(m
     assert "public.upcoming_matches" in sql and "public.matches" in sql
     assert "home_team_id = m.home_team_id AND away_team_id = m.away_team_id" in sql
     assert "3 * 86400" in sql                                        # tarih yakınlığı sınırı
+
+
+def test_ayar_etiketi_duzeltilebilir(sahte):
+    kod = client.post("/api/yayin/hazirla", json=GUN, headers=ADMIN).json()["kod"]
+    assert client.put(f"/api/yayin/{kod}/ayar", json={"etiket": "12. Hafta"}, headers=ADMIN).json()["etiket"] == "12. Hafta"
