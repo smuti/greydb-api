@@ -128,3 +128,30 @@ def test_taslak_kupon_yetkisizlere_hic_donmez():
     assert gorunur_mu({"durum": "taslak"}, "elit") is False
     assert gorunur_mu({"durum": "arsiv"}, "acik") is False
     assert gorunur_mu({"durum": "yayinda"}, None) is True
+
+
+# ---- Yayın zorunlulukları (siki=True) ----
+def yayin(**kw):
+    return girdi(**{"durum": "yayinda", "sinyal": "guclu", "risk_seviyesi": "orta", **kw})
+
+
+def test_siki_yayinda_neden_ana_risk_sinyal_ve_risk_zorunlu():
+    assert dogrula_olustur(yayin(), siki=True)["durum"] == "yayinda"
+    for degisiklik, alan in (({"nedenler": []}, "nedenler"), ({"nedenler": ["  "]}, "nedenler"), ({"ana_risk": None}, "ana_risk"), ({"ana_risk": " "}, "ana_risk"),
+                             ({"sinyal": None}, "sinyal"), ({"risk_seviyesi": None}, "risk_seviyesi")):
+        with pytest.raises(KuponHatasi) as e:
+            dogrula_olustur(yayin(**degisiklik), siki=True)
+        assert e.value.alan == alan, degisiklik
+
+
+def test_siki_olmayan_ya_da_taslak_serbest():
+    assert dogrula_olustur(girdi(durum="yayinda", nedenler=[], ana_risk=None))["durum"] == "yayinda"      # siki=False (eski kayıtların durum geçişi)
+    assert dogrula_olustur(girdi(durum="taslak", nedenler=[], ana_risk=None), siki=True)["durum"] == "taslak"
+    assert dogrula_olustur(girdi(durum="arsiv", nedenler=[], ana_risk=None), siki=True)["durum"] == "arsiv"
+
+
+def test_sinyal_ve_risk_degerleri_gecerli_olmali():
+    for kotu in ({"sinyal": "süper"}, {"risk_seviyesi": "korkunç"}):
+        with pytest.raises(KuponHatasi):
+            dogrula_olustur(girdi(**kotu))
+    assert dogrula_olustur(girdi(sinyal="orta", risk_seviyesi="dusuk-orta"))["sinyal"] == "orta"

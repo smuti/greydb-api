@@ -205,7 +205,7 @@ async def kupon_olustur(govde: KuponGirdisi, request: Request):
     if not k.email:
         raise HTTPException(status_code=400, detail="X-Kullanici-Email gerekli")
     try:
-        temiz = dogrula_olustur(govde.model_dump())
+        temiz = dogrula_olustur(govde.model_dump(), siki=True)
     except KuponHatasi as e:
         raise _hata(e)
     return _cikti(db_ekle(temiz, k.email), k)
@@ -237,13 +237,14 @@ async def kupon_guncelle(kupon_id: int, govde: KuponGirdisi, request: Request):
     if mevcut is None:
         raise HTTPException(status_code=404, detail="Kupon bulunamadı")
     girdi = govde.model_dump()
-    if "bacaklar" not in girdi:        # yalnız üst bilgi: mevcut bacaklar (sonuçlarıyla) korunur
+    tam = "bacaklar" in girdi          # tam güncelleme yayın zorunluluklarına tabidir; yalnız üst bilgi (ör. durum) değişikliği değil
+    if not tam:        # yalnız üst bilgi: mevcut bacaklar (sonuçlarıyla) korunur
         girdi = {**{a: mevcut[a] for a in ("seviye", "durum", "zamanlama", "one_cikan", "sistem_k", "nedenler", "ana_risk", "yorum", "sinyal", "risk_seviyesi")},
                  **girdi, "bacaklar": mevcut["bacaklar"]}
     elif any(b["sonuc"] != "pending" for b in mevcut["bacaklar"]):
         raise HTTPException(status_code=409, detail="Sonuçlanmış bacağı olan kuponun bacakları değiştirilemez")
     try:
-        temiz = dogrula_olustur(girdi)
+        temiz = dogrula_olustur(girdi, siki=tam)
     except KuponHatasi as e:
         raise _hata(e)
     return _cikti(db_guncelle(kupon_id, temiz), yazar)

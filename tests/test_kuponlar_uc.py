@@ -16,7 +16,7 @@ def uye(seviye):
     return {**GW, "X-Uye-Seviyesi": seviye}
 
 
-GIRDI = {"seviye": "elit", "durum": "yayinda", "nedenler": ["Form iyi"], "ana_risk": "Erken gol",
+GIRDI = {"seviye": "elit", "durum": "yayinda", "nedenler": ["Form iyi"], "ana_risk": "Erken gol", "sinyal": "guclu", "risk_seviyesi": "orta",
          "bacaklar": [{"ev": "Galatasaray", "dep": "Fenerbahçe", "lig": "Süper Lig", "mac_zamani": "2026-10-25T17:00:00Z",
                        "bahis_turu": "Maç Sonucu", "secim": "1", "oran": 1.8, "iddaa_event_id": 123}]}
 
@@ -186,3 +186,19 @@ def test_yazar_suzgeci_epostayla_filtreler_ama_eposta_yanita_girmez(db, monkeypa
     monkeypatch.setattr(r, "db_liste", lambda f: (gelen.update(f) or ([], 0)))
     client.get("/api/kuponlar/sonuclar?yazar=Editor@Greysports.tv")
     assert gelen["yazar"] == "editor@greysports.tv"
+
+
+# ---- Yayın zorunlulukları ----
+def test_yayinda_olusturma_eksik_alanla_422(db):
+    j = client.post("/api/kuponlar", json={**GIRDI, "sinyal": None}, headers=ADMIN)
+    assert j.status_code == 422 and j.json()["detail"]["alan"] == "sinyal"
+    assert client.post("/api/kuponlar", json={**GIRDI, "durum": "taslak", "sinyal": None, "nedenler": []}, headers=ADMIN).status_code == 201
+
+
+def test_tam_guncellemede_siki_ama_yalniz_durum_degisikliginde_serbest(db):
+    eski = {**GIRDI, "durum": "arsiv", "sinyal": None, "nedenler": [], "ana_risk": None, "risk_seviyesi": None}
+    client.post("/api/kuponlar", json=eski, headers=ADMIN)
+    # eski kayıt: yalnız durumu yayına almak (bacaklar gönderilmez) serbest
+    assert client.put("/api/kuponlar/1", json={"durum": "yayinda"}, headers=ADMIN).status_code == 200
+    # tam güncelleme (bacaklar var) yayında eksikse 422
+    assert client.put("/api/kuponlar/1", json={**GIRDI, "sinyal": None}, headers=ADMIN).status_code == 422
