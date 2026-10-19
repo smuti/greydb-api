@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import form, h2h, predictions, coupons, match_comments, feedback, skorjin, leagues, tracked_leagues, analysis_matches, standings, match_detail, match_context, match_data, spor_toto, odds_snapshots, player_stats, iddaa, kuponlar, kupon_sonuclari, veri_ozeti
+from app.routers import form, h2h, match_comments, feedback, skorjin, leagues, tracked_leagues, analysis_matches, standings, match_detail, match_context, match_data, spor_toto, odds_snapshots, player_stats, iddaa, kuponlar, kupon_sonuclari, veri_ozeti
 
 settings = get_settings()
 
@@ -30,8 +30,6 @@ app.add_middleware(
 # Routers
 app.include_router(form.router, prefix="/api")
 app.include_router(h2h.router, prefix="/api")
-app.include_router(predictions.router, prefix="/api")
-app.include_router(coupons.router, prefix="/api")
 app.include_router(match_comments.router, prefix="/api")
 app.include_router(feedback.router, prefix="/api")
 app.include_router(skorjin.router, prefix="/api")
