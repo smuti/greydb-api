@@ -5,12 +5,15 @@ Varsayılan KURU çalışmadır: yalnızca raporlar. Yazmak için ?dry_run=false
 """
 import hmac
 import os
+import time
 from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, Optional
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException
 
 from app.services.db import execute_query, transaction, execute_insert
+from app.services.iddaa_dagilim import dagilim_olustur
 from app.services.iddaa_eslestir import eslestir, takim_benzer, TOLERANS_SN
 
 router = APIRouter(tags=["iddaa"])
@@ -130,3 +133,41 @@ async def iddaa_eslestir(dry_run: bool = True, x_cron_anahtari: str = Header(def
         "belirsiz": [{"fotmob_match_id": m["fotmob_match_id"], "mac": ad(m), "saat": saat(m)} for m in sonuc["belirsiz"]],
         "eslesmeyen": eslesmeyen,
     }
+
+
+_ONBELLEK: Dict[str, Any] = {}
+_TTL_SN = 120
+
+
+def _iddaa_json(yol: str, params: Optional[Dict[str, Any]] = None):
+    anahtar = yol + str(sorted((params or {}).items()))
+    simdi = time.time()
+    if anahtar in _ONBELLEK and simdi - _ONBELLEK[anahtar][0] < _TTL_SN:
+        return _ONBELLEK[anahtar][1]
+    with httpx.Client(headers=_BASLIK, timeout=30) as istemci:
+        yanit = istemci.get(f"https://sportsbookv2.iddaa.com/sportsbook/{yol}", params=params)
+        yanit.raise_for_status()
+        veri = yanit.json().get("data")
+    _ONBELLEK[anahtar] = (simdi, veri)
+    return veri
+
+
+def iddaa_dagilim_verisi(event_id: int):
+    """(maç detayı, bu maçın seçim yüzdeleri, maçın tüm kuponlardaki payı, market tablosu). Kısa süreli önbellekli."""
+    olay = _iddaa_json(f"event/{event_id}")
+    yuzdeler = (_iddaa_json("outcome-play-percentages", {"sportType": 1}) or {}).get(str(event_id), {})
+    pay = (_iddaa_json("played-event-percentage", {"sportType": 1}) or {}).get(str(event_id))
+    cfg = (_iddaa_json("get_market_config") or {}).get("m", {})
+    return olay, yuzdeler, pay, cfg
+
+
+@router.get("/iddaa/dagilim/{event_id}")
+async def iddaa_dagilim(event_id: int):
+    """Maçın iddaa'daki oynanma dağılımı: en çok oynanan 10 seçim ve market içi yüzdeler (iddaa'nın kendi açık verisi)."""
+    try:
+        olay, yuzdeler, pay, cfg = iddaa_dagilim_verisi(event_id)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"iddaa verisi alınamadı: {type(e).__name__}")
+    if not olay:
+        raise HTTPException(status_code=404, detail="iddaa'da böyle bir maç yok")
+    return {"iddaa_event_id": event_id, "ev": olay.get("hn"), "dep": olay.get("an"), **dagilim_olustur(olay, yuzdeler, pay, cfg)}
