@@ -31,13 +31,13 @@ def dagilim_olustur(olay: Dict[str, Any], yuzdeler: Dict[str, Dict[str, float]],
             p = y.get(str(o.get("no")))
             if p is None:
                 continue
-            liste.append({"bahis_turu": ad, "secim": o.get("n"), "oran": o.get("odd"), "yuzde": float(p)})
+            liste.append({"market_id": m.get("i"), "bahis_turu": ad, "secim": o.get("n"), "oran": o.get("odd"), "yuzde": float(p)})
         if not liste:
             continue
         secimler += liste
         toplam = sum(x["yuzde"] for x in liste)
         marketler.append({
-            "bahis_turu": ad, "toplam_yuzde": round(toplam, 2),
+            "market_id": m.get("i"), "bahis_turu": ad, "toplam_yuzde": round(toplam, 2),
             "secimler": [{"secim": x["secim"], "oran": x["oran"], "yuzde": x["yuzde"], "market_ici_yuzde": round(100 * x["yuzde"] / toplam, 1) if toplam else None}
                          for x in sorted(liste, key=lambda x: -x["yuzde"])],
         })

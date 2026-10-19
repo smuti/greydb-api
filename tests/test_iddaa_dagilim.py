@@ -22,6 +22,8 @@ def test_en_cok_oynanan_siralama_ve_adlar():
     assert [(x["bahis_turu"], x["secim"], x["yuzde"]) for x in d["en_cok_oynanan"]] == [
         ("Karşılıklı Gol", "Var", 16.0), ("Maç Sonucu", "1", 11.0), ("Alt/Üst 2.5", "Üst", 11.0)]
     assert d["en_cok_oynanan"][0]["oran"] == 1.38
+    assert d["en_cok_oynanan"][0]["market_id"] == 101                                # arayüz, yüzdeyi marketle kimlikten eşler (ad farkları kırılgan)
+    assert {m["market_id"] for m in d["marketler"]} == {100, 101, 102}
 
 
 def test_esit_yuzdede_daha_dusuk_oran_once_degil_kararli_sira():
