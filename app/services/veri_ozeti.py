@@ -1,5 +1,6 @@
 """Sitenin 'veri özeti': işlenen maç sayısı ve veri noktası (maç verisi tablolarındaki dolu, teknik olmayan değerlerin sayısı).
 Veri noktası = her tablo satırındaki, kimlik/zaman damgası olmayan ve boş (null) olmayan alan sayısı. Yaklaşık değil, sayılmış değerdir; ağır olduğu için önbelleğe alınır."""
+import threading
 import time
 from typing import Any, Callable, Dict, Optional, Sequence
 
@@ -43,23 +44,46 @@ def ozet_olustur(execute_query, tablolar: Sequence[str] = VERI_TABLOLARI, simdi:
 
 
 _onbellek: Dict[str, Any] = {}
+_yenileniyor = {"v": False}
 
 
 def onbellegi_temizle() -> None:
     _onbellek.clear()
+    _yenileniyor["v"] = False
 
 
-def onbellekli(uret: Callable[[], Dict[str, Any]], simdi: Optional[float] = None, ttl: float = 3600.0) -> Dict[str, Any]:
-    """TTL dolana kadar aynı sonucu verir. Süre dolduğunda taze üretilemezse (veritabanı hatası) eski değeri döner; hiç değer yoksa hata yükselir."""
+def _thread_ile(is_fn: Callable[[], None]) -> None:
+    threading.Thread(target=is_fn, daemon=True).start()
+
+
+def onbellekli(uret: Callable[[], Dict[str, Any]], simdi: Optional[float] = None, ttl: float = 3600.0, arka_plan: Callable = _thread_ile) -> Dict[str, Any]:
+    """TTL dolana kadar aynı sonucu verir. Süresi dolmuşsa kullanıcıyı BEKLETMEZ: eski değeri verir, yenisini arka planda hazırlar (aynı anda tek yenileme).
+    Hiç değer yoksa (ilk çağrı) senkron üretir; üretim hata verirse eski değer (varsa) döner, yoksa hata yükselir."""
     simdi = time.time() if simdi is None else simdi
     kayit = _onbellek.get("ozet")
     if kayit and simdi - kayit[0] < ttl:
         return kayit[1]
-    try:
-        deger = uret()
-    except Exception:
-        if kayit:
-            return kayit[1]
-        raise
+    if kayit:
+        if not _yenileniyor["v"]:
+            _yenileniyor["v"] = True
+
+            def yenile():
+                try:
+                    _onbellek["ozet"] = (time.time() if simdi is None else simdi, uret())
+                except Exception:
+                    pass
+                finally:
+                    _yenileniyor["v"] = False
+            arka_plan(yenile)
+        return kayit[1]
+    deger = uret()
     _onbellek["ozet"] = (simdi, deger)
     return deger
+
+
+def isin(uret: Callable[[], Dict[str, Any]], simdi: Optional[float] = None) -> None:
+    """Sunucu açılırken değeri önceden hazırlar: ilk ziyaretçi uzun sayımı beklemesin. Hata sessiz geçilir (ilk çağrı yine hesaplar)."""
+    try:
+        _onbellek["ozet"] = (time.time() if simdi is None else simdi, uret())
+    except Exception:
+        pass
