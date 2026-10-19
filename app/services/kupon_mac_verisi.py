@@ -66,3 +66,20 @@ def mac_yukle(execute_query, mac: Dict[str, Any]) -> Dict[str, Any]:
     olaylar = execute_query("SELECT * FROM public.match_events WHERE match_id = :id", p)
     oyuncular = execute_query("SELECT * FROM public.match_player_stats WHERE match_id = :id", p)
     return mac_sozlugu(mac, stat[0] if stat else None, ileri[0] if ileri else None, olaylar, oyuncular)
+
+
+def mac_bul_bacak(execute_query, bacak: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Bacağın maçını bulur: önce FotMob kimliği, sonra iddaa kimliği (iddaa_event_id sütunu varsa), en son takım adı + tarih. Bitmiş ve skoru olan maç."""
+    bitti = " AND m.finished AND m.home_score IS NOT NULL"
+    if bacak.get("fotmob_match_id"):
+        s = execute_query(_Q_MAC + " WHERE m.fotmob_match_id = :f" + bitti, {"f": bacak["fotmob_match_id"]})
+        if s:
+            return s[0]
+    if bacak.get("iddaa_event_id"):
+        try:
+            s = execute_query(_Q_MAC + " WHERE m.iddaa_event_id = :i" + bitti, {"i": bacak["iddaa_event_id"]})
+        except Exception:      # iddaa_event_id sütunu henüz yok
+            s = []
+        if s:
+            return s[0]
+    return maci_bul(execute_query, bacak["ev"], bacak["dep"], bacak["mac_zamani"])
