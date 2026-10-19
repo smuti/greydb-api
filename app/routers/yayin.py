@@ -51,6 +51,7 @@ class Hazirla(BaseModel):
 class Ayar(BaseModel):
     model_config = ConfigDict(extra="forbid")
     program_adi: Optional[str] = Field(None, max_length=60)
+    etiket: Optional[str] = Field(None, max_length=30)
     yayin_tarihi: Optional[date] = None
     yayin_saat: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
     bayi_kodu: Optional[str] = Field(None, pattern=r"^\d{3,10}$")
@@ -135,6 +136,12 @@ def toto_maclari(hafta_no: int) -> List[Dict[str, Any]]:
            FROM greydb.spor_toto_matches m JOIN greydb.spor_toto_weeks w ON w.id = m.week_id WHERE w.hafta_no = :h ORDER BY m.mac_no""", {"h": hafta_no})
 
 
+def toto_etiketi(hafta_no: int) -> str:
+    """Açılışta görünen hafta adı: Spor Toto'nun kendi etiketi ("11. Hafta"). hafta_no oyun turu numarasıdır (1538), izleyiciye gösterilmez."""
+    r = execute_query("SELECT hafta_etiketi FROM greydb.spor_toto_weeks WHERE hafta_no = :h", {"h": hafta_no})
+    return (r[0]["hafta_etiketi"] if r and r[0]["hafta_etiketi"] else f"Hafta {hafta_no}")
+
+
 def takim_logosu(fotmob_team_id: int) -> Optional[Dict[str, Any]]:
     r = execute_query("SELECT logo, logo_tur FROM greydb.yayin_takimlari WHERE fotmob_team_id = :f", {"f": fotmob_team_id})
     return r[0] if r else None
@@ -209,7 +216,7 @@ def hazirla(g: Hazirla, request: Request, arka: BackgroundTasks):
         raise HTTPException(status_code=404, detail="Spor Toto haftası bulunamadı")
     tarih = g.tarih or bugun_tsi()
     kayit = kaydi_olustur({
-        "kod": _kod(), "tur": g.tur, "etiket": f"{g.hafta_no}. Hafta" if g.tur == "toto" else etiket_gun(tarih), "tarih": tarih,
+        "kod": _kod(), "tur": g.tur, "etiket": toto_etiketi(g.hafta_no) if g.tur == "toto" else etiket_gun(tarih), "tarih": tarih,
         "program_adi": g.program_adi or PROGRAM[g.tur], "marka": MARKA, "yayin_tarihi": g.yayin_tarihi, "yayin_saat": g.yayin_saat, "bayi_kodu": BAYI_KODU,
         "kaynak": {"tur": g.tur, "mac_idler": g.mac_idler, "hafta_no": g.hafta_no, "toplam": len(g.mac_idler) if g.tur == "gun" else len(toto_maclari(g.hafta_no)), "biten": 0},
         "olusturan": kimlik.email,
