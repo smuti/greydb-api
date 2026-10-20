@@ -61,6 +61,7 @@ def _bacak_satiri(b: Dict[str, Any]) -> Dict[str, Any]:
         "lig": b["lig"], "mac_zamani": b["mac_zamani"].isoformat() + "Z", "bahis_turu": b["bahis_turu"], "secim": b["secim"], "oran": float(b["oran"]),
         "sonuc": b["sonuc"], "sonuc_kaynagi": b["sonuc_kaynagi"],
         "ev_takim_id": b.get("ev_takim_id"), "dep_takim_id": b.get("dep_takim_id"),     # FotMob takım kimlikleri (logo); gizli bilgi değil
+        "kisa_nedenler": b.get("kisa_nedenler") or [],                                  # maç kartı gerekçeleri (paylaşım görseli); kilitli kuponda kilitle() gizler
     }
 
 
@@ -78,7 +79,8 @@ def _kupon_satiri(k: Dict[str, Any], bacaklar: List[Dict[str, Any]]) -> Dict[str
 
 
 _TAKIM_SUTUNLARI = ("ALTER TABLE greydb.kupon_bacaklari ADD COLUMN IF NOT EXISTS ev_takim_id INTEGER",
-                    "ALTER TABLE greydb.kupon_bacaklari ADD COLUMN IF NOT EXISTS dep_takim_id INTEGER")
+                    "ALTER TABLE greydb.kupon_bacaklari ADD COLUMN IF NOT EXISTS dep_takim_id INTEGER",
+                    "ALTER TABLE greydb.kupon_bacaklari ADD COLUMN IF NOT EXISTS kisa_nedenler JSONB")
 _takim_sutunlari_hazir = False
 
 
@@ -122,11 +124,12 @@ def _bacaklari_yaz(kupon_id: int, bacaklar: List[Dict[str, Any]]) -> None:
     for i, b in enumerate(bacaklar):
         execute_insert(
             """INSERT INTO greydb.kupon_bacaklari (kupon_id, sira, iddaa_event_id, fotmob_match_id, ev, dep, lig, mac_zamani, bahis_turu, secim, oran, sonuc,
-                                                   ev_takim_id, dep_takim_id)
-               VALUES (:kid, :sira, :iddaa, :fotmob, :ev, :dep, :lig, CAST(:zaman AS timestamptz) AT TIME ZONE 'utc', :tur, :secim, :oran, :sonuc, :evt, :dept)""",
+                                                   ev_takim_id, dep_takim_id, kisa_nedenler)
+               VALUES (:kid, :sira, :iddaa, :fotmob, :ev, :dep, :lig, CAST(:zaman AS timestamptz) AT TIME ZONE 'utc', :tur, :secim, :oran, :sonuc, :evt, :dept,
+                       CAST(:kisa AS jsonb))""",
             {"kid": kupon_id, "sira": i, "iddaa": b["iddaa_event_id"], "fotmob": b["fotmob_match_id"], "ev": b["ev"], "dep": b["dep"], "lig": b["lig"],
              "zaman": b["mac_zamani"], "tur": b["bahis_turu"], "secim": b["secim"], "oran": b["oran"], "sonuc": b["sonuc"],
-             "evt": b.get("ev_takim_id"), "dept": b.get("dep_takim_id")},
+             "evt": b.get("ev_takim_id"), "dept": b.get("dep_takim_id"), "kisa": json.dumps(b.get("kisa_nedenler") or [])},
         )
 
 

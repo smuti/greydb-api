@@ -14,6 +14,7 @@ SEVIYELER = ("acik", "bayi", "elit")
 DURUMLAR = ("taslak", "yayinda", "arsiv")     # arsiv: yayından kaldırıldı (herkesten gizli); sonuçlanmış kuponlar yayinda kalır, Sonuçlar'da görünür
 ZAMANLAMALAR = ("pre", "live")
 MAX_BACAK, MAX_NEDEN = 20, 10
+MAX_KISA_NEDEN, KISA_NEDEN_KARAKTER = 3, 80     # paylaşım görselinde maç kartının altındaki maddeler
 SINYALLER = ("zayif", "orta", "guclu")
 RISKLER = ("dusuk", "dusuk-orta", "orta", "orta-yuksek", "yuksek")
 
@@ -46,6 +47,17 @@ def _zaman(v: Any, alan: str) -> str:
         raise KuponHatasi(alan, "geçerli bir tarih-saat olmalı (ISO)")
 
 
+def _kisa_nedenler(v: Any, alan: str) -> List[str]:
+    if v is None:
+        return []
+    if not isinstance(v, list) or any(not isinstance(x, str) for x in v):
+        raise KuponHatasi(alan, "madde listesi (her madde metin) olmalı")
+    maddeler = [_metin(x, alan, azami=KISA_NEDEN_KARAKTER) for x in v if x.strip()]
+    if len(maddeler) > MAX_KISA_NEDEN:
+        raise KuponHatasi(alan, f"en fazla {MAX_KISA_NEDEN} madde")
+    return maddeler
+
+
 def _bacak(b: Dict[str, Any], i: int) -> Dict[str, Any]:
     p = f"bacaklar[{i}]"
     oran = b.get("oran")
@@ -57,6 +69,7 @@ def _bacak(b: Dict[str, Any], i: int) -> Dict[str, Any]:
         "mac_zamani": _zaman(b.get("mac_zamani"), f"{p}.mac_zamani"),
         "bahis_turu": _metin(b.get("bahis_turu"), f"{p}.bahis_turu"), "secim": _metin(b.get("secim"), f"{p}.secim"), "oran": round(float(oran), 2),
         "sonuc": b.get("sonuc") if b.get("sonuc") in ("pending", "won", "lost", "void") else "pending",
+        "kisa_nedenler": _kisa_nedenler(b.get("kisa_nedenler"), f"{p}.kisa_nedenler"),
     }
 
 
@@ -126,7 +139,7 @@ def gorunur_mu(kupon: Dict[str, Any], uye_seviyesi: Optional[str]) -> bool:
 
 
 _GIZLI_KUPON = ("nedenler", "ana_risk", "yorum", "toplam_oran", "en_yuksek_odeme", "odeme", "sinyal", "risk_seviyesi")
-_GIZLI_BACAK = ("bahis_turu", "secim", "oran", "sonuc", "iddaa_event_id", "fotmob_match_id")
+_GIZLI_BACAK = ("bahis_turu", "secim", "oran", "sonuc", "iddaa_event_id", "fotmob_match_id", "kisa_nedenler")
 
 
 def kilitle(kupon: Dict[str, Any], uye_seviyesi: Optional[str]) -> Dict[str, Any]:
