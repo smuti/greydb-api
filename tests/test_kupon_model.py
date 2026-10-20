@@ -135,9 +135,10 @@ def yayin(**kw):
     return girdi(**{"durum": "yayinda", "sinyal": "guclu", "risk_seviyesi": "orta", **kw})
 
 
-def test_siki_yayinda_neden_ana_risk_sinyal_ve_risk_zorunlu():
+def test_siki_yayinda_ana_risk_sinyal_ve_risk_zorunlu_neden_degil():
     assert dogrula_olustur(yayin(), siki=True)["durum"] == "yayinda"
-    for degisiklik, alan in (({"nedenler": []}, "nedenler"), ({"nedenler": ["  "]}, "nedenler"), ({"ana_risk": None}, "ana_risk"), ({"ana_risk": " "}, "ana_risk"),
+    assert dogrula_olustur(yayin(nedenler=[]), siki=True)["durum"] == "yayinda"       # neden artık zorunlu değil (formdan kaldırıldı)
+    for degisiklik, alan in (({"ana_risk": None}, "ana_risk"), ({"ana_risk": " "}, "ana_risk"),
                              ({"sinyal": None}, "sinyal"), ({"risk_seviyesi": None}, "risk_seviyesi")):
         with pytest.raises(KuponHatasi) as e:
             dogrula_olustur(yayin(**degisiklik), siki=True)

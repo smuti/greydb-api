@@ -75,7 +75,7 @@ def _bacak(b: Dict[str, Any], i: int) -> Dict[str, Any]:
 
 def dogrula_olustur(g: Dict[str, Any], siki: bool = False) -> Dict[str, Any]:
     """İstemci girdisini doğrular, temizler ve hesaplanan alanları (oran, kombinasyon) sunucuda ekler. Hata: KuponHatasi(alan, mesaj).
-    siki=True ve durum 'yayinda' ise yayın zorunlulukları da aranır: en az bir neden, ana risk, sinyal gücü, risk seviyesi (admin formuyla aynı kurallar)."""
+    siki=True ve durum 'yayinda' ise yayın zorunlulukları da aranır: ana risk, sinyal gücü, risk seviyesi (admin formuyla aynı kurallar)."""
     if g.get("seviye") not in SEVIYELER:
         raise KuponHatasi("seviye", f"{', '.join(SEVIYELER)} olmalı")
     durum = g.get("durum", "taslak")
@@ -106,8 +106,6 @@ def dogrula_olustur(g: Dict[str, Any], siki: bool = False) -> Dict[str, Any]:
         raise KuponHatasi("risk_seviyesi", f"{', '.join(RISKLER)} olmalı")
     ana_risk = _metin(g.get("ana_risk"), "ana_risk", zorunlu=False, azami=500)
     if siki and durum == "yayinda":
-        if not nedenler:
-            raise KuponHatasi("nedenler", "Yayınlamak için en az bir neden gerekli")
         if not ana_risk:
             raise KuponHatasi("ana_risk", "Yayınlamak için ana risk gerekli")
         if not g.get("sinyal"):
