@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.routers.kuponlar import admin_gerek
 from app.services.db import execute_insert, execute_query
+from app.services import yayin_ekonomik as EK
 from app.services import yayin_toplayici as T
 
 router = APIRouter(tags=["yayin"])
@@ -62,6 +63,19 @@ class EksikSecim(BaseModel):
     mac_sira: int
     ev: List[str] = Field(default_factory=list, max_length=3)     # kartta gösterilecek oyuncu adları
     dep: List[str] = Field(default_factory=list, max_length=3)
+
+
+class EkonomikHazirla(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kaynak_kod: str = Field(pattern=r"^[a-z0-9]{6,20}$")                  # maçları alınacak Spor Toto yayın sayfası
+    program_adi: Optional[str] = Field(None, max_length=60)
+    yayin_tarihi: date
+    yayin_saat: str = Field(pattern=r"^\d{2}:\d{2}$")
+
+
+class EkonomikTahminler(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    tahminler: List[Dict[str, Any]] = Field(max_length=15)
 
 
 class Renk(BaseModel):
@@ -117,6 +131,55 @@ def ayari_yaz(kod: str, a: Dict[str, Any]) -> None:
 
 def sil(kod: str) -> None:
     execute_insert("DELETE FROM greydb.yayin_sayfalari WHERE kod = :kod", {"kod": kod})
+
+
+_EKONOMIK_TABLO = """CREATE TABLE IF NOT EXISTS greydb.yayin_ekonomik (
+    id SERIAL PRIMARY KEY, kod TEXT NOT NULL UNIQUE, kaynak_kod TEXT, etiket TEXT NOT NULL, program_adi TEXT NOT NULL, marka TEXT NOT NULL DEFAULT 'GREYSPORTS',
+    yayin_tarihi DATE NOT NULL, yayin_saat TEXT NOT NULL, bayi_kodu TEXT NOT NULL DEFAULT '300908',
+    maclar JSONB NOT NULL DEFAULT '[]'::jsonb, tahminler JSONB NOT NULL DEFAULT '[]'::jsonb, olusturan TEXT,
+    olusturma TIMESTAMP NOT NULL DEFAULT (now() AT TIME ZONE 'utc'), guncelleme TIMESTAMP NOT NULL DEFAULT (now() AT TIME ZONE 'utc'))"""
+_ekonomik_hazir = False
+
+
+def ekonomik_tablosunu_hazirla() -> None:
+    """Tablo yoksa oluşturur (idempotent; ilk kullanımda bir kez). Dağıtım ile elle betik çalıştırma sırası önemli olmasın."""
+    global _ekonomik_hazir
+    if not _ekonomik_hazir:
+        execute_insert(_EKONOMIK_TABLO, {})
+        _ekonomik_hazir = True
+
+
+def _json(v: Any) -> Any:
+    return v if isinstance(v, (list, dict)) else json.loads(v or "[]")
+
+
+def ekonomik_olustur(k: Dict[str, Any]) -> Dict[str, Any]:
+    ekonomik_tablosunu_hazirla()
+    return execute_insert(
+        """INSERT INTO greydb.yayin_ekonomik (kod, kaynak_kod, etiket, program_adi, marka, yayin_tarihi, yayin_saat, bayi_kodu, maclar, olusturan)
+           VALUES (:kod, :kaynak_kod, :etiket, :program_adi, :marka, :yayin_tarihi, :yayin_saat, :bayi_kodu, CAST(:maclar AS jsonb), :olusturan) RETURNING id, kod""",
+        {**k, "maclar": json.dumps(k["maclar"], ensure_ascii=False)})
+
+
+def ekonomik_getir(kod: str) -> Optional[Dict[str, Any]]:
+    ekonomik_tablosunu_hazirla()
+    r = execute_query("SELECT * FROM greydb.yayin_ekonomik WHERE kod = :kod", {"kod": kod})
+    return r[0] if r else None
+
+
+def ekonomik_listele() -> List[Dict[str, Any]]:
+    ekonomik_tablosunu_hazirla()
+    return execute_query("""SELECT kod, kaynak_kod, etiket, program_adi, yayin_tarihi, yayin_saat, olusturan, olusturma, guncelleme,
+                                   jsonb_array_length(maclar) AS mac_sayisi FROM greydb.yayin_ekonomik ORDER BY olusturma DESC LIMIT 100""", {})
+
+
+def ekonomik_tahmin_yaz(kod: str, tahminler: List[Dict[str, Any]]) -> None:
+    execute_insert("UPDATE greydb.yayin_ekonomik SET tahminler = CAST(:t AS jsonb), guncelleme = (now() AT TIME ZONE 'utc') WHERE kod = :kod",
+                   {"t": json.dumps(tahminler, ensure_ascii=False), "kod": kod})
+
+
+def ekonomik_sil(kod: str) -> None:
+    execute_insert("DELETE FROM greydb.yayin_ekonomik WHERE kod = :kod", {"kod": kod})
 
 
 def toto_maclari(hafta_no: int) -> List[Dict[str, Any]]:
@@ -204,6 +267,20 @@ def _paket(k: Dict[str, Any], bugun: date) -> Dict[str, Any]:
     }
 
 
+def _ekonomik_paket(k: Dict[str, Any], bugun: date) -> Dict[str, Any]:
+    """Ekonomik kupon yayını paketi: maçlar (kaynak Spor Toto sayfasından kopya) + her maça iki kişinin tahminleri (girilmeyen alan boş '')."""
+    bos = {a: "" for a in EK.ALANLAR}
+    tah = {t["sira"]: t for t in _json(k["tahminler"])}
+    maclar = [{**m, "fuat": {**bos, **(tah.get(m["sira"], {}).get("fuat") or {})}, "skorjin": {**bos, **(tah.get(m["sira"], {}).get("skorjin") or {})}} for m in _json(k["maclar"])]
+    return {"kod": k["kod"], "tur": "ekonomik", "etiket": k["etiket"], "programAdi": k["program_adi"], "marka": k["marka"],
+            "yayinGun": yayin_gun_metni(k["yayin_tarihi"], bugun), "yayinSaat": k["yayin_saat"], "bayiKodu": k["bayi_kodu"], "durum": "hazir", "hata": None, "maclar": maclar}
+
+
+def _ekonomik_maci(m: Dict[str, Any]) -> Dict[str, Any]:
+    """Kaynak yayın sayfasındaki maçtan yalnızca ekonomik yayının gösterdiği alanlar (kartlar/istatistik taşınmaz)."""
+    return {"sira": m["sira"], "ev": m["ev"], "dep": m["dep"], "lig": m.get("lig"), "saat": m.get("saat"), "tarih": m.get("tarih")}
+
+
 # ---------------- Uçlar ----------------
 @router.post("/yayin/hazirla", status_code=202)
 def hazirla(g: Hazirla, request: Request, arka: BackgroundTasks):
@@ -225,12 +302,44 @@ def hazirla(g: Hazirla, request: Request, arka: BackgroundTasks):
     return {"kod": kayit["kod"], "durum": "hazirlaniyor"}
 
 
+@router.post("/yayin/ekonomik", status_code=201)
+def ekonomik_hazirla(g: EkonomikHazirla, request: Request):
+    """Hazır bir Spor Toto yayın sayfasının maçlarından ekonomik kupon ve tek atış yayını açar (yeni veri toplanmaz, anında hazır)."""
+    kimlik = admin_gerek(request)
+    kaynak = kaydi_getir(g.kaynak_kod)
+    if not kaynak or kaynak["tur"] != "toto":
+        raise HTTPException(status_code=404, detail="Spor Toto yayın sayfası bulunamadı")
+    maclar = [_ekonomik_maci(m) for m in _json(kaynak["maclar"])]
+    if kaynak["durum"] != "hazir" or not maclar:
+        raise HTTPException(status_code=409, detail="Spor Toto yayın sayfası henüz hazır değil")
+    kayit = ekonomik_olustur({
+        "kod": _kod(), "kaynak_kod": g.kaynak_kod, "etiket": kaynak["etiket"], "program_adi": g.program_adi or "Spor Toto Ekonomik Kupon ve Tek Atış", "marka": MARKA,
+        "yayin_tarihi": g.yayin_tarihi, "yayin_saat": g.yayin_saat, "bayi_kodu": BAYI_KODU, "maclar": maclar, "olusturan": kimlik.email})
+    return {"kod": kayit["kod"], "durum": "hazir"}
+
+
+@router.put("/yayin/ekonomik/{kod}/tahminler")
+def ekonomik_tahminleri_kaydet(kod: str, g: EkonomikTahminler, request: Request):
+    admin_gerek(request)
+    k = ekonomik_getir(kod)
+    if not k:
+        raise HTTPException(status_code=404, detail="Yayın sayfası yok")
+    try:
+        temiz = EK.tahminleri_dogrula(g.tahminler, [m["sira"] for m in _json(k["maclar"])])
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    ekonomik_tahmin_yaz(kod, temiz)
+    return _ekonomik_paket(ekonomik_getir(kod), bugun_tsi())
+
+
 @router.get("/yayin")
 def listele(request: Request):
     admin_gerek(request)
     b = bugun_tsi()
     return {"sayfalar": [{**k, "tarih": k["tarih"].isoformat(), "yayin_tarihi": k["yayin_tarihi"].isoformat(), "yayin_gun": yayin_gun_metni(k["yayin_tarihi"], b),
-                          "olusturma": k["olusturma"].isoformat() + "Z", "guncelleme": k["guncelleme"].isoformat() + "Z"} for k in kayitlari_listele()]}
+                          "olusturma": k["olusturma"].isoformat() + "Z", "guncelleme": k["guncelleme"].isoformat() + "Z"} for k in kayitlari_listele()]
+                      + [{**k, "tur": "ekonomik", "tarih": k["yayin_tarihi"].isoformat(), "yayin_tarihi": k["yayin_tarihi"].isoformat(), "yayin_gun": yayin_gun_metni(k["yayin_tarihi"], b),
+                          "durum": "hazir", "hata": None, "olusturma": k["olusturma"].isoformat() + "Z", "guncelleme": k["guncelleme"].isoformat() + "Z"} for k in ekonomik_listele()]}
 
 
 @router.get("/yayin/logo/{fotmob_team_id}")
@@ -253,7 +362,10 @@ def renk_sec(fotmob_team_id: int, g: Renk, request: Request):
 def getir(kod: str):
     k = kaydi_getir(kod)
     if not k:
-        raise HTTPException(status_code=404, detail="Yayın sayfası yok")
+        e = ekonomik_getir(kod)
+        if not e:
+            raise HTTPException(status_code=404, detail="Yayın sayfası yok")
+        return _ekonomik_paket(e, bugun_tsi())
     return _paket(k, bugun_tsi())
 
 
@@ -303,7 +415,10 @@ def yenile(kod: str, request: Request, arka: BackgroundTasks):
 @router.delete("/yayin/{kod}")
 def sil_(kod: str, request: Request):
     admin_gerek(request)
-    if not kaydi_getir(kod):
+    if kaydi_getir(kod):
+        sil(kod)
+    elif ekonomik_getir(kod):
+        ekonomik_sil(kod)
+    else:
         raise HTTPException(status_code=404, detail="Yayın sayfası yok")
-    sil(kod)
     return {"ok": True}
