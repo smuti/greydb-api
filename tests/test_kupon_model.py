@@ -155,3 +155,31 @@ def test_sinyal_ve_risk_degerleri_gecerli_olmali():
         with pytest.raises(KuponHatasi):
             dogrula_olustur(girdi(**kotu))
     assert dogrula_olustur(girdi(sinyal="orta", risk_seviyesi="dusuk-orta"))["sinyal"] == "orta"
+
+
+# ---- Maç başına kısa gerekçe (paylaşım görseli) ----
+def test_kisa_nedenler_yoksa_bos_liste():
+    assert dogrula_olustur(girdi())["bacaklar"][0]["kisa_nedenler"] == []
+
+
+def test_kisa_nedenler_kirpilir_bos_satirlar_atilir():
+    b = bacak(kisa_nedenler=["  Hücum gücü yüksek ", "", "   ", "Deplasmanda gol buluyor"])
+    assert dogrula_olustur(girdi(bacaklar=[b]))["bacaklar"][0]["kisa_nedenler"] == ["Hücum gücü yüksek", "Deplasmanda gol buluyor"]
+
+
+@pytest.mark.parametrize("kotu", [["a", "b", "c", "d"], ["x" * 81], "tek metin", [1, 2], {"a": 1}])
+def test_gecersiz_kisa_nedenler_hata_alani_belirtir(kotu):
+    with pytest.raises(KuponHatasi) as e:
+        dogrula_olustur(girdi(bacaklar=[bacak(kisa_nedenler=kotu)]))
+    assert e.value.alan == "bacaklar[0].kisa_nedenler"
+
+
+def test_kisa_nedenler_en_fazla_3_ve_80_karakter_sinirda_gecer():
+    assert len(dogrula_olustur(girdi(bacaklar=[bacak(kisa_nedenler=["x" * 80] * 3)]))["bacaklar"][0]["kisa_nedenler"]) == 3
+
+
+def test_kilitli_kuponda_kisa_nedenler_sizmaz():
+    k = tam_kupon("elit")
+    k["bacaklar"][0]["kisa_nedenler"] = ["gizli kısa gerekçe"]
+    assert kilitle(k, "acik")["bacaklar"][0]["kisa_nedenler"] is None
+    assert kilitle(k, "elit")["bacaklar"][0]["kisa_nedenler"] == ["gizli kısa gerekçe"]

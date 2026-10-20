@@ -68,6 +68,7 @@ DDL = [
     """,
     "ALTER TABLE greydb.kupon_bacaklari ADD COLUMN IF NOT EXISTS ev_takim_id INTEGER",
     "ALTER TABLE greydb.kupon_bacaklari ADD COLUMN IF NOT EXISTS dep_takim_id INTEGER",
+    "ALTER TABLE greydb.kupon_bacaklari ADD COLUMN IF NOT EXISTS kisa_nedenler JSONB",
     "CREATE INDEX IF NOT EXISTS idx_kuponlar_durum_yayin ON greydb.kuponlar (durum, yayin_zamani DESC)",
     "CREATE INDEX IF NOT EXISTS idx_kuponlar_seviye ON greydb.kuponlar (seviye)",
     "CREATE INDEX IF NOT EXISTS idx_kuponlar_sonuc ON greydb.kuponlar (sonuc)",
