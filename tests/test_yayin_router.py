@@ -54,6 +54,8 @@ def sahte(monkeypatch):
     monkeypatch.setattr(r, "ilerleme_yaz", s.ilerleme_yaz)
     monkeypatch.setattr(r, "ayari_yaz", s.ayari_yaz)
     monkeypatch.setattr(r, "sil", s.sil)
+    monkeypatch.setattr(r, "ekonomik_listele", lambda: [])
+    monkeypatch.setattr(r, "ekonomik_getir", lambda kod: None)
     monkeypatch.setattr(r, "kayitlari_listele", lambda: [{**k, "mac_sayisi": len(k["maclar"])} for k in s.kayitlar.values()])
     monkeypatch.setattr(r, "toto_maclari", lambda h: s.toto)
     monkeypatch.setattr(r, "toto_etiketi", lambda h: "11. Hafta")
