@@ -49,7 +49,12 @@ class Sahte:
             iddaa=self._iddaa,
             mevcut=lambda ids: self.mevcut_ & set(ids),
             yaz=lambda kapsam, satir: self.yazilan.append((kapsam, satir)),
+            fotmob=self._fotmob_yok,
         )
+
+    @staticmethod
+    def _fotmob_yok(fid):
+        raise RuntimeError("fotmob kapalı")
 
     def _iddaa(self, event_id):
         self.iddaa_cagrilari.append(event_id)
@@ -106,7 +111,7 @@ def test_iddaa_hatasi_oranlari_bos_birakir_gerisini_yazar():
     s = Sahte(iddaa=RuntimeError("kapalı"))
     r = calistir(s)
     satir = s.yazilan[0][1]
-    assert satir["odds"] is None and satir["crowd"] is None and satir["scoreline"] is not None
+    assert not any(k in satir for k in ("odds", "odds_at", "crowd", "crowd_at")) and satir["scoreline"] is not None   # eski oran korunur
     assert r["iddaa_hatasi"] == 1 and r["hazirlanan"] == 1
 
 
@@ -126,7 +131,7 @@ def test_bir_macin_hatasi_digerlerini_durdurmaz():
 def test_bos_form_ve_h2h_null_yazilir_uydurulmaz():
     s = Sahte()
     k = s.kaynaklar()
-    k = Kaynaklar(maclar=k.maclar, form=lambda t, d: [], h2h=lambda a, b, d: [], model=k.model, iddaa=k.iddaa, mevcut=k.mevcut, yaz=k.yaz)
+    k = Kaynaklar(maclar=k.maclar, form=lambda t, d: [], h2h=lambda a, b, d: [], model=k.model, iddaa=k.iddaa, mevcut=k.mevcut, yaz=k.yaz, fotmob=k.fotmob)
     hazirla("gunluk", False, k, SIMDI, model_surumu="v")
     satir = s.yazilan[0][1]
     assert satir["form"] is None and satir["form_at"] is None and satir["h2h"] is None and satir["h2h_at"] is None
@@ -154,3 +159,56 @@ def test_oran_iddaada_piyasa_kalmadiysa_null_yazar_hata_olursa_dokunmaz():
 def test_gecersiz_kapsam():
     with pytest.raises(ValueError):
         calistir(Sahte(), kapsam="saatlik")
+
+
+# ------------------------------------------------------------------ eksik oyuncular (FotMob)
+def fm_detay(ev=1, dep=0):
+    p = lambda ad: {"name": ad, "marketValue": 1000, "unavailability": {"type": "injury", "expectedReturn": "Day to day"}}   # noqa: E731
+    return {"content": {"lineup": {"homeTeam": {"unavailable": [p(f"E{i}") for i in range(ev)]},
+                                   "awayTeam": {"unavailable": [p(f"D{i}") for i in range(dep)]}}}}
+
+
+def kaynak_fotmob(sahte, detay, hata=False):
+    k = sahte.kaynaklar()
+
+    def fotmob(fid):
+        sahte.fotmob_cagrilari = getattr(sahte, "fotmob_cagrilari", []) + [fid]
+        if hata:
+            raise RuntimeError("fotmob")
+        return detay
+    return Kaynaklar(**{**k.__dict__, "fotmob": fotmob})
+
+
+def test_gunluk_satiri_eksikleri_kaynak_ve_zamanla_yazar():
+    s = Sahte()
+    hazirla("gunluk", False, kaynak_fotmob(s, fm_detay(2, 0)), SIMDI, model_surumu="v")
+    satir = s.yazilan[0][1]
+    assert satir["absences"]["source"] == "FotMob" and satir["absences_at"] == SIMDI and satir["absences_source"] == "FotMob"
+    assert [t["name"] for t in satir["absences"]["teams"]] == ["Yıldız FK", "Kuzey SK"]
+
+
+def test_fotmob_kapsami_yoksa_eksik_null_yazilir_bilgi_yok():
+    s = Sahte()
+    hazirla("gunluk", False, kaynak_fotmob(s, fm_detay(0, 0)), SIMDI, model_surumu="v")
+    satir = s.yazilan[0][1]
+    assert satir["absences"] is None and satir["absences_at"] is None and satir["absences_source"] is None
+
+
+def test_fotmob_hatasinda_eksik_anahtarlari_yok_eski_veri_korunur():
+    s = Sahte()
+    r = hazirla("gunluk", False, kaynak_fotmob(s, None, hata=True), SIMDI, model_surumu="v")
+    satir = s.yazilan[0][1]
+    assert not any(k in satir for k in ("absences", "absences_at", "absences_source")) and r["fotmob_hatasi"] == 1 and r["hazirlanan"] == 1
+
+
+def test_oran_kapsami_eksikleri_de_yeniler():
+    s = Sahte(mevcut={1001})
+    hazirla("oran", False, kaynak_fotmob(s, fm_detay(1, 1)), SIMDI, model_surumu="v")
+    satir = s.yazilan[0][1]
+    assert satir["absences"] is not None and set(satir) >= {"odds", "crowd", "absences", "absences_at", "absences_source"}
+
+
+def test_fotmob_cagrisi_maç_basina_bir_kez():
+    s = Sahte(maclar=[mac(1001), mac(1002, ev=3)], model={})
+    hazirla("gunluk", False, kaynak_fotmob(s, fm_detay(1, 0)), SIMDI, model_surumu="v")
+    assert s.fotmob_cagrilari == [1001, 1002]

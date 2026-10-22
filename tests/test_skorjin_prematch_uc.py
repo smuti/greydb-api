@@ -28,7 +28,8 @@ def kur(monkeypatch, anahtar="gizli", kilit=True):
     monkeypatch.setattr(r, "tablo_hazirla", lambda: tablo.append(1))
     monkeypatch.setattr(r, "gercek_kaynaklar", lambda: Kaynaklar(
         maclar=lambda bas, son: [MAC], form=lambda t, d: [], h2h=lambda a, b, d: [], model=lambda ms: {},
-        iddaa=lambda e: (None, {}, {}), mevcut=lambda ids: set(), yaz=lambda kapsam, satir: yazilan.append((kapsam, satir))))
+        iddaa=lambda e: (None, {}, {}), mevcut=lambda ids: set(), yaz=lambda kapsam, satir: yazilan.append((kapsam, satir)),
+        fotmob=lambda fid: None))
     return yazilan, tablo
 
 

@@ -5,6 +5,7 @@ Burası ham girdileri (maç satırları, iddaa olayı, matchforge sonucu) tablon
 Biçim sözleşmesi Skorjin deposunda: docs/prematch-snapshot.md.
 """
 import json
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
@@ -92,6 +93,61 @@ def model_verisi(sonuc: Optional[Dict[str, Any]], model_surumu: str) -> Optional
             "model_version": sonuc.get("model_version") or model_surumu}
 
 
+# ---------------------------------------------------------------- eksik oyuncular (FotMob matchDetails)
+KAYNAK_FOTMOB = "FotMob"
+EKSIK_ORAN_SINIRI = 15            # takım başına en fazla (piyasa değeri en yüksekler)
+_AY = {"January": "Ocak", "February": "Şubat", "March": "Mart", "April": "Nisan", "May": "Mayıs", "June": "Haziran", "July": "Temmuz",
+       "August": "Ağustos", "September": "Eylül", "October": "Ekim", "November": "Kasım", "December": "Aralık"}
+_DONUS_SABIT = {"Day to day": "günü gününe", "A few days": "birkaç gün", "Out for season": "sezon sonuna kadar",
+                "Back in training": "antrenmanlara döndü"}
+_DONUS_SUPHELI = {"Doubtful", "Day to day"}
+_DONUS_AY = re.compile(r"^(Early|Mid|Late) (\w+) (\d{4})$")
+_DONUS_HAFTA = re.compile(r"^About (\d+(?:-\d+)?) weeks?$")
+_DONUS_ZAMAN = {"Early": "başı", "Mid": "ortası", "Late": "sonu"}
+
+
+def donus_metni(ham: Optional[str]) -> Optional[str]:
+    """FotMob'un İngilizce dönüş tarihi -> Türkçe. Tanınmayan/bilgisiz ("Unknown", "Doubtful") metin yazılmaz (None)."""
+    if not ham:
+        return None
+    if ham in _DONUS_SABIT:
+        return _DONUS_SABIT[ham]
+    m = _DONUS_AY.match(ham)
+    if m and m.group(2) in _AY:
+        return f"{_AY[m.group(2)]} {m.group(3)} {_DONUS_ZAMAN[m.group(1)]}"
+    m = _DONUS_HAFTA.match(ham)
+    return f"yaklaşık {m.group(1)} hafta" if m else None
+
+
+def _oyuncular(takim: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    cikti = []
+    for k in (takim or {}).get("unavailable") or []:
+        if not k or not k.get("name"):
+            continue
+        u = k.get("unavailability") or {}
+        if u.get("type") not in ("injury", "suspension"):
+            continue                                            # milli takım vb.: eksik sayılmaz
+        donus = u.get("expectedReturn")
+        durum = "cezali" if u["type"] == "suspension" else "supheli" if donus in _DONUS_SUPHELI else "sakat"
+        cikti.append(({"name": k["name"], "status": durum, "reason": None, "expected_return": donus_metni(donus)}, k.get("marketValue")))
+    cikti.sort(key=lambda x: -(x[1] if x[1] is not None else -1))       # sorted kararlı: eşit değerde kaynak sırası
+    return [p for p, _ in cikti[:EKSIK_ORAN_SINIRI]]
+
+
+def eksik_oyuncular(detay: Optional[Dict[str, Any]], ev_ad: str, dep_ad: str) -> Optional[Dict[str, Any]]:
+    """FotMob matchDetails (yaklaşan maç) -> Skorjin `absences` JSON'u. Takım adları bizim veritabanındaki yazımla.
+    Kapsam yoksa None ("bilgi yok"): lineup hiç yok ya da iki takımın listesi de boş (boş liste "eksik yok" demek olamaz;
+    FotMob küçük liglerde eksik takip etmiyor). Bir takımda kayıt varsa diğerinin boş listesi "kayıtlı eksik yok" sayılır."""
+    lineup = ((detay or {}).get("content") or {}).get("lineup")
+    if not isinstance(lineup, dict):
+        return None
+    ev, dep = _oyuncular(lineup.get("homeTeam")), _oyuncular(lineup.get("awayTeam"))
+    if not ev and not dep:
+        return None
+    return {"source": KAYNAK_FOTMOB, "teams": [{"name": ev_ad, "info_available": True, "players": ev},
+                                                {"name": dep_ad, "info_available": True, "players": dep}]}
+
+
 # ---------------------------------------------------------------- orkestrasyon (kaynaklar enjekte edilir)
 KAPSAMLAR = ("gunluk", "oran")
 MODEL_LIGLERI = {4, 5, 6, 7, 8, 9, 12, 20, 21}     # matchforge ms_model kapsamı (SCOPE + EXTRA ligler)
@@ -106,6 +162,7 @@ class Kaynaklar:
     iddaa: Callable[[int], Tuple[Optional[Dict[str, Any]], Dict[str, Any], Dict[str, Any]]]   # (olay, yüzdeler, market yapılandırması)
     mevcut: Callable[[List[int]], Set[int]]                                        # tabloda satırı olan maç kimlikleri
     yaz: Callable[[str, Dict[str, Any]], None]
+    fotmob: Callable[[int], Optional[Dict[str, Any]]]                              # fotmob_match_id -> matchDetails (hata: istisna)
 
 
 def _ad(m: Dict[str, Any]) -> str:
@@ -136,7 +193,7 @@ def hazirla(kapsam: str, dry_run: bool, k: Kaynaklar, simdi: datetime, model_sur
     ufuk = simdi + (timedelta(days=ufuk_gun) if kapsam == "gunluk" else timedelta(hours=oran_ufku_saat))
     maclar = k.maclar(simdi, ufuk)
     rapor: Dict[str, Any] = {"kapsam": kapsam, "dry_run": dry_run, "aday": len(maclar), "hazirlanan": 0, "model_yok": 0,
-                             "iddaa_hatasi": 0, "satiri_yok": 0, "iddaa_kimligi_yok": 0, "hatalar": [], "maclar": []}
+                             "iddaa_hatasi": 0, "fotmob_hatasi": 0, "satiri_yok": 0, "iddaa_kimligi_yok": 0, "hatalar": [], "maclar": []}
 
     modeller: Dict[int, Dict[str, Any]] = {}
     if kapsam == "gunluk":
@@ -157,8 +214,7 @@ def hazirla(kapsam: str, dry_run: bool, k: Kaynaklar, simdi: datetime, model_sur
                     continue
                 if not m.get("iddaa_event_id"):
                     rapor["iddaa_kimligi_yok"] += 1
-                    continue
-                alanlar = _oran_alanlari(m, k, simdi, rapor)
+                alanlar = {**(_oran_alanlari(m, k, simdi, rapor) if m.get("iddaa_event_id") else {}), **_eksik_alanlari(m, k, simdi, rapor)}
                 if not alanlar:
                     continue
                 satir = {"fotmob_match_id": fid, **alanlar}
@@ -168,10 +224,20 @@ def hazirla(kapsam: str, dry_run: bool, k: Kaynaklar, simdi: datetime, model_sur
                 k.yaz(kapsam, satir)
             rapor["hazirlanan"] += 1
             rapor["maclar"].append({"fotmob_match_id": fid, "mac": _ad(m), "alanlar": sorted(
-                a for a in ("form", "h2h", "scoreline", "odds", "crowd") if satir.get(a))})
+                a for a in ("form", "h2h", "scoreline", "odds", "crowd", "absences") if satir.get(a))})
         except Exception as e:  # noqa: BLE001 — tek maçın hatası işi durdurmaz
             rapor["hatalar"].append({"fotmob_match_id": fid, "hata": f"{type(e).__name__}: {e}"})
     return rapor
+
+
+def _eksik_alanlari(m: Dict[str, Any], k: Kaynaklar, simdi: datetime, rapor: Dict[str, Any]) -> Dict[str, Any]:
+    """Başarılı çekimde kapsam yoksa None (bilgi yok); FotMob hatasında ANAHTARLAR OLMAZ (eski veri korunur)."""
+    try:
+        eksik = eksik_oyuncular(k.fotmob(m["fotmob_match_id"]), m["home_name"], m["away_name"])
+    except Exception:  # noqa: BLE001 — FotMob erişilemezse mevcut veri bozulmaz
+        rapor["fotmob_hatasi"] += 1
+        return {}
+    return {"absences": eksik, "absences_at": simdi if eksik else None, "absences_source": KAYNAK_FOTMOB if eksik else None}
 
 
 def _gunluk_satir(m, k, sonuc, simdi, model_surumu, rapor) -> Dict[str, Any]:
@@ -183,7 +249,8 @@ def _gunluk_satir(m, k, sonuc, simdi, model_surumu, rapor) -> Dict[str, Any]:
     scoreline = model_verisi(sonuc, model_surumu) if _model_kullanilabilir(m, sonuc) else None
     if scoreline is None:
         rapor["model_yok"] += 1
-    oran = _oran_alanlari(m, k, simdi, rapor) if m.get("iddaa_event_id") else {}
+    oran = _oran_alanlari(m, k, simdi, rapor) if m.get("iddaa_event_id") else {"odds": None, "odds_at": None, "crowd": None, "crowd_at": None}
+    eksik = _eksik_alanlari(m, k, simdi, rapor)
     return {
         "fotmob_match_id": m["fotmob_match_id"], "iddaa_event_id": m.get("iddaa_event_id"),
         "home_team_id": ev, "away_team_id": dep, "home_name": m["home_name"], "away_name": m["away_name"],
@@ -191,7 +258,7 @@ def _gunluk_satir(m, k, sonuc, simdi, model_surumu, rapor) -> Dict[str, Any]:
         "form": form, "form_at": simdi if form else None,
         "h2h": h2h, "h2h_at": simdi if h2h else None,
         "scoreline": scoreline, "scoreline_at": simdi if scoreline else None,
-        "odds": oran.get("odds"), "odds_at": oran.get("odds_at"), "crowd": oran.get("crowd"), "crowd_at": oran.get("crowd_at"),
+        **oran, **eksik,
     }
 
 
@@ -216,11 +283,12 @@ CREATE INDEX IF NOT EXISTS idx_match_prematch_kickoff ON greydb.match_prematch (
 """
 
 _KIMLIK = ("iddaa_event_id", "home_team_id", "away_team_id", "home_name", "away_name", "league_id", "league_name", "kickoff")
-_ZAMANLI = ("form", "h2h", "scoreline", "odds", "crowd")
+_ZAMANLI = ("form", "h2h", "scoreline", "odds", "crowd", "absences")
 _JSON = set(_ZAMANLI)
+_EKSIK = ("absences", "absences_at", "absences_source")
 _KOLONLAR = {
-    "gunluk": _KIMLIK + tuple(c for g in _ZAMANLI for c in (g, f"{g}_at")),
-    "oran": ("odds", "odds_at", "crowd", "crowd_at"),
+    "gunluk": _KIMLIK + tuple(c for g in _ZAMANLI[:-1] for c in (g, f"{g}_at")) + _EKSIK,
+    "oran": ("odds", "odds_at", "crowd", "crowd_at") + _EKSIK,
 }
 
 
@@ -230,7 +298,7 @@ def _js(x):
 
 def yazma_sorgusu(kapsam: str, satir: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
     """gunluk: satırı oluşturur/günceller (eksik oyuncu alanlarına dokunmaz); oran: yalnız oran alanlarını günceller, satır oluşturmaz."""
-    kolonlar = _KOLONLAR[kapsam]
+    kolonlar = tuple(c for c in _KOLONLAR[kapsam] if c in satir)        # satırda olmayan grup (kaynak hatası) sorguya girmez: eski veri korunur
     params = {"fotmob_match_id": satir["fotmob_match_id"], **{c: (_js(satir.get(c)) if c in _JSON else satir.get(c)) for c in kolonlar}}
     deger = lambda c: f"CAST(:{c} AS jsonb)" if c in _JSON else f":{c}"   # noqa: E731
     if kapsam == "oran":
@@ -312,6 +380,15 @@ def _mevcut(ids: List[int]) -> Set[int]:
         return set()
 
 
+def _fotmob(fotmob_match_id: int) -> Dict[str, Any]:
+    """FotMob matchDetails; erişilemezse (istek hatası/200 dışı) istisna: çağıran eski veriyi korur."""
+    from app.services.yayin_toplayici import fotmob_detay
+    detay = fotmob_detay(fotmob_match_id)
+    if detay is None:
+        raise RuntimeError(f"FotMob yanıt vermedi: {fotmob_match_id}")
+    return detay
+
+
 def _yaz(kapsam: str, satir: Dict[str, Any]) -> None:
     from app.services.db import execute_insert
     sql, params = yazma_sorgusu(kapsam, satir)
@@ -324,7 +401,7 @@ def gercek_kaynaklar() -> Kaynaklar:
         maclar=_yaklasan,
         form=lambda takim, tarih: execute_query(FORM_SQL, {"t": takim, "tarih": tarih}),
         h2h=lambda a, b, tarih: execute_query(H2H_SQL, {"a": a, "b": b, "tarih": tarih}),
-        model=_model, iddaa=_iddaa, mevcut=_mevcut, yaz=_yaz,
+        model=_model, iddaa=_iddaa, mevcut=_mevcut, yaz=_yaz, fotmob=_fotmob,
     )
 
 
