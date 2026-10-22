@@ -9,7 +9,7 @@ from fastapi import APIRouter, Header, HTTPException, Query, Request
 
 from app.routers import kuponlar as K
 from app.services.db import execute_insert, execute_query
-from app.services.kupon_istatistik import sonuc_istatistik
+from app.services.kupon_istatistik import mac_tarihi, sonuc_istatistik
 from app.services.kupon_mac_verisi import mac_bul_bacak, mac_yukle
 from app.services.kupon_sonuclandir import sonuclandir
 from app.services.kupon_fotmob import fotmob_mac_bul, fotmob_takim_kimlikleri, gun_getir
@@ -62,7 +62,7 @@ async def sonuclar(request: Request, days: Optional[int] = Query(None, ge=1, le=
         kuponlar = [x for x in kuponlar if len(x["bacaklar"]) > 1]
     if zamanlama in ("pre", "live"):
         kuponlar = [x for x in kuponlar if x["zamanlama"] == zamanlama]
-    kuponlar.sort(key=lambda x: x["sonuc_zamani"] or "", reverse=True)
+    kuponlar.sort(key=lambda x: (mac_tarihi(x) or "", x["id"]), reverse=True)   # en yeni maç en üstte (toplu sonuçlanan eski kuponlar araya karışmaz)
     ist = sonuc_istatistik(kuponlar, simdi)
     sayfa_kuponlar = kuponlar[(sayfa - 1) * sayfa_boyutu: sayfa * sayfa_boyutu]
     return {**ist, "items": [K._cikti(x, k) for x in sayfa_kuponlar], "total": len(kuponlar), "sayfa": sayfa, "sayfa_boyutu": sayfa_boyutu}
