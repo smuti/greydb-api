@@ -104,3 +104,20 @@ def test_liste_ufku_yalniz_mac_oncesi_listeden_alinir(monkeypatch):
     kur(monkeypatch, olaylar=olaylar, satirlar=satirlar)
     j = client.post("/api/iddaa/eslestir", headers=ANAHTAR).json()
     assert j["eslesmeyen"][0]["neden"] == "pencere_disi"
+
+
+def test_tek_takim_adiyla_eslesen_mac_yazilir_ve_raporda_ayrica_gorunur(monkeypatch):
+    yazilan = kur(monkeypatch,
+                  olaylar=[{"i": 5551, "bri": 9, "hn": "Boluspor", "an": "Vanspor FK", "d": D}],
+                  satirlar=[{"fotmob_match_id": 77, "home": "Boluspor", "away": "Van Spor Kulübü", "match_date": KICK}])
+    j = client.post("/api/iddaa/eslestir?dry_run=false", headers=ANAHTAR).json()
+    assert j["eslesen"] == 1 and yazilan == [{77: 5551}]
+    assert j["eslesenler"] == [{"fotmob_match_id": 77, "mac": "Boluspor - Van Spor Kulübü", "iddaa_event_id": 5551}]
+    assert j["tek_taraf_eslesen"] == [{"fotmob_match_id": 77, "mac": "Boluspor - Van Spor Kulübü", "iddaa_event_id": 5551}]
+    assert j["eslesmeyen"] == []
+
+
+def test_iki_taraf_eslesen_mac_tek_taraf_listesinde_degildir(monkeypatch):
+    kur(monkeypatch)
+    j = client.post("/api/iddaa/eslestir", headers=ANAHTAR).json()
+    assert j["tek_taraf_eslesen"] == []
