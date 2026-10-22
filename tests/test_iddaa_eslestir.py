@@ -74,7 +74,7 @@ def test_ev_deplasman_ters_ise_eslesmez():
 
 
 def test_bos_girdiler_cokmez():
-    assert eslestir([], []) == {"eslesen": {}, "belirsiz": [], "eslesmeyen": []}
+    assert eslestir([], []) == {"eslesen": {}, "belirsiz": [], "eslesmeyen": [], "tek_taraf": []}
     assert eslestir([ev(1, "A", "B")], [])["eslesen"] == {}
     assert len(eslestir([], [mac(5, "A", "B")])["eslesmeyen"]) == 1
 
@@ -114,3 +114,56 @@ def test_yeni_takma_adlar_yanlis_eslesme_uretmez():
     for a, b in [("West Ham", "West Bromwich Albion"), ("Manchester City", "Manchester United"), ("Brighton", "Brentford"),
                  ("Athletic Bilbao", "Atletico Madrid"), ("St. Pauli", "Pauli Dortmund")]:
         assert not takim_benzer(a, b), (a, b)
+
+
+# ---- İkinci geçiş: aynı saatte tek takım adı eşleşiyorsa o maçtır (bir takım aynı anda iki maçta oynayamaz) ----
+# Gerçek örnekler: "Boluspor - Van Spor Kulübü" ↔ iddaa "Boluspor - Vanspor FK"; "Deportivo Alavés - Málaga" ↔ "Alaves - Malaga CF"
+def test_tek_taraf_ev_adi_eslesir_deplasman_adi_uyusmasa_da():
+    r = eslestir([ev(1, "Boluspor", "Vanspor FK")], [mac(10, "Boluspor", "Van Spor Kulübü")])
+    assert r["eslesen"] == {10: 1} and r["eslesmeyen"] == [] and r["tek_taraf"] == [10]
+
+
+def test_tek_taraf_deplasman_adi_eslesir_ev_adi_uyusmasa_da():
+    r = eslestir([ev(2, "Alaves", "Malaga CF")], [mac(11, "Deportivo Alavés", "Málaga")])
+    assert r["eslesen"] == {11: 2} and r["tek_taraf"] == [11]
+
+
+def test_iki_taraf_da_benzerse_eski_kural_gecerli_ve_tek_taraf_listesi_bos():
+    r = eslestir([ev(3, "Genk", "Standard Liege")], [mac(12, "Genk", "Standard Liège")])
+    assert r["eslesen"] == {12: 3} and r["tek_taraf"] == []
+
+
+def test_hicbir_taraf_benzemiyorsa_eslesmez():
+    r = eslestir([ev(4, "Gamma", "Delta")], [mac(13, "Alpha", "Beta")])
+    assert r["eslesen"] == {} and [m["fotmob_match_id"] for m in r["eslesmeyen"]] == [13] and r["tek_taraf"] == []
+
+
+def test_saat_toleransi_disindaysa_tek_taraf_da_eslesmez():
+    r = eslestir([ev(5, "Boluspor", "Vanspor FK", d=T0 + 7200)], [mac(14, "Boluspor", "Van Spor Kulübü")])
+    assert r["eslesen"] == {} and [m["fotmob_match_id"] for m in r["eslesmeyen"]] == [14]
+
+
+def test_genc_ya_da_kadin_isareti_farkliysa_tek_taraf_eslesmez():
+    r = eslestir([ev(6, "Boluspor U19", "Vanspor FK U19")], [mac(15, "Boluspor", "Van Spor Kulübü")])
+    assert r["eslesen"] == {}
+
+
+def test_ayni_saatte_iki_aday_varsa_yanlis_baglamaz():
+    r = eslestir([ev(7, "Boluspor", "Alpha"), ev(8, "Boluspor", "Beta")], [mac(16, "Boluspor", "Van Spor Kulübü")])
+    assert r["eslesen"] == {} and [m["fotmob_match_id"] for m in r["eslesmeyen"]] == [16]
+
+
+def test_iki_mac_ayni_iddaa_olayina_tek_taraftan_aday_olursa_ikisi_de_baglanmaz():
+    r = eslestir([ev(9, "Alpha", "Beta")], [mac(17, "Alpha", "Xxxxx"), mac(18, "Yyyyy", "Beta")])
+    assert r["eslesen"] == {}
+
+
+def test_guclu_kuralla_alinmis_olay_tek_taraf_icin_calinmaz():
+    r = eslestir([ev(10, "Real Madrid", "Barcelona")], [mac(19, "Real Madrid", "Barcelona"), mac(20, "Real Madrid", "Girona")])
+    assert r["eslesen"] == {19: 10} and [m["fotmob_match_id"] for m in r["eslesmeyen"]] == [20]
+
+
+def test_tek_taraf_eslesen_olay_baska_macin_guclu_adayi_degilse_atanir_ve_diger_maclar_etkilenmez():
+    r = eslestir([ev(11, "Boluspor", "Vanspor FK"), ev(12, "Genk", "Standard Liege")],
+                 [mac(21, "Boluspor", "Van Spor Kulübü"), mac(22, "Genk", "Standard Liège")])
+    assert r["eslesen"] == {21: 11, 22: 12} and r["tek_taraf"] == [21]

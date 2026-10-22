@@ -88,4 +88,32 @@ def eslestir(iddaa_olaylari: List[Dict[str, Any]], maclar: List[Dict[str, Any]],
             belirsiz.append(m)
         else:
             eslesen[m["fotmob_match_id"]] = liste[0]
-    return {"eslesen": eslesen, "belirsiz": belirsiz, "eslesmeyen": eslesmeyen}
+    tek_taraf = _tek_taraf_eslestir(iddaa_olaylari, eslesmeyen, eslesen, adaylar, tolerans_sn)
+    eslesmeyen = [m for m in eslesmeyen if m["fotmob_match_id"] not in eslesen]
+    return {"eslesen": eslesen, "belirsiz": belirsiz, "eslesmeyen": eslesmeyen, "tek_taraf": tek_taraf}
+
+
+def _tek_taraf_eslestir(iddaa_olaylari, eslesmeyen, eslesen, adaylar, tolerans_sn) -> List[Any]:
+    """İkinci geçiş: ev VE deplasman adı birlikte benzemeyen maçlar için. Aynı saatte (±tolerans) iki takımdan biri benziyorsa
+    o maçtır: bir takım aynı anda iki maçta oynayamaz ("Boluspor - Van Spor Kulübü" ↔ iddaa "Boluspor - Vanspor FK").
+    Güvenceler: olay güçlü kuralla başka bir maça aday/eşleşmiş olmamalı; maçın tek adayı olmalı; olayın tek sahibi olmalı.
+    Hiçbir taraf benzemiyorsa ya da genç/kadın işareti farklıysa (takim_benzer) eşleşmez. Eşleşen maç kimliklerini döner."""
+    alinmis = set(eslesen.values()) | {i for liste in adaylar.values() for i in liste}
+    zayif: Dict[Any, List[Any]] = {}
+    for m in eslesmeyen:
+        zayif[m["fotmob_match_id"]] = [
+            e["i"] for e in iddaa_olaylari
+            if e["i"] not in alinmis and abs(e["d"] - m["kickoff_ts"]) <= tolerans_sn
+            and (takim_benzer(m["home"], e["hn"]) or takim_benzer(m["away"], e["an"]))
+        ]
+    sahip: Dict[Any, List[Any]] = {}
+    for fid, liste in zayif.items():
+        for i in liste:
+            sahip.setdefault(i, []).append(fid)
+    yeni = []
+    for m in eslesmeyen:
+        liste = zayif[m["fotmob_match_id"]]
+        if len(liste) == 1 and len(sahip[liste[0]]) == 1:
+            eslesen[m["fotmob_match_id"]] = liste[0]
+            yeni.append(m["fotmob_match_id"])
+    return yeni

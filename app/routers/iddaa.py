@@ -130,6 +130,8 @@ async def iddaa_eslestir(dry_run: bool = True, x_cron_anahtari: str = Header(def
         "dry_run": dry_run, "iddaa_olay": len(olaylar), "toplam_mac": len(maclar), "eslesen": len(sonuc["eslesen"]),
         "iddaa_ufku": datetime.fromtimestamp(ufuk, timezone.utc).isoformat() if ufuk else None,
         "eslesenler": [{"fotmob_match_id": fid, "mac": ad(por_id[fid]), "iddaa_event_id": i} for fid, i in sonuc["eslesen"].items()],
+        # İkinci geçiş: yalnızca bir takım adı benzeyen ama aynı saatte tek aday olan maçlar (incelemek için ayrıca listelenir)
+        "tek_taraf_eslesen": [{"fotmob_match_id": fid, "mac": ad(por_id[fid]), "iddaa_event_id": sonuc["eslesen"][fid]} for fid in sonuc["tek_taraf"]],
         "belirsiz": [{"fotmob_match_id": m["fotmob_match_id"], "mac": ad(m), "saat": saat(m)} for m in sonuc["belirsiz"]],
         "eslesmeyen": eslesmeyen,
     }
