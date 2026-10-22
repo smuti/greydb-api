@@ -13,7 +13,6 @@ SATIR = {"fotmob_match_id": 1, "iddaa_event_id": 5, "home_team_id": 1, "away_tea
 def test_gunluk_upsert_tek_satir_per_mac_ve_cakismada_gunceller():
     sql, params = s.yazma_sorgusu("gunluk", SATIR)
     assert "INSERT INTO greydb.match_prematch" in sql and "ON CONFLICT (fotmob_match_id) DO UPDATE" in sql
-    assert "absences" not in sql                                  # kaynak yok: tabloya yazılmaz, mevcut değere dokunulmaz
     assert json.loads(params["form"]) == {"home": [], "away": []} and params["h2h"] is None   # None -> SQL NULL, "null" JSON değil
 
 
@@ -40,3 +39,19 @@ def test_form_ve_h2h_sorgulari_yalniz_maca_kadar_bitmis_skorlu_maclari_alir():
     for sql in (s.FORM_SQL, s.H2H_SQL):
         assert "m.finished" in sql and "m.match_date < :tarih" in sql and "NOT COALESCE(m.cancelled, false)" in sql
     assert "LIMIT 20" in s.FORM_SQL and "LIMIT 10" in s.H2H_SQL
+
+
+def test_eksik_alanlari_her_iki_kapsamda_yazilir_kaynak_duz_metin():
+    satir = {**SATIR, "absences": {"source": "FotMob", "teams": []}, "absences_at": datetime(2026, 10, 22), "absences_source": "FotMob"}
+    for kapsam in ("gunluk", "oran"):
+        sql, params = s.yazma_sorgusu(kapsam, {**satir, "odds": None, "odds_at": None, "crowd": None, "crowd_at": None})
+        assert "absences_source" in sql and "CAST(:absences AS jsonb)" in sql and ":absences_source" in sql
+        assert json.loads(params["absences"])["source"] == "FotMob" and params["absences_source"] == "FotMob"
+
+
+def test_satirda_olmayan_gruplar_sorguya_girmez_eski_veri_korunur():
+    kismi = {k: v for k, v in SATIR.items() if k not in ("odds", "odds_at", "crowd", "crowd_at")}
+    sql, params = s.yazma_sorgusu("gunluk", kismi)
+    assert "odds" not in sql and "crowd" not in sql and "form = EXCLUDED.form" in sql
+    sql, _ = s.yazma_sorgusu("oran", {"fotmob_match_id": 1, "crowd": {"home": .5}, "crowd_at": datetime(2026, 10, 22)})
+    assert "odds" not in sql and "crowd = CAST(:crowd AS jsonb)" in sql
