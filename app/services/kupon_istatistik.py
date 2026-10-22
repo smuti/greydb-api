@@ -18,6 +18,12 @@ def _wilson(basari: int, n: int, z: float = 1.96):
     return round(max(0.0, merkez - yari), 4), round(min(1.0, merkez + yari), 4)
 
 
+def _tarih(k: Dict[str, Any]):
+    """Aylık/günlük dağılımın tarihi: kuponun ilk maçının zamanı (sonuçlar listesiyle aynı). Maç zamanı yoksa sonuçlanma zamanı."""
+    zamanlar = [b["mac_zamani"] for b in k.get("bacaklar") or [] if b.get("mac_zamani")]
+    return min(zamanlar) if zamanlar else k.get("sonuc_zamani")
+
+
 def sonuc_istatistik(kuponlar: List[Dict[str, Any]], simdi: datetime) -> Dict[str, Any]:
     bitenler = sorted([k for k in kuponlar if k.get("sonuc") in ("won", "lost", "void")], key=lambda k: k["sonuc_zamani"] or "", reverse=True)
     sayac = Counter(k["sonuc"] for k in bitenler)
@@ -32,7 +38,7 @@ def sonuc_istatistik(kuponlar: List[Dict[str, Any]], simdi: datetime) -> Dict[st
     aylik, gunluk = defaultdict(Counter), defaultdict(Counter)
     sinir = (simdi - timedelta(days=90)).date().isoformat()
     for k in bitenler:
-        z = k["sonuc_zamani"]
+        z = _tarih(k)
         if not z:
             continue
         aylik[z[:7]][k["sonuc"]] += 1
