@@ -164,3 +164,18 @@ def test_sonuclandir_ucu_anahtar_ve_kuru_calisma(monkeypatch):
     assert gercek["guncellemeler"] == [{"kupon_id": 1, "bacak_id": 10, "sonuc": "won"}] and yazilan == [(1, 10, "won", "otomatik")]
     monkeypatch.setattr(S, "_cron_anahtari", lambda: None)
     assert istemci.post("/api/kuponlar/sonuclandir", headers={"X-Cron-Anahtari": "cron"}).status_code == 503
+
+
+def test_sonuclar_listesi_ilk_macin_tarihine_gore_yeniden_eskiye(monkeypatch):
+    eski = kayit(1, "acik", "won", 2.0, "2026-10-19T13:42:00Z")      # toplu sonuçlandı ama maçı Nisan'da
+    eski["bacaklar"][0]["mac_zamani"] = "2026-04-10T17:00:00Z"
+    yeni = kayit(2, "acik", "won", 2.0, "2026-10-19T13:42:00Z")
+    yeni["bacaklar"][0]["mac_zamani"] = "2026-10-17T17:00:00Z"
+    sonraki = kayit(3, "acik", "lost", 0, "2026-10-18T10:00:00Z")
+    sonraki["bacaklar"][0]["mac_zamani"] = "2026-10-21T19:00:00Z"
+    veri = [eski, yeni, sonraki]
+    monkeypatch.setattr(K, "_anahtar", lambda: "gizli")
+    monkeypatch.setattr(K, "db_liste", lambda f: (copy.deepcopy(veri), len(veri)))
+    monkeypatch.setattr(S, "_simdi", lambda: datetime(2026, 10, 22, 12, 0))
+    j = istemci.get("/api/kuponlar/sonuclar").json()
+    assert [x["id"] for x in j["items"]] == [3, 2, 1]
