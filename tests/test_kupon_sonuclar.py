@@ -54,6 +54,16 @@ def test_seri_ardisik_sayar():
     assert sonuc_istatistik(ks, SIMDI)["stats"]["streak"] == {"type": "won", "count": 3}
 
 
+def test_aylik_seri_ilk_macin_ayina_gore_sayar():
+    eski = k("won", 2, 2, "2026-10-19T13:42:00Z")        # Nisan maçı, Ekim'de toplu sonuçlandı
+    eski["bacaklar"] = [{"mac_zamani": "2026-04-12T17:00:00Z"}, {"mac_zamani": "2026-04-10T17:00:00Z"}]
+    yeni = k("lost", 0, 2, "2026-10-19T13:42:00Z")
+    yeni["bacaklar"] = [{"mac_zamani": "2026-10-18T17:00:00Z"}]
+    se = sonuc_istatistik([eski, yeni], SIMDI)["series"]
+    assert se["monthly"] == [{"month": "2026-04", "won": 1, "lost": 0, "void": 0}, {"month": "2026-10", "won": 0, "lost": 1, "void": 0}]
+    assert [d["date"] for d in se["daily"]] == ["2026-10-18"]       # günlük de maç gününe göre, 90 gün penceresi içinde
+
+
 def test_aylik_ve_gunluk_seri():
     ks = [k("won", 2, 2, "2026-10-19T10:00:00Z"), k("lost", 0, 2, "2026-10-19T12:00:00Z"), k("won", 2, 2, "2026-09-05T10:00:00Z"), k("void", 1, 2, "2026-01-05T10:00:00Z")]
     se = sonuc_istatistik(ks, SIMDI)["series"]
