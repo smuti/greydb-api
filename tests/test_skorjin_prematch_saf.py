@@ -88,3 +88,35 @@ def test_model_verisi_matris_harman_ve_surum():
 def test_model_verisi_matris_yoksa_none():
     assert model_verisi({"p1": 0.5, "p0": 0.3, "p2": 0.2}, "v1") is None
     assert model_verisi(None, "v1") is None
+
+
+# ---------------------------------------------------------------- maç istatistikleri (st)
+def istatistikli(tarih, ev, dep, hs, as_, sut=(14, 6), isabetli=(5, 2), korner=(7, 3), sari=(2, 1)):
+    r = satir(tarih, ev, dep, hs, as_, "Yıldız FK", "Rakip A")
+    r.update(ev_sut=sut[0], dep_sut=sut[1], ev_isabetli=isabetli[0], dep_isabetli=isabetli[1],
+             ev_korner=korner[0], dep_korner=korner[1], ev_sari=sari[0], dep_sari=sari[1])
+    return r
+
+
+def test_takim_maclari_istatistigi_takimin_penceresinden_yazar():
+    ev_maci = takim_maclari([istatistikli(datetime(2026, 9, 17), 1, 7, 2, 0)], 1)[0]
+    dep_maci = takim_maclari([istatistikli(datetime(2026, 9, 17), 7, 1, 0, 2)], 1)[0]
+    assert ev_maci["st"] == {"shots": [14, 6], "sot": [5, 2], "corners": [7, 3], "yellow": [2, 1]}
+    assert dep_maci["st"] == {"shots": [6, 14], "sot": [2, 5], "corners": [3, 7], "yellow": [1, 2]}
+
+
+def test_istatistik_satiri_yoksa_st_eklenmez():
+    r = satir(datetime(2026, 9, 17), 1, 7, 2, 0)
+    r.update(ev_sut=None, dep_sut=None, ev_korner=None, dep_korner=None)
+    assert "st" not in takim_maclari([r], 1)[0]
+
+
+def test_eksik_veri_sifirlari_istatistik_sayilmaz():
+    # FotMob kaynağı istatistik yoksa her şeyi 0 yazıyor: sıfır ortalama uydurmamak için atlanır
+    r = istatistikli(datetime(2026, 9, 17), 1, 7, 2, 0, sut=(0, 0), isabetli=(0, 0), korner=(0, 0), sari=(0, 0))
+    assert "st" not in takim_maclari([r], 1)[0]
+
+
+def test_sari_kart_sifir_olabilir_gecerli_veri():
+    r = istatistikli(datetime(2026, 9, 17), 1, 7, 2, 0, sari=(0, 0))
+    assert takim_maclari([r], 1)[0]["st"]["yellow"] == [0, 0]
