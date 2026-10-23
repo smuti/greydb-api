@@ -234,19 +234,26 @@ def hazirla_calistir(kod: str) -> None:
         maclar, eksikler = [], []
         hedefler = _mac_kimlikleri(kaynak)
         for i, hedef in enumerate(hedefler):
-            p = T.mac_hazirla(hedef["sira"], hedef["fotmob_id"], "/api/yayin/logo") if hedef.get("fotmob_id") else None
+            etiket = f"{hedef['sira']}. maç" + (f" ({hedef['ev']} - {hedef['dep']})" if hedef.get("ev") else "")
+            p, neden = None, "FotMob maç kimliği yok"
+            if hedef.get("fotmob_id") is not None:
+                try:
+                    p = T.mac_hazirla(hedef["sira"], hedef["fotmob_id"], "/api/yayin/logo")
+                    neden = f"FotMob {hedef['fotmob_id']}: maç ayrıntısı alınamadı"
+                except Exception as e:  # noqa: BLE001 - tek maçın hatası öteki maçları düşürmez
+                    neden = f"FotMob {hedef['fotmob_id']}: {e}"[:120]
             if p:
                 maclar.append(p)
             else:
-                eksikler.append(f"{hedef['sira']}. maç" + (f" ({hedef['ev']} - {hedef['dep']})" if hedef.get("ev") else ""))
+                eksikler.append(f"{etiket} [{neden}]")
             try:
                 ilerleme_yaz(kod, i + 1)
             except Exception:  # noqa: BLE001 - ilerleme bilgisi hazırlamayı asla düşürmez
                 pass
         if not maclar:
-            maclari_yaz(kod, [], "hata", "Hiçbir maçın verisi alınamadı")
+            maclari_yaz(kod, [], "hata", "Hiçbir maçın verisi alınamadı: " + ", ".join(eksikler))
             return
-        maclari_yaz(kod, maclar, "hazir", ("Alınamayan maçlar: " + ", ".join(eksikler)) if eksikler else None)
+        maclari_yaz(kod, maclar, "hazir", (f"{len(eksikler)} / {len(hedefler)} maç alınamadı, sayfada yok. Alınamayan maçlar: " + ", ".join(eksikler)) if eksikler else None)
     except Exception as e:  # noqa: BLE001
         maclari_yaz(kod, [], "hata", f"Hazırlama hatası: {e}"[:300])
 
@@ -254,7 +261,8 @@ def hazirla_calistir(kod: str) -> None:
 def _ilerleme(k: Dict[str, Any], hazir_mac: int) -> Dict[str, int]:
     kaynak = k["kaynak"] if isinstance(k["kaynak"], dict) else json.loads(k["kaynak"] or "{}")
     toplam = kaynak.get("toplam") or hazir_mac
-    return {"biten": toplam if k["durum"] != "hazirlaniyor" else min(kaynak.get("biten", 0), toplam), "toplam": toplam}
+    # istenen: seçilip gönderilen maç sayısı; hazir: sayfada gerçekten bulunan maç sayısı (ikisi farklıysa maç düşmüştür)
+    return {"biten": toplam if k["durum"] != "hazirlaniyor" else min(kaynak.get("biten", 0), toplam), "toplam": toplam, "istenen": toplam, "hazir": hazir_mac}
 
 
 def _paket(k: Dict[str, Any], bugun: date) -> Dict[str, Any]:
@@ -292,14 +300,15 @@ def hazirla(g: Hazirla, request: Request, arka: BackgroundTasks):
     if g.tur == "toto" and not toto_maclari(g.hafta_no):
         raise HTTPException(status_code=404, detail="Spor Toto haftası bulunamadı")
     tarih = g.tarih or bugun_tsi()
+    toplam = len(g.mac_idler) if g.tur == "gun" else len(toto_maclari(g.hafta_no))
     kayit = kaydi_olustur({
         "kod": _kod(), "tur": g.tur, "etiket": toto_etiketi(g.hafta_no) if g.tur == "toto" else etiket_gun(tarih), "tarih": tarih,
         "program_adi": g.program_adi or PROGRAM[g.tur], "marka": MARKA, "yayin_tarihi": g.yayin_tarihi, "yayin_saat": g.yayin_saat, "bayi_kodu": BAYI_KODU,
-        "kaynak": {"tur": g.tur, "mac_idler": g.mac_idler, "hafta_no": g.hafta_no, "toplam": len(g.mac_idler) if g.tur == "gun" else len(toto_maclari(g.hafta_no)), "biten": 0},
+        "kaynak": {"tur": g.tur, "mac_idler": g.mac_idler, "hafta_no": g.hafta_no, "toplam": toplam, "biten": 0},
         "olusturan": kimlik.email,
     })
     arka.add_task(hazirla_calistir, kayit["kod"])
-    return {"kod": kayit["kod"], "durum": "hazirlaniyor"}
+    return {"kod": kayit["kod"], "durum": "hazirlaniyor", "istenen": toplam}
 
 
 @router.post("/yayin/ekonomik", status_code=201)

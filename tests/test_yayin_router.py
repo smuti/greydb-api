@@ -150,14 +150,14 @@ def test_liste_yalniz_admin(sahte):
 def test_ilerleme_her_mac_sonrasi_yazilir_ve_pakette_gorunur(sahte):
     kod = client.post("/api/yayin/hazirla", json={**GUN, "mac_idler": [11, 0, 22]}, headers=ADMIN).json()["kod"]
     assert sahte.ilerlemeler == [1, 2, 3]                       # alınamayan maç da sayılır: çubuk takılmaz
-    assert client.get(f"/api/yayin/{kod}").json()["ilerleme"] == {"biten": 3, "toplam": 3}
+    assert client.get(f"/api/yayin/{kod}").json()["ilerleme"] == {"biten": 3, "toplam": 3, "istenen": 3, "hazir": 2}
 
 
 def test_hazirlanirken_ilerleme_kismi_biten_toplami_gecmez(sahte):
     kod = client.post("/api/yayin/hazirla", json=GUN, headers=ADMIN).json()["kod"]
     sahte.kayitlar[kod].update({"durum": "hazirlaniyor"})
     sahte.kayitlar[kod]["kaynak"]["biten"] = 1
-    assert client.get(f"/api/yayin/{kod}").json()["ilerleme"] == {"biten": 1, "toplam": 2}
+    assert client.get(f"/api/yayin/{kod}").json()["ilerleme"] == {"biten": 1, "toplam": 2, "istenen": 2, "hazir": 2}
     sahte.kayitlar[kod]["kaynak"]["biten"] = 99
     assert client.get(f"/api/yayin/{kod}").json()["ilerleme"]["biten"] == 2
 
@@ -179,3 +179,30 @@ def test_toto_maclari_fotmob_kimligi_bos_ise_takim_kimlikleri_ve_tarihle_bulur(m
 def test_ayar_etiketi_duzeltilebilir(sahte):
     kod = client.post("/api/yayin/hazirla", json=GUN, headers=ADMIN).json()["kod"]
     assert client.put(f"/api/yayin/{kod}/ayar", json={"etiket": "12. Hafta"}, headers=ADMIN).json()["etiket"] == "12. Hafta"
+
+
+def test_hazirla_yaniti_istenen_mac_sayisini_dondurur(sahte):
+    res = client.post("/api/yayin/hazirla", json={**GUN, "mac_idler": [11, 22, 33]}, headers=ADMIN).json()
+    assert res["istenen"] == 3
+
+
+def test_alinamayan_mac_sessiz_kalmaz_istenen_ve_hazir_farki_hata_notunda(sahte):
+    kod = client.post("/api/yayin/hazirla", json={**GUN, "mac_idler": [11, 0, 22]}, headers=ADMIN).json()["kod"]
+    p = client.get(f"/api/yayin/{kod}").json()
+    assert p["durum"] == "hazir" and len(p["maclar"]) == 2
+    assert p["ilerleme"]["istenen"] == 3 and p["ilerleme"]["hazir"] == 2
+    assert "1 / 3" in p["hata"] and "2. maç" in p["hata"] and "FotMob 0" in p["hata"]
+
+
+def test_tek_macin_toplanmasi_patlarsa_digerleri_kalir_ve_neden_yazilir(sahte, monkeypatch):
+    eski = r.T.mac_hazirla
+
+    def bozuk(sira, mid, taban):
+        if mid == 0:
+            raise RuntimeError("FotMob zaman aşımı")
+        return eski(sira, mid, taban)
+    monkeypatch.setattr(r.T, "mac_hazirla", bozuk)
+    kod = client.post("/api/yayin/hazirla", json={**GUN, "mac_idler": [11, 0, 22]}, headers=ADMIN).json()["kod"]
+    p = client.get(f"/api/yayin/{kod}").json()
+    assert p["durum"] == "hazir" and [m["sira"] for m in p["maclar"]] == [1, 3]
+    assert "2. maç" in p["hata"] and "FotMob zaman aşımı" in p["hata"]
