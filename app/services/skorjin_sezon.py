@@ -9,7 +9,7 @@ Sezon özeti ve lig ortalaması için en az SEZON_MIN maç gerekir, aksi halde n
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from app.services.puan_durumu import guncel_sezon, sezon_araligi
+from app.services.puan_durumu import guncel_sezon, hesapla, sezon_araligi
 from app.services.skorjin_prematch import _istatistik, _skorlu, takim_maclari
 
 SEZON_MIN = 3
@@ -136,6 +136,33 @@ def sezon_maclari(satirlar: List[Dict[str, Any]], takim: Any, tarih: datetime) -
     return cikti
 
 
+def puan_durumu(satirlar: List[Dict[str, Any]], ev: Any, dep: Any, tarih: datetime) -> Optional[Dict[str, Any]]:
+    """Maçın liginin maç gününe kadarki puan durumu (bitmiş maçlardan; sıralama: puan, averaj, atılan gol, ad). Yalnız iki takımın satırı ve
+    lig bağlamı yazılır: sıra, oynanan, puan, G/B/M, atılan/yenen, averaj; takım sayısı, lider, son sıranın puanı, oynanan maç aralığı
+    (`played_min/max`: ertelenen maçlar yüzünden takımların oynadığı sayı farklı olabilir). Takımın 3'ten az maçı varsa o taraf None;
+    iki taraf da yoksa None. Resmi sıralamada ikili averaj, puan silme gibi kurallar farklı olabilir."""
+    maclar = [{"tarih": s["tarih"], "ev_id": s["home_team_id"], "ev_ad": s["ev_ad"], "dep_id": s["away_team_id"], "dep_ad": s["dep_ad"],
+               "ev_gol": s["home_score"], "dep_gol": s["away_score"]} for s in _oncesi(satirlar, tarih)]
+    tablo = hesapla(maclar)
+    if not tablo:
+        return None
+    by_id = {t["takim_id"]: t for t in tablo}
+
+    def taraf(kimlik: Any) -> Optional[Dict[str, Any]]:
+        t = by_id.get(kimlik)
+        if t is None or t["oynanan"] < SEZON_MIN:
+            return None
+        return {"position": t["sira"], "played": t["oynanan"], "points": t["puan"], "wins": t["galibiyet"], "draws": t["beraberlik"],
+                "losses": t["maglubiyet"], "gf": t["atilan"], "ga": t["yenilen"], "gd": t["averaj"]}
+
+    home, away = taraf(ev), taraf(dep)
+    if home is None and away is None:
+        return None
+    oynanan = [t["oynanan"] for t in tablo]
+    return {"n_teams": len(tablo), "leader": {"name": tablo[0]["takim"], "points": tablo[0]["puan"]}, "last_points": tablo[-1]["puan"],
+            "played_min": min(oynanan), "played_max": max(oynanan), "home": home, "away": away}
+
+
 def sezon_gruplari(satirlar: List[Dict[str, Any]], ev: Any, dep: Any, tarih: datetime) -> Dict[str, Any]:
     """Üç grup; veri yoksa grup None. Takım tarafı yetersizse (yeni takım, <3 maç) o taraf None."""
     sezon = {"home": takim_sezonu(satirlar, ev, tarih), "away": takim_sezonu(satirlar, dep, tarih)}
@@ -144,6 +171,7 @@ def sezon_gruplari(satirlar: List[Dict[str, Any]], ev: Any, dep: Any, tarih: dat
         "season": sezon if (sezon["home"] or sezon["away"]) else None,
         "league_avg": lig_ortalamasi(satirlar, tarih),
         "season_matches": maclar if (maclar["home"] or maclar["away"]) else None,
+        "standings": puan_durumu(satirlar, ev, dep, tarih),
     }
 
 
