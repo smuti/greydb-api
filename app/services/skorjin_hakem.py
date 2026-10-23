@@ -5,8 +5,9 @@ istatistiği bizim geçmişimizden. Saf hesaplar + iki toplu sorgu. Biçim sözl
 Lig karşılaştırması: aynı ligin aynı tarihe kadarki tüm maçları. En az HAKEM_MIN maçı olmayan hakemde sayı yazılmaz (yalnız ad ve `n`);
 lig ortalaması LIG_MIN maçtan azsa `league` yoktur. Veri yoksa alan null (0 uydurulmaz). Penaltı = penaltıdan atılan gol + kaçırılan penaltı olayı.
 """
+import unicodedata
 from datetime import datetime
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 HAKEM_MIN = 5
 LIG_MIN = 30
@@ -28,8 +29,10 @@ FROM mm LEFT JOIN pen ON pen.match_id = mm.id
 """
 _PEN = ("pen AS (SELECT e.match_id, count(*) AS n FROM public.match_events e WHERE e.match_id IN (SELECT id FROM mm) "
         "AND (e.is_penalty OR e.event_type = 'MISSEDPENALTY') GROUP BY 1)")
-HAKEM_SQL = ("WITH mm AS (" + _STAT.format(birlesim="JOIN public.match_context c ON c.match_id = m.id", filtre="c.referee = :ad") + "), "
+HAKEM_SQL = ("WITH mm AS (" + _STAT.format(birlesim="JOIN public.match_context c ON c.match_id = m.id", filtre="c.referee = ANY(:adlar)") + "), "
              + _PEN + _OZET)
+ADLAR_SQL = ("SELECT referee AS ad, COALESCE(referee_country, '') AS ulke FROM public.match_context "
+             "WHERE NULLIF(referee, '') IS NOT NULL GROUP BY 1, 2")
 LIG_SQL = "WITH mm AS (" + _STAT.format(birlesim="", filtre="m.league_id = :lig") + "), " + _PEN + _OZET
 
 
@@ -69,6 +72,41 @@ def hakem_alani(bilgi: Optional[Dict[str, Any]], ist: Optional[Dict[str, Any]], 
     return alan
 
 
+def _fold(metin: Optional[str]) -> str:
+    """Aksan ve büyük/küçük harf farkını yok sayan karşılaştırma anahtarı."""
+    d = unicodedata.normalize("NFKD", metin or "")
+    return " ".join("".join(ch for ch in d if not unicodedata.combining(ch)).casefold().split())
+
+
+def _altdizi(kisa: Sequence[str], uzun: Sequence[str]) -> bool:
+    it = iter(uzun)
+    return all(s in it for s in kisa)
+
+
+def esdeger_adlar(ad: str, ulke: Optional[str], adaylar: Sequence[Tuple[str, str]]) -> List[str]:
+    """Aynı hakemin kayıtlardaki yazımları. Aksan/harf farkı yok sayılarak ad aynıysa ya da (en az iki sözcüklü) FotMob adının sözcükleri
+    kayıtlı adda SIRAYLA geçiyor ve ilk/son sözcük aynıysa ("Cláudio Pereira" ~ "Cláudio Filipe Ruivo Pereira"; "Bruno Pires Costa" ~
+    "Bruno José Ribeiro Pires Costa" ama "Bruno Costa" ya da "Bruno Miguel Ribeiro Costa" değil). Birden çok uzun aday birbiriyle uyumsuzsa
+    (aynı ilk/son adlı farklı kişiler olabilir) belirsizdir: yalnız tam eşleşme sayılır. İkisinin de ülkesi biliniyorsa ülke aynı olmalı.
+    Tek sözcüklü adlar yalnız tam eşleşir."""
+    t = _fold(ad).split()
+    ulke_k = _fold(ulke)
+    tam: List[str] = []
+    uzun: List[Tuple[str, List[str]]] = []
+    for aday, aday_ulke in adaylar:
+        if aday in tam or any(aday == u for u, _ in uzun):
+            continue
+        if ulke_k and _fold(aday_ulke) and _fold(aday_ulke) != ulke_k:
+            continue
+        a = _fold(aday).split()
+        if a == t:
+            tam.append(aday)
+        elif len(t) >= 2 and len(a) > len(t) and a[0] == t[0] and a[-1] == t[-1] and _altdizi(t, a):
+            uzun.append((aday, a))
+    uyumlu = all(_altdizi(x, y) or _altdizi(y, x) for _, x in uzun for _, y in uzun)
+    return tam + ([u for u, _ in uzun] if uyumlu else [])
+
+
 def _sorgu(sql: str, params: Dict[str, Any]):
     from app.services.db import execute_query
     return execute_query(sql, params)
@@ -78,16 +116,22 @@ def _satir(rows) -> Optional[Dict[str, Any]]:
     return dict(rows[0]) if rows and rows[0].get("n") else None
 
 
-def hakem_kaynagi() -> Callable[[str, Any, datetime], Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]]:
-    """(hakem_adı, lig_id, maç_tarihi) -> (hakem istatistiği, lig istatistiği). Koşu boyunca hakem ve lig başına tek sorgu."""
-    hakemler: Dict[str, Optional[Dict[str, Any]]] = {}
+def hakem_kaynagi() -> Callable[[str, Optional[str], Any, datetime], Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]]:
+    """(hakem_adı, hakem_ülkesi, lig_id, maç_tarihi) -> (hakem istatistiği, lig istatistiği). Kayıtlı yazımlar bir kez çekilir;
+    hakem ve lig başına tek sorgu (koşu boyunca bellekte). Aynı hakem farklı yazımlarla kayıtlıysa hepsi birlikte sayılır."""
+    adaylar: List[Optional[List[Tuple[str, str]]]] = [None]
+    hakemler: Dict[Tuple[str, str], Optional[Dict[str, Any]]] = {}
     ligler: Dict[Any, Optional[Dict[str, Any]]] = {}
 
-    def kaynak(ad: str, lig: Any, tarih: datetime):
-        if ad not in hakemler:
-            hakemler[ad] = _satir(_sorgu(HAKEM_SQL, {"ad": ad, "tarih": tarih}))
+    def kaynak(ad: str, ulke: Optional[str], lig: Any, tarih: datetime):
+        anahtar = (_fold(ad), _fold(ulke))
+        if anahtar not in hakemler:
+            if adaylar[0] is None:
+                adaylar[0] = [(r["ad"], r["ulke"]) for r in _sorgu(ADLAR_SQL, {})]
+            adlar = esdeger_adlar(ad, ulke, adaylar[0]) or [ad]
+            hakemler[anahtar] = _satir(_sorgu(HAKEM_SQL, {"adlar": adlar, "tarih": tarih}))
         if lig not in ligler:
             ligler[lig] = _satir(_sorgu(LIG_SQL, {"lig": lig, "tarih": tarih}))
-        return hakemler[ad], ligler[lig]
+        return hakemler[anahtar], ligler[lig]
 
     return kaynak

@@ -68,7 +68,7 @@ def test_hakem_alani_bilgi_yoksa_none():
 # ---------------------------------------------------------------- SQL ve tablo
 def test_hakem_sorgusu_bitmis_skorlu_maclar_maca_kadar_hakem_adina_gore():
     q = h.HAKEM_SQL
-    assert "c.referee = :ad" in q and "m.finished" in q and "NOT COALESCE(m.cancelled, false)" in q and "m.match_date < :tarih" in q
+    assert "c.referee = ANY(:adlar)" in q and "m.finished" in q and "NOT COALESCE(m.cancelled, false)" in q and "m.match_date < :tarih" in q
     assert "JOIN public.match_stats" in q and "is_penalty" in q and "MISSEDPENALTY" in q
     assert ":lig" not in q
 
@@ -108,8 +108,8 @@ class Kosu:
                 raise r
             return r
 
-        def hakem(ad, lig, tarih):
-            self.hakem_cagri.append((ad, lig, tarih))
+        def hakem(ad, ulke, lig, tarih):
+            self.hakem_cagri.append((ad, ulke, lig, tarih))
             return IST, LIG
 
         return Kaynaklar(maclar=lambda b, s: [mac()], form=lambda t, d: [], h2h=lambda a, b, d: [], model=lambda ms: {},
@@ -127,7 +127,7 @@ def test_gunluk_satiri_hakem_grubunu_yazar_ve_fotmob_tek_kez_cagrilir():
     assert satir["referee"]["name"] == "Michael Oliver" and satir["referee"]["yellow_avg"] == 3.51 and satir["referee_at"] == SIMDI
     assert satir["absences"] is not None                                          # eksik oyuncu da aynı çağrıdan
     assert k.fotmob_cagri == [1001]                                                # FotMob tek istek
-    assert k.hakem_cagri == [("Michael Oliver", 4, MAC_GUNU)]
+    assert k.hakem_cagri == [("Michael Oliver", "England", 4, MAC_GUNU)]
     assert "referee" in r["maclar"][0]["alanlar"]
 
 
@@ -159,7 +159,7 @@ def test_fotmob_hatasinda_hakem_anahtarlari_olmaz_eski_veri_korunur():
 
 
 def test_istatistik_sorgusu_hata_verirse_yalniz_ad_yazilir_ve_sayilir():
-    def patlar(ad, lig, tarih):
+    def patlar(ad, ulke, lig, tarih):
         raise RuntimeError("db")
     k = Kosu(detay(), hakem=patlar)
     r = k.calistir()
@@ -173,23 +173,81 @@ def test_hakem_kaynagi_verilmezse_yalniz_ad_yazilir():
     assert k.yazilan[0][1]["referee"] == {"name": "Michael Oliver", "country": "England", "source": "FotMob"}
 
 
+# ---------------------------------------------------------------- ad eşleştirme (aynı hakem farklı yazımlarla kayıtlı)
+ADAYLAR = [("Alberto Arena", "Italy"), ("Alberto Ruben Arena", "Italy"), ("Cláudio Pereira", "Portugal"), ("Cláudio Filipe Ruivo Pereira", "Portugal"),
+           ("Cláudio Filipe Ruivo Pereira", ""), ("Fábio José Costa Veríssimo", "Portugal"), ("Bruno José Ribeiro Pires Costa", "Portugal"),
+           ("Yucel Buyuk", "Türkiye"), ("Yücel Büyük", "Türkiye"), ("Serdar Gözübüyük", "Netherlands"), ("Miguel Ortiz", "Spain"),
+           ("Miguel Ángel Chua Ortiz", "Mexico"), ("Hugo Silva", "United States"), ("Hugo Serafim Coelho Magalhães Silva", "Portugal"),
+           ("Bruno Pires Costa", "Portugal"), ("Bruno Costa", "Portugal"), ("Bruno Miguel Ribeiro Costa", "Portugal")]
+
+
+def test_ayni_hakemin_uzun_ve_kisa_yazimlari_eslesir_ilk_ve_son_ad_ile():
+    assert set(h.esdeger_adlar("Cláudio Pereira", "Portugal", ADAYLAR)) == {"Cláudio Pereira", "Cláudio Filipe Ruivo Pereira"}
+    assert set(h.esdeger_adlar("Alberto Arena", "Italy", ADAYLAR)) == {"Alberto Arena", "Alberto Ruben Arena"}
+
+
+def test_aksan_ve_buyuk_kucuk_harf_farki_yok_sayilir():
+    assert set(h.esdeger_adlar("Yücel Büyük", "Türkiye", ADAYLAR)) == {"Yucel Buyuk", "Yücel Büyük"}
+    assert set(h.esdeger_adlar("yucel buyuk", None, ADAYLAR)) == {"Yucel Buyuk", "Yücel Büyük"}
+
+
+def test_ulkesi_farkli_ayni_ilk_son_adli_kisiler_birlesmez_bos_ulke_uyumlu_sayilir():
+    assert set(h.esdeger_adlar("Miguel Ortiz", "Spain", ADAYLAR)) == {"Miguel Ortiz"}
+    assert set(h.esdeger_adlar("Hugo Silva", "Portugal", ADAYLAR)) == {"Hugo Serafim Coelho Magalhães Silva"} | set()
+    assert "Cláudio Filipe Ruivo Pereira" in h.esdeger_adlar("Cláudio Pereira", "Portugal", ADAYLAR)       # ülkesi boş kayıt da uyumlu
+
+
+def test_baska_kisi_ile_karismaz_ve_tek_sozcuklu_ad_yalniz_tam_eslesir():
+    assert set(h.esdeger_adlar("Bruno Pires Costa", "Portugal", ADAYLAR)) == {"Bruno Pires Costa", "Bruno José Ribeiro Pires Costa"}
+    assert "Fábio José Costa Veríssimo" not in h.esdeger_adlar("Bruno Pires Costa", "Portugal", ADAYLAR)      # "Costa" ortada: son ad farklı
+    assert h.esdeger_adlar("Pele", None, [("Pele", ""), ("Pele Junior", "")]) == ["Pele"]
+
+
+def test_ad_sozcukleri_kayitli_adda_sirayla_gecmeli_kisa_kayit_uzun_adi_yakalamaz():
+    e = set(h.esdeger_adlar("Bruno Pires Costa", "Portugal", ADAYLAR))
+    assert "Bruno Costa" not in e and "Bruno Miguel Ribeiro Costa" not in e        # "Pires" yok / daha kısa kayıt: başka hakem olabilir
+
+
+def test_birden_cok_uyumsuz_uzun_aday_varsa_belirsizdir_yalniz_tam_eslesme_sayilir():
+    assert h.esdeger_adlar("Bruno Costa", "Portugal", ADAYLAR) == ["Bruno Costa"]
+    assert h.esdeger_adlar("Bruno Ortiz", "Portugal", [("Bruno Ortiz Silva", "Portugal")]) == []                    # son ad farklı
+
+
+def test_adayda_olmayan_ad_bos_liste_doner():
+    assert h.esdeger_adlar("Bilinmeyen Hakem", "Italy", ADAYLAR) == []
+
+
 # ---------------------------------------------------------------- gerçek kaynak
-def test_gercek_kaynak_hakemi_ve_ligi_bir_kez_sorgular_bellekler(monkeypatch):
+def test_gercek_kaynak_adlari_bir_kez_ceker_esdeger_adlarla_sorgular_ve_bellekler(monkeypatch):
     cagrilar = []
 
     def sorgu(sql, p):
-        cagrilar.append((sql is h.HAKEM_SQL, dict(p)))
+        if sql == h.ADLAR_SQL:
+            cagrilar.append("adlar")
+            return [{"ad": a, "ulke": u} for a, u in ADAYLAR]
+        cagrilar.append(("hakem" if sql == h.HAKEM_SQL else "lig", dict(p)))
         return [{"n": 177, "sari": 3.5, "kirmizi": 0.1, "faul": 22.0, "gol": 2.9, "ev_galibiyet": 0.4, "penalti": 0.2}]
     monkeypatch.setattr(h, "_sorgu", sorgu)
     fn = h.hakem_kaynagi()
-    a = fn("Michael Oliver", 5, MAC_GUNU)
-    b = fn("Michael Oliver", 5, datetime(2026, 10, 26))
-    c = fn("Anthony Taylor", 5, MAC_GUNU)
-    assert len(cagrilar) == 3                                                    # Oliver 1 kez, lig 1 kez, Taylor 1 kez
+    a = fn("Cláudio Pereira", "Portugal", 20, MAC_GUNU)
+    b = fn("Cláudio Pereira", "Portugal", 20, datetime(2026, 10, 26))
+    c = fn("Alberto Arena", "Italy", 20, MAC_GUNU)
+    assert cagrilar.count("adlar") == 1
+    hakem_cagrilari = [x for x in cagrilar if x != "adlar" and x[0] == "hakem"]
+    assert len(hakem_cagrilari) == 2 and sorted(hakem_cagrilari[0][1]["adlar"]) == ["Cláudio Filipe Ruivo Pereira", "Cláudio Pereira"]
+    assert sorted(hakem_cagrilari[1][1]["adlar"]) == ["Alberto Arena", "Alberto Ruben Arena"]
+    assert sum(1 for x in cagrilar if x != "adlar" and x[0] == "lig") == 1                                   # lig bir kez
     assert a[0]["n"] == 177 and a == b and c[1] == a[1]
-    assert sum(1 for hak, _ in cagrilar if hak) == 2
 
 
-def test_gercek_kaynak_satir_yoksa_none_doner(monkeypatch):
-    monkeypatch.setattr(h, "_sorgu", lambda sql, p: [])
-    assert h.hakem_kaynagi()("X", 5, MAC_GUNU) == (None, None)
+def test_gercek_kaynak_adayda_yoksa_yine_tam_adla_sorgular(monkeypatch):
+    istenen = []
+
+    def sorgu(sql, p):
+        if sql == h.ADLAR_SQL:
+            return []
+        istenen.append(p.get("adlar"))
+        return []
+    monkeypatch.setattr(h, "_sorgu", sorgu)
+    assert h.hakem_kaynagi()("Yeni Hakem", "Italy", 4, MAC_GUNU) == (None, None)
+    assert istenen[0] == ["Yeni Hakem"]
