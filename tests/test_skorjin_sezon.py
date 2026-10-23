@@ -138,7 +138,7 @@ def test_gruplar_iki_takim_icin_ve_eksik_taraf_null():
 
 def test_hic_veri_yoksa_gruplar_null():
     g = z.sezon_gruplari([], YILDIZ, KUZEY, MAC_GUNU)
-    assert g == {"season": None, "league_avg": None, "season_matches": None, "standings": None}
+    assert g == {"season": None, "league_avg": None, "season_matches": None, "standings": None, "style": None, "timing": None}
 
 
 def test_sezon_araligi_mac_gununden_turetilir():
@@ -238,12 +238,16 @@ def test_oran_kapsami_sezon_kaynagini_cagirmaz():
     assert cagrilar == []
 
 
-def test_gercek_kaynak_lig_sezonunu_bir_kez_ceker_ve_bellekler(monkeypatch):
+def test_gercek_kaynak_lig_sezonunu_ve_gol_olaylarini_bir_kez_ceker_ve_bellekler(monkeypatch):
     calls = []
-    monkeypatch.setattr(z, "_sorgu", lambda sql, p: calls.append(p) or lig())
+
+    def sorgu(sql, p):
+        calls.append((sql, p))
+        return lig() if sql == z.SEZON_SQL else []
+    monkeypatch.setattr(z, "_sorgu", sorgu)
     fn = z.sezon_kaynagi()
     a = fn(4, YILDIZ, KUZEY, MAC_GUNU)
     b = fn(4, 1, 5, MAC_GUNU)
-    assert len(calls) == 1 and calls[0]["lig"] == 4
-    assert calls[0]["bas"] == datetime(2026, 7, 1) and calls[0]["bit"] == datetime(2027, 7, 1)
+    assert [c[0] for c in calls] == [z.SEZON_SQL, z.OLAY_SQL] and all(c[1]["lig"] == 4 for c in calls)
+    assert calls[0][1]["bas"] == datetime(2026, 7, 1) and calls[0][1]["bit"] == datetime(2027, 7, 1)
     assert a["season"] is not None and b["league_avg"] == a["league_avg"]

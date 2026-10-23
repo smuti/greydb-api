@@ -222,6 +222,8 @@ def test_gercek_kaynak_adlari_bir_kez_ceker_esdeger_adlarla_sorgular_ve_bellekle
     cagrilar = []
 
     def sorgu(sql, p):
+        if sql == h.ALIAS_OKU_SQL:
+            return []                                                              # alias tablosu boş: kural devrede
         if sql == h.ADLAR_SQL:
             cagrilar.append("adlar")
             return [{"ad": a, "ulke": u} for a, u in ADAYLAR]
@@ -244,7 +246,7 @@ def test_gercek_kaynak_adayda_yoksa_yine_tam_adla_sorgular(monkeypatch):
     istenen = []
 
     def sorgu(sql, p):
-        if sql == h.ADLAR_SQL:
+        if sql in (h.ADLAR_SQL, h.ALIAS_OKU_SQL):
             return []
         istenen.append(p.get("adlar"))
         return []
