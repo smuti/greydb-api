@@ -138,7 +138,7 @@ def test_gruplar_iki_takim_icin_ve_eksik_taraf_null():
 
 def test_hic_veri_yoksa_gruplar_null():
     g = z.sezon_gruplari([], YILDIZ, KUZEY, MAC_GUNU)
-    assert g == {"season": None, "league_avg": None, "season_matches": None}
+    assert g == {"season": None, "league_avg": None, "season_matches": None, "standings": None}
 
 
 def test_sezon_araligi_mac_gununden_turetilir():

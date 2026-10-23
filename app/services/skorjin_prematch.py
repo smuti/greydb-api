@@ -248,7 +248,7 @@ def hazirla(kapsam: str, dry_run: bool, k: Kaynaklar, simdi: datetime, model_sur
                 k.yaz(kapsam, satir)
             rapor["hazirlanan"] += 1
             rapor["maclar"].append({"fotmob_match_id": fid, "mac": _ad(m), "alanlar": sorted(
-                a for a in ("form", "h2h", "scoreline", "odds", "crowd", "absences", "referee", "season", "league_avg", "season_matches") if satir.get(a))})
+                a for a in ("form", "h2h", "scoreline", "odds", "crowd", "absences", "referee", "season", "league_avg", "season_matches", "standings") if satir.get(a))})
         except Exception as e:  # noqa: BLE001 — tek maçın hatası işi durdurmaz
             rapor["hatalar"].append({"fotmob_match_id": fid, "hata": f"{type(e).__name__}: {e}"})
     return rapor
@@ -275,7 +275,7 @@ def _eksik_alanlari(m: Dict[str, Any], k: Kaynaklar, simdi: datetime, rapor: Dic
             "referee": hakem, "referee_at": simdi if hakem else None}
 
 
-_SEZON_GRUPLARI = ("season", "league_avg", "season_matches")
+_SEZON_GRUPLARI = ("season", "league_avg", "season_matches", "standings")
 
 
 def _sezon_alanlari(m: Dict[str, Any], k: Kaynaklar, simdi: datetime, rapor: Dict[str, Any]) -> Dict[str, Any]:
@@ -335,6 +335,7 @@ CREATE TABLE IF NOT EXISTS greydb.match_prematch (
     season JSONB, season_at TIMESTAMPTZ,
     league_avg JSONB, league_avg_at TIMESTAMPTZ,
     season_matches JSONB, season_matches_at TIMESTAMPTZ,
+    standings JSONB, standings_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_match_prematch_kickoff ON greydb.match_prematch (kickoff);
@@ -344,13 +345,15 @@ ALTER TABLE greydb.match_prematch ADD COLUMN IF NOT EXISTS season JSONB;
 ALTER TABLE greydb.match_prematch ADD COLUMN IF NOT EXISTS season_at TIMESTAMPTZ;
 ALTER TABLE greydb.match_prematch ADD COLUMN IF NOT EXISTS league_avg JSONB;
 ALTER TABLE greydb.match_prematch ADD COLUMN IF NOT EXISTS league_avg_at TIMESTAMPTZ;
+ALTER TABLE greydb.match_prematch ADD COLUMN IF NOT EXISTS standings JSONB;
+ALTER TABLE greydb.match_prematch ADD COLUMN IF NOT EXISTS standings_at TIMESTAMPTZ;
 ALTER TABLE greydb.match_prematch ADD COLUMN IF NOT EXISTS season_matches JSONB;
 ALTER TABLE greydb.match_prematch ADD COLUMN IF NOT EXISTS season_matches_at TIMESTAMPTZ;
 """
 
 _KIMLIK = ("iddaa_event_id", "home_team_id", "away_team_id", "home_name", "away_name", "league_id", "league_name", "kickoff")
 _ZAMANLI = ("form", "h2h", "scoreline", "odds", "crowd", "absences")
-_SEZON = ("season", "league_avg", "season_matches")
+_SEZON = ("season", "league_avg", "season_matches", "standings")
 _JSON = set(_ZAMANLI) | set(_SEZON) | {"referee"}
 _EKSIK = ("absences", "absences_at", "absences_source", "referee", "referee_at")
 _KOLONLAR = {
