@@ -53,7 +53,7 @@ async def sonuclar(request: Request, days: Optional[int] = Query(None, ge=1, le=
     simdi = _simdi()
     if days:
         sinir = (simdi - timedelta(days=days)).isoformat() + "Z"
-        kuponlar = [x for x in kuponlar if (x["sonuc_zamani"] or "") >= sinir]
+        kuponlar = [x for x in kuponlar if (mac_tarihi(x) or "") >= sinir]   # dönem: maçın günü
     if sonuc in ("won", "lost", "void"):
         kuponlar = [x for x in kuponlar if x["sonuc"] == sonuc]
     if bacak == "single":
