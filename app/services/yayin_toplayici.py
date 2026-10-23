@@ -62,9 +62,19 @@ def _lig_takimlari(lig_id: int) -> List[Dict[str, Any]]:
     return _liglerin_takimlari[lig_id]
 
 
+# FotMob maç listesindeki lig adı -> istatistik servisindeki (leagues tablosu) adı; yalnızca ad farklıysa. Anahtarlar _ad() biçiminde.
+_LIG_ADI_ESLEME = {
+    "belgian pro league": "first division a",
+    "liga portugal": "primeira liga",
+    "1 lig": "turkish 1 lig",
+    "tff 1 lig": "turkish 1 lig",
+}
+
+
 def analiz_takimlari(lig_adi: str, ev_ad: str, dep_ad: str) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
     """Maçın liginin istatistik servisindeki karşılığında iki takımı adından bulur (aynı adlı birden çok lig varsa ikisini de içereni seçer)."""
-    adaylar = [l for l in _analiz_ligleri() if _ad(l.get("name", "")) == _ad(lig_adi)]
+    aranan = {_ad(lig_adi), _LIG_ADI_ESLEME.get(_ad(lig_adi), _ad(lig_adi))}
+    adaylar = [l for l in _analiz_ligleri() if _ad(l.get("name", "")) in aranan]
     for lig in adaylar:
         takimlar = _lig_takimlari(lig["id"])
         bul = lambda ad: next((t for t in takimlar if _ad(t["name"]) == _ad(ad) or _ad(ad) in _ad(t["name"]) or _ad(t["name"]) in _ad(ad)), None)  # noqa: E731
