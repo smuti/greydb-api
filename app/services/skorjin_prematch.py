@@ -186,7 +186,7 @@ class Kaynaklar:
     yaz: Callable[[str, Dict[str, Any]], None]
     fotmob: Callable[[int], Optional[Dict[str, Any]]]                              # fotmob_match_id -> matchDetails (hata: istisna)
     sezon: Optional[Callable[[Any, Any, Any, datetime], Dict[str, Any]]] = None    # (lig, ev, dep, maç günü) -> season/league_avg/season_matches
-    hakem: Optional[Callable[[str, Any, datetime], Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]]] = None   # (ad, lig, maç günü) -> (hakem, lig istatistiği)
+    hakem: Optional[Callable[[str, Optional[str], Any, datetime], Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]]] = None   # (ad, ülke, lig, maç günü) -> (hakem, lig istatistiği)
 
 
 def _ad(m: Dict[str, Any]) -> str:
@@ -267,7 +267,7 @@ def _eksik_alanlari(m: Dict[str, Any], k: Kaynaklar, simdi: datetime, rapor: Dic
     ist = lig = None
     if bilgi and k.hakem is not None:
         try:
-            ist, lig = k.hakem(bilgi["name"], m["league_id"], m["match_date"])
+            ist, lig = k.hakem(bilgi["name"], bilgi.get("country"), m["league_id"], m["match_date"])
         except Exception:  # noqa: BLE001 — istatistik sorgusu başarısızsa hakem adı yine de yazılır
             rapor["hakem_hatasi"] += 1
     hakem = hakem_alani(bilgi, ist, lig)
