@@ -25,6 +25,23 @@ def _skorlu(s: Dict[str, Any]) -> bool:
     return s.get("home_score") is not None and s.get("away_score") is not None
 
 
+_METRIKLER = (("shots", "sut"), ("sot", "isabetli"), ("corners", "korner"), ("yellow", "sari"))
+
+
+def _istatistik(s: Dict[str, Any], ev_mi: bool) -> Optional[Dict[str, List[int]]]:
+    """Maçın takım penceresinden istatistiği: {metrik: [takımın kendisi, rakip]}; kaynakta yoksa None.
+
+    FotMob verisi alınamadığında kayıt her şeyi 0 yazar; şut ve korner toplamı 0 ise "veri yok" sayılır (0 ortalama uydurulmaz).
+    Sarı kartın 0 olması meşrudur, bu yüzden geçerlilik kapısı şut ve kornerdir.
+    """
+    if any(s.get(f"{taraf}_{kolon}") is None for _, kolon in _METRIKLER for taraf in ("ev", "dep")):
+        return None
+    if sum(s[f"{t}_{k}"] for k in ("sut", "korner") for t in ("ev", "dep")) <= 0:
+        return None
+    ben, rakip = ("ev", "dep") if ev_mi else ("dep", "ev")
+    return {anahtar: [int(s[f"{ben}_{kolon}"]), int(s[f"{rakip}_{kolon}"])] for anahtar, kolon in _METRIKLER}
+
+
 def takim_maclari(satirlar: List[Dict[str, Any]], takim_ic_id: Any) -> List[Dict[str, Any]]:
     """Takımın bitmiş maçları, takımın penceresinden (v: H ev / A deplasman). Sıra girdideki gibi (en yeniden eskiye)."""
     cikti = []
@@ -32,11 +49,15 @@ def takim_maclari(satirlar: List[Dict[str, Any]], takim_ic_id: Any) -> List[Dict
         if not _skorlu(s):
             continue
         ev_mi = s["home_team_id"] == takim_ic_id
-        cikti.append({
+        mac = {
             "d": _gun(s["tarih"]), "v": "H" if ev_mi else "A",
             "gf": s["home_score"] if ev_mi else s["away_score"], "ga": s["away_score"] if ev_mi else s["home_score"],
             "opp": s["dep_ad"] if ev_mi else s["ev_ad"],
-        })
+        }
+        st = _istatistik(s, ev_mi)
+        if st:
+            mac["st"] = st
+        cikti.append(mac)
     return cikti
 
 
@@ -319,7 +340,12 @@ JOIN public.teams ev ON ev.id = m.home_team_id
 JOIN public.teams dep ON dep.id = m.away_team_id
 """
 _FILTRE = "AND m.finished AND NOT COALESCE(m.cancelled, false) AND m.home_score IS NOT NULL AND m.away_score IS NOT NULL AND m.match_date < :tarih"
-FORM_SQL = f"{_ORTAK} WHERE (m.home_team_id = :t OR m.away_team_id = :t) {_FILTRE} ORDER BY m.match_date DESC LIMIT 20"
+_FORM_ORTAK = _ORTAK.replace(
+    "dep.name AS dep_ad", "dep.name AS dep_ad,\n"
+    "       st.home_shots AS ev_sut, st.away_shots AS dep_sut, st.home_shots_on_target AS ev_isabetli, st.away_shots_on_target AS dep_isabetli,\n"
+    "       st.home_corners AS ev_korner, st.away_corners AS dep_korner, st.home_yellow_cards AS ev_sari, st.away_yellow_cards AS dep_sari"
+) + "LEFT JOIN public.match_stats st ON st.match_id = m.id\n"
+FORM_SQL = f"{_FORM_ORTAK} WHERE (m.home_team_id = :t OR m.away_team_id = :t) {_FILTRE} ORDER BY m.match_date DESC LIMIT 20"
 H2H_SQL = (f"{_ORTAK} WHERE ((m.home_team_id = :a AND m.away_team_id = :b) OR (m.home_team_id = :b AND m.away_team_id = :a)) "
            f"{_FILTRE} ORDER BY m.match_date DESC LIMIT 10")
 MACLAR_SQL = """

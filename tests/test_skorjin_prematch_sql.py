@@ -55,3 +55,11 @@ def test_satirda_olmayan_gruplar_sorguya_girmez_eski_veri_korunur():
     assert "odds" not in sql and "crowd" not in sql and "form = EXCLUDED.form" in sql
     sql, _ = s.yazma_sorgusu("oran", {"fotmob_match_id": 1, "crowd": {"home": .5}, "crowd_at": datetime(2026, 10, 22)})
     assert "odds" not in sql and "crowd = CAST(:crowd AS jsonb)" in sql
+
+
+def test_form_sorgusu_mac_istatistiklerini_bagli_getirir():
+    from app.services.skorjin_prematch import FORM_SQL, H2H_SQL
+    assert "LEFT JOIN public.match_stats" in FORM_SQL
+    for kolon in ("home_shots", "away_shots", "home_shots_on_target", "home_corners", "away_yellow_cards"):
+        assert kolon in FORM_SQL
+    assert "match_stats" not in H2H_SQL          # H2H'de istatistik gerekmiyor, satırlar şişmesin
