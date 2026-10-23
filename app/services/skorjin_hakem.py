@@ -64,7 +64,8 @@ def hakem_alani(bilgi: Optional[Dict[str, Any]], ist: Optional[Dict[str, Any]], 
                 goals_avg=_r(ist["gol"]), home_win_rate=_r(ist["ev_galibiyet"], 3))
     if lig and int(lig["n"]) >= LIG_MIN:
         alan["league"] = {"n": int(lig["n"]), "yellow_avg": _r(lig["sari"]), "red_avg": _r(lig["kirmizi"]), "foul_avg": _r(lig["faul"]),
-                          "penalty_avg": _r(lig["penalti"]), "goals_avg": _r(lig["gol"])}
+                          "penalty_avg": _r(lig["penalti"]), "goals_avg": _r(lig["gol"]),
+                          "home_win_rate": _r(lig["ev_galibiyet"], 3)}
     return alan
 
 

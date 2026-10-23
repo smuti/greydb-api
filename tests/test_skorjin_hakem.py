@@ -42,7 +42,7 @@ def test_hakem_alani_istatistik_ve_lig_ortalamasi_yuvarlanir():
     g = h.hakem_alani({"name": "Michael Oliver", "country": "England"}, IST, LIG)
     assert g["name"] == "Michael Oliver" and g["country"] == "England" and g["source"] == "FotMob"
     assert (g["n"], g["yellow_avg"], g["red_avg"], g["foul_avg"], g["penalty_avg"], g["goals_avg"], g["home_win_rate"]) == (177, 3.51, 0.14, 22.29, 0.22, 2.89, 0.424)
-    assert g["league"] == {"n": 1969, "yellow_avg": 3.82, "red_avg": 0.12, "foul_avg": 21.59, "penalty_avg": 0.2, "goals_avg": 2.7}
+    assert g["league"] == {"n": 1969, "yellow_avg": 3.82, "red_avg": 0.12, "foul_avg": 21.59, "penalty_avg": 0.2, "goals_avg": 2.7, "home_win_rate": 0.45}
 
 
 def test_az_maci_olan_hakemde_istatistik_yok_yalniz_ad_ve_n():
