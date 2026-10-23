@@ -184,6 +184,7 @@ class Kaynaklar:
     mevcut: Callable[[List[int]], Set[int]]                                        # tabloda satırı olan maç kimlikleri
     yaz: Callable[[str, Dict[str, Any]], None]
     fotmob: Callable[[int], Optional[Dict[str, Any]]]                              # fotmob_match_id -> matchDetails (hata: istisna)
+    sezon: Optional[Callable[[Any, Any, Any, datetime], Dict[str, Any]]] = None    # (lig, ev, dep, maç günü) -> season/league_avg/season_matches
 
 
 def _ad(m: Dict[str, Any]) -> str:
@@ -214,7 +215,7 @@ def hazirla(kapsam: str, dry_run: bool, k: Kaynaklar, simdi: datetime, model_sur
     ufuk = simdi + (timedelta(days=ufuk_gun) if kapsam == "gunluk" else timedelta(hours=oran_ufku_saat))
     maclar = k.maclar(simdi, ufuk)
     rapor: Dict[str, Any] = {"kapsam": kapsam, "dry_run": dry_run, "aday": len(maclar), "hazirlanan": 0, "model_yok": 0,
-                             "iddaa_hatasi": 0, "fotmob_hatasi": 0, "satiri_yok": 0, "iddaa_kimligi_yok": 0, "hatalar": [], "maclar": []}
+                             "iddaa_hatasi": 0, "fotmob_hatasi": 0, "sezon_hatasi": 0, "satiri_yok": 0, "iddaa_kimligi_yok": 0, "hatalar": [], "maclar": []}
 
     modeller: Dict[int, Dict[str, Any]] = {}
     if kapsam == "gunluk":
@@ -245,7 +246,7 @@ def hazirla(kapsam: str, dry_run: bool, k: Kaynaklar, simdi: datetime, model_sur
                 k.yaz(kapsam, satir)
             rapor["hazirlanan"] += 1
             rapor["maclar"].append({"fotmob_match_id": fid, "mac": _ad(m), "alanlar": sorted(
-                a for a in ("form", "h2h", "scoreline", "odds", "crowd", "absences") if satir.get(a))})
+                a for a in ("form", "h2h", "scoreline", "odds", "crowd", "absences", "season", "league_avg", "season_matches") if satir.get(a))})
         except Exception as e:  # noqa: BLE001 — tek maçın hatası işi durdurmaz
             rapor["hatalar"].append({"fotmob_match_id": fid, "hata": f"{type(e).__name__}: {e}"})
     return rapor
@@ -259,6 +260,25 @@ def _eksik_alanlari(m: Dict[str, Any], k: Kaynaklar, simdi: datetime, rapor: Dic
         rapor["fotmob_hatasi"] += 1
         return {}
     return {"absences": eksik, "absences_at": simdi if eksik else None, "absences_source": KAYNAK_FOTMOB if eksik else None}
+
+
+_SEZON_GRUPLARI = ("season", "league_avg", "season_matches")
+
+
+def _sezon_alanlari(m: Dict[str, Any], k: Kaynaklar, simdi: datetime, rapor: Dict[str, Any]) -> Dict[str, Any]:
+    """Veri yoksa grup None; kaynak hatasında ANAHTARLAR OLMAZ (eski veri korunur). Kaynak verilmediyse hiçbir şey yazılmaz."""
+    if k.sezon is None:
+        return {}
+    try:
+        g = k.sezon(m["league_id"], m["home_team_id"], m["away_team_id"], m["match_date"])
+    except Exception:  # noqa: BLE001 — sezon sorgusu başarısızsa mevcut veri bozulmaz
+        rapor["sezon_hatasi"] += 1
+        return {}
+    alanlar: Dict[str, Any] = {}
+    for ad in _SEZON_GRUPLARI:
+        alanlar[ad] = g.get(ad)
+        alanlar[f"{ad}_at"] = simdi if g.get(ad) else None
+    return alanlar
 
 
 def _gunluk_satir(m, k, sonuc, simdi, model_surumu, rapor) -> Dict[str, Any]:
@@ -279,7 +299,7 @@ def _gunluk_satir(m, k, sonuc, simdi, model_surumu, rapor) -> Dict[str, Any]:
         "form": form, "form_at": simdi if form else None,
         "h2h": h2h, "h2h_at": simdi if h2h else None,
         "scoreline": scoreline, "scoreline_at": simdi if scoreline else None,
-        **oran, **eksik,
+        **oran, **eksik, **_sezon_alanlari(m, k, simdi, rapor),
     }
 
 
@@ -298,17 +318,27 @@ CREATE TABLE IF NOT EXISTS greydb.match_prematch (
     odds JSONB, odds_at TIMESTAMPTZ,
     crowd JSONB, crowd_at TIMESTAMPTZ,
     absences JSONB, absences_at TIMESTAMPTZ, absences_source TEXT,
+    season JSONB, season_at TIMESTAMPTZ,
+    league_avg JSONB, league_avg_at TIMESTAMPTZ,
+    season_matches JSONB, season_matches_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_match_prematch_kickoff ON greydb.match_prematch (kickoff);
+ALTER TABLE greydb.match_prematch ADD COLUMN IF NOT EXISTS season JSONB;
+ALTER TABLE greydb.match_prematch ADD COLUMN IF NOT EXISTS season_at TIMESTAMPTZ;
+ALTER TABLE greydb.match_prematch ADD COLUMN IF NOT EXISTS league_avg JSONB;
+ALTER TABLE greydb.match_prematch ADD COLUMN IF NOT EXISTS league_avg_at TIMESTAMPTZ;
+ALTER TABLE greydb.match_prematch ADD COLUMN IF NOT EXISTS season_matches JSONB;
+ALTER TABLE greydb.match_prematch ADD COLUMN IF NOT EXISTS season_matches_at TIMESTAMPTZ;
 """
 
 _KIMLIK = ("iddaa_event_id", "home_team_id", "away_team_id", "home_name", "away_name", "league_id", "league_name", "kickoff")
 _ZAMANLI = ("form", "h2h", "scoreline", "odds", "crowd", "absences")
-_JSON = set(_ZAMANLI)
+_SEZON = ("season", "league_avg", "season_matches")
+_JSON = set(_ZAMANLI) | set(_SEZON)
 _EKSIK = ("absences", "absences_at", "absences_source")
 _KOLONLAR = {
-    "gunluk": _KIMLIK + tuple(c for g in _ZAMANLI[:-1] for c in (g, f"{g}_at")) + _EKSIK,
+    "gunluk": _KIMLIK + tuple(c for g in _ZAMANLI[:-1] + _SEZON for c in (g, f"{g}_at")) + _EKSIK,
     "oran": ("odds", "odds_at", "crowd", "crowd_at") + _EKSIK,
 }
 
@@ -421,13 +451,18 @@ def _yaz(kapsam: str, satir: Dict[str, Any]) -> None:
     execute_insert(sql, params)
 
 
+def _sezon_kaynagi():
+    from app.services.skorjin_sezon import sezon_kaynagi
+    return sezon_kaynagi()
+
+
 def gercek_kaynaklar() -> Kaynaklar:
     from app.services.db import execute_query
     return Kaynaklar(
         maclar=_yaklasan,
         form=lambda takim, tarih: execute_query(FORM_SQL, {"t": takim, "tarih": tarih}),
         h2h=lambda a, b, tarih: execute_query(H2H_SQL, {"a": a, "b": b, "tarih": tarih}),
-        model=_model, iddaa=_iddaa, mevcut=_mevcut, yaz=_yaz, fotmob=_fotmob,
+        model=_model, iddaa=_iddaa, mevcut=_mevcut, yaz=_yaz, fotmob=_fotmob, sezon=_sezon_kaynagi(),
     )
 
 
