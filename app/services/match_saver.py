@@ -436,6 +436,22 @@ def save_match_lineups(match_id: int, match_data: dict, home_team_id: int, away_
             })
 
 
+def olay_turu(event: dict):
+    """FotMob olayının türü; atlanacak olay (AddedTime) için None. Kart: Yellow -> YELLOW_CARD, Red -> RED_CARD,
+    YellowRed (ikinci sarıdan kırmızı) -> YELLOW_RED_CARD (eskiden sarı kart olarak kaydediliyordu)."""
+    ham = event.get('type', '')
+    if ham == 'Goal':
+        return 'GOAL'
+    if ham == 'Card':
+        kart = event.get('card', 'Yellow')
+        return 'RED_CARD' if kart == 'Red' else 'YELLOW_RED_CARD' if kart == 'YellowRed' else 'YELLOW_CARD'
+    if ham == 'Substitution':
+        return 'SUBSTITUTION'
+    if ham == 'AddedTime':
+        return None
+    return ham.upper()
+
+
 def save_match_events(match_id: int, match_data: dict, home_team_id: int, away_team_id: int):
     """Maç olaylarını kaydet (gol, kart, değişiklik)"""
     check_query = f"SELECT COUNT(*) as cnt FROM public.match_events WHERE match_id = {match_id}"
@@ -459,19 +475,9 @@ def save_match_events(match_id: int, match_data: dict, home_team_id: int, away_t
         if not event:
             continue
         
-        event_type_raw = event.get('type', '')
-        
-        if event_type_raw == 'Goal':
-            event_type = 'GOAL'
-        elif event_type_raw == 'Card':
-            card_type = event.get('card', 'Yellow')
-            event_type = 'RED_CARD' if card_type == 'Red' else 'YELLOW_CARD'
-        elif event_type_raw == 'Substitution':
-            event_type = 'SUBSTITUTION'
-        elif event_type_raw == 'AddedTime':
+        event_type = olay_turu(event)
+        if event_type is None:
             continue
-        else:
-            event_type = event_type_raw.upper()
         
         is_home = event.get('isHome', True)
         team_id = home_team_id if is_home else away_team_id
