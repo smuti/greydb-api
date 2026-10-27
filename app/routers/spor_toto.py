@@ -99,6 +99,15 @@ def _set_match_team_ids(match_id: int, home_team_id: Optional[int], away_team_id
     )
 
 
+def _onayi_sifirla(match_id: int) -> None:
+    """Baştan üretimde: onaylı metin ve seçilen tercih silinir (yeni taslak hazır). Video linki ve eşleşme korunur."""
+    execute_insert(
+        "UPDATE greydb.spor_toto_matches SET final_metin = NULL, secilen_senaryo = NULL, "
+        "final_metin_guncellenme_at = NULL, final_metin_guncelleyen_email = NULL WHERE id = :id",
+        {"id": match_id},
+    )
+
+
 def _save_entries(match_id: int, scenarios: list[dict]) -> None:
     execute_insert("DELETE FROM greydb.spor_toto_entries WHERE match_id = :match_id", {"match_id": match_id})
     for s in scenarios:
@@ -210,15 +219,18 @@ async def fetch_week(request: FetchWeekRequest):
 
 
 @router.post("/spor-toto/matches/{match_id}/generate")
-async def generate_match(match_id: int):
+async def generate_match(match_id: int, bastan: bool = False):
     """Tek bir maç için 6 senaryoyu üretir — /weeks/fetch'in eşleştirdiği her maç
-    için admin ekranı bunu sırayla çağırır, her cevap geldikçe o maçın kartı güncellenir."""
+    için admin ekranı bunu sırayla çağırır, her cevap geldikçe o maçın kartı güncellenir.
+
+    Varsayılan: onaylı maça dokunulmaz (409). `bastan=true` (yeniden üretim): onaylı ya da taslağı hazır maç da BAŞTAN üretilir;
+    yeni taslak başarıyla yazıldıktan sonra onaylı metin ve seçilen tercih silinir (üretim patlarsa eski onay korunur). Video linki kalır."""
     match_df = query_to_df("SELECT * FROM greydb.spor_toto_matches WHERE id = %s", (match_id,))
     if match_df.empty:
         raise HTTPException(status_code=404, detail="Maç bulunamadı")
     m = match_df.iloc[0]
 
-    if pd.notna(m["final_metin"]):
+    if pd.notna(m["final_metin"]) and not bastan:
         raise HTTPException(status_code=409, detail="Bu maç zaten onaylanmış, üzerine yazılmaz")
     if pd.isna(m["home_team_id"]) or pd.isna(m["away_team_id"]):
         raise HTTPException(status_code=400, detail="Takımlar henüz eşleşmedi")
@@ -234,7 +246,9 @@ async def generate_match(match_id: int):
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Üretim başarısız: {e}")
 
-    return {"message": "Üretildi", "match_id": match_id}
+    if bastan:
+        _onayi_sifirla(match_id)
+    return {"message": "Baştan üretildi" if bastan else "Üretildi", "match_id": match_id}
 
 
 @router.get("/spor-toto/weeks")
