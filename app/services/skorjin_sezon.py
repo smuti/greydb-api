@@ -151,7 +151,7 @@ def sezon_maclari(satirlar: List[Dict[str, Any]], takim: Any, tarih: datetime) -
 
 def puan_durumu(satirlar: List[Dict[str, Any]], ev: Any, dep: Any, tarih: datetime) -> Optional[Dict[str, Any]]:
     """Maçın liginin maç gününe kadarki puan durumu (bitmiş maçlardan; sıralama: puan, averaj, atılan gol, ad). Yalnız iki takımın satırı ve
-    lig bağlamı yazılır: sıra, oynanan, puan, G/B/M, atılan/yenen, averaj; takım sayısı, lider, son sıranın puanı, oynanan maç aralığı
+    lig bağlamı yazılır: sıra, oynanan, puan, G/B/M, atılan/yenen, averaj; takım sayısı, lider ve son sıra (adı + tam satır), oynanan maç aralığı
     (`played_min/max`: ertelenen maçlar yüzünden takımların oynadığı sayı farklı olabilir). Takımın 3'ten az maçı varsa o taraf None;
     iki taraf da yoksa None. Resmi sıralamada ikili averaj, puan silme gibi kurallar farklı olabilir."""
     maclar = [{"tarih": s["tarih"], "ev_id": s["home_team_id"], "ev_ad": s["ev_ad"], "dep_id": s["away_team_id"], "dep_ad": s["dep_ad"],
@@ -168,11 +168,16 @@ def puan_durumu(satirlar: List[Dict[str, Any]], ev: Any, dep: Any, tarih: dateti
         return {"position": t["sira"], "played": t["oynanan"], "points": t["puan"], "wins": t["galibiyet"], "draws": t["beraberlik"],
                 "losses": t["maglubiyet"], "gf": t["atilan"], "ga": t["yenilen"], "gd": t["averaj"]}
 
+    def satir(t: Dict[str, Any]) -> Dict[str, Any]:
+        """Lider ve son sıra için TAM satır: Skorjin tabloyu bu iki takımla birlikte yukarıdan aşağı sıralı gösterir."""
+        return {"name": t["takim"], "position": t["sira"], "played": t["oynanan"], "points": t["puan"], "wins": t["galibiyet"], "draws": t["beraberlik"],
+                "losses": t["maglubiyet"], "gf": t["atilan"], "ga": t["yenilen"], "gd": t["averaj"]}
+
     home, away = taraf(ev), taraf(dep)
     if home is None and away is None:
         return None
     oynanan = [t["oynanan"] for t in tablo]
-    return {"n_teams": len(tablo), "leader": {"name": tablo[0]["takim"], "points": tablo[0]["puan"]}, "last_points": tablo[-1]["puan"],
+    return {"n_teams": len(tablo), "leader": satir(tablo[0]), "last": satir(tablo[-1]), "last_points": tablo[-1]["puan"],
             "played_min": min(oynanan), "played_max": max(oynanan), "home": home, "away": away}
 
 

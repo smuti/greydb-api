@@ -31,7 +31,9 @@ def test_esit_puanda_averaj_siralar():
 
 def test_lig_baglami_lider_son_takim_sayisi_oynanan_araligi():
     d = z.puan_durumu(LIG, 2, 4, MAC_GUNU)
-    assert d["n_teams"] == 4 and d["leader"] == {"name": "T1", "points": 7} and d["last_points"] == 2
+    assert d["n_teams"] == 4 and d["leader"]["name"] == "T1" and d["leader"]["points"] == 7 and d["last_points"] == 2
+    assert d["leader"]["position"] == 1 and d["last"]["position"] == 4 and d["last"]["points"] == 2            # lider ve son sıra tam satır (Skorjin tabloya ekler)
+    assert {"played", "wins", "draws", "losses", "gf", "ga", "gd", "name"} <= set(d["leader"]) and {"played", "wins", "draws", "losses", "gf", "ga", "gd", "name"} <= set(d["last"])
     assert (d["played_min"], d["played_max"]) == (3, 3)
 
 
