@@ -99,6 +99,27 @@ def _set_match_team_ids(match_id: int, home_team_id: Optional[int], away_team_id
     )
 
 
+def _set_match_team_ids_korunur(match_id: int, home_team_id: Optional[int], away_team_id: Optional[int]) -> None:
+    """Otomatik eşleşme başarısızken maçın ELLE bağlanmış takım kimliklerini silmez (boş gelen taraf eskisini korur); durum her iki taraf doluysa 'eslesti'."""
+    execute_insert(
+        "UPDATE greydb.spor_toto_matches SET home_team_id = COALESCE(:h, home_team_id), away_team_id = COALESCE(:a, away_team_id), "
+        "esleme_durumu = CASE WHEN COALESCE(:h, home_team_id) IS NOT NULL AND COALESCE(:a, away_team_id) IS NOT NULL THEN 'eslesti' ELSE 'eslesmedi' END WHERE id = :id",
+        {"h": home_team_id, "a": away_team_id, "id": match_id},
+    )
+
+
+def _esleme_onerileri(mrow) -> list:
+    """Eşleşmemiş maçın boş kalan tarafları için en yakın takım önerileri (admin tek tıkla onaylar)."""
+    out = []
+    for side, ad_alani, id_alani in (("home", "ev_takim", "home_team_id"), ("away", "deplasman_takim", "away_team_id")):
+        if pd.isna(mrow[id_alani]) and mrow[ad_alani]:
+            try:
+                out.append({"side": side, "ad": mrow[ad_alani], "oneriler": stf.suggest_teams(mrow[ad_alani])})
+            except Exception:       # öneri opsiyonel: hata ekranı bozmasın
+                out.append({"side": side, "ad": mrow[ad_alani], "oneriler": []})
+    return out
+
+
 def _onayi_sifirla(match_id: int) -> None:
     """Baştan üretimde: onaylı metin ve seçilen tercih silinir (yeni taslak hazır). Video linki ve eşleşme korunur."""
     execute_insert(
@@ -208,12 +229,7 @@ async def fetch_week(request: FetchWeekRequest):
         away = stf.resolve_team(m["sportoto_away_id"], m["deplasman_takim"]) if m["sportoto_away_id"] else None
 
         if not home or not away:
-            _set_match_team_ids(
-                match_id,
-                home.get("team_id") if home else None,
-                away.get("team_id") if away else None,
-                "eslesmedi",
-            )
+            _set_match_team_ids_korunur(match_id, home.get("team_id") if home else None, away.get("team_id") if away else None)
             results.append({"mac_no": m["mac_no"], "durum": "takim_eslesmedi", "match_id": match_id})
             continue
 
@@ -282,6 +298,8 @@ async def get_week(hafta_no: int):
         )
         match_dict = mrow.where(pd.notna(mrow), None).to_dict()
         match_dict["entries"] = entries_df.to_dict(orient="records")
+        if mrow["esleme_durumu"] == "eslesmedi":
+            match_dict["esleme_onerileri"] = _esleme_onerileri(mrow)
         matches.append(match_dict)
 
     week_dict = week_df.iloc[0].where(pd.notna(week_df.iloc[0]), None).to_dict()
@@ -321,6 +339,12 @@ async def manual_team_link(match_id: int, request: ManualTeamLinkRequest):
             "UPDATE greydb.spor_toto_matches SET away_team_id = :tid WHERE id = :id",
             {"tid": request.matchforge_team_id, "id": match_id},
         )
+
+    # Kalıcı harita: aynı Spor Toto takımı sonraki haftalarda ve hafta yeniden çekilince de bağlı kalsın (yalnız maç satırını güncellemek yetmiyordu: yeniden çekimde sıfırlanıyordu)
+    execute_insert(
+        "UPDATE greydb.spor_toto_team_map SET matchforge_team_id = :tid WHERE sportoto_team_name = :ad",
+        {"tid": request.matchforge_team_id, "ad": sportoto_name},
+    )
 
     match_df = query_to_df("SELECT * FROM greydb.spor_toto_matches WHERE id = %s", (match_id,))
     match_row = match_df.iloc[0]

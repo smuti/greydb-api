@@ -10,6 +10,7 @@ ligler icin ayni Postgres'teki ham public.* tablolarindan basit agregatlar)
 -> Skorjin'in yeni /api/v1/spor-toto-scenarios ucuna gonderilip 6 senaryo
 uretilir.
 """
+import difflib
 import re
 from typing import Any, Dict, List, Optional
 
@@ -152,6 +153,33 @@ def resolve_team(sportoto_team_id: int, sportoto_team_name: str) -> Optional[Dic
         },
     )
     return match
+
+
+_GENEL_SOZCUKLER = {"fc", "fk", "sk", "cf", "ac", "as", "club", "calcio", "spor", "kulubu", "futbol"}
+
+
+def _yakinlik(hedef: str, aday: str) -> float:
+    """İki normalize ad arasında 0-1 benzerlik: karakter benzerliği ile ortak ayırt edici sözcükler (fc/fk gibi genel sözcükler sayılmaz) birlikte düşünülür."""
+    oran = difflib.SequenceMatcher(None, hedef, aday).ratio()
+    h = {w for w in hedef.split() if w not in _GENEL_SOZCUKLER}
+    a = {w for w in aday.split() if w not in _GENEL_SOZCUKLER}
+    ortak = len(h & a) / len(h | a) if h and a else 0.0
+    # ilk sözcük (kulüp adı) aynıysa güçlü işaret: "athletic bilbao" ~ "athletic club"
+    ilk = 0.2 if hedef.split() and aday.split() and hedef.split()[0] == aday.split()[0] and hedef.split()[0] not in _GENEL_SOZCUKLER else 0.0
+    return min(1.0, max(oran, ortak * 0.9) + ilk)
+
+
+def suggest_teams(sportoto_team_name: str, limit: int = 3, esik: float = 0.5) -> List[Dict[str, Any]]:
+    """Eşleşmeyen Spor Toto adına en yakın veritabanı takımları (en benzer önce). Admin tek tıkla onaylar; kod kendiliğinden bağlamaz."""
+    hedef = TAKIM_ADI_ESLEMELERI.get(_normalize(sportoto_team_name), _normalize(sportoto_team_name))
+    df = query_to_df("SELECT t.id, t.name, l.name AS league_name FROM public.teams t LEFT JOIN public.leagues l ON l.id = t.league_id")
+    puanli = []
+    for _, r in df.iterrows():
+        skor = _yakinlik(hedef, _normalize(r["name"]))
+        if skor >= esik:
+            puanli.append((skor, {"team_id": int(r["id"]), "name": r["name"], "league": r["league_name"] if pd.notna(r["league_name"]) else None, "skor": round(skor, 2)}))
+    puanli.sort(key=lambda x: -x[0])
+    return [p for _, p in puanli[:limit]]
 
 
 def manual_link_team(sportoto_team_id: int, sportoto_team_name: str, matchforge_team_id: int) -> None:
