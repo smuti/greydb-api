@@ -136,6 +136,11 @@ def _save_model(match_id: int, model: Optional[dict]) -> None:
 
 
 def _generate_for_match(match_id: int, home: dict, away: dict, lig_haftasi: Optional[str], mac_tarihi=None) -> None:
+    # Takımlardan biri eşleşmemişse yalnız öbür takımın verisiyle yazı üretilir ve LLM eksik tarafı başka takımın olgularıyla doldurur
+    # (canlıda "Athletic Bilbao" eşleşmediğinde Real Sociedad'ın maçları Athletic'e yazıldı): bu durumda ÜRETİLMEZ.
+    for taraf, takim in (("ev sahibi", home), ("deplasman", away)):
+        if not takim.get("team_id"):
+            raise stf.SporTotoFetchError(f"{taraf} takımı ({takim.get('name')}) veritabanındaki bir takıma eşleşmedi; önce eşleştir")
     match_data = stf.build_match_data(home, away, lig_haftasi)
     # Gercek lig adi (ör. "Süper Lig") sadece takim-lig eslesmesi basarili olduysa
     # yazilir - build_match_data'nin "lig" alani basarisiz eslesmede lig_haftasi'na

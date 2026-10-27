@@ -39,6 +39,11 @@ def _normalize(name: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"\bst\b", "saint", temiz)).strip()
 
 
+# Spor Toto'nun (Türkçe medya) kullandığı ad ile veritabanındaki ad farklıysa: normalize edilmiş Spor Toto adı -> normalize edilmiş veritabanı adı.
+# Yalnız canlıda doğrulanmış olanlar yazılır ("Athletic Bilbao" = "Athletic Club", "Bayern Münih" = "Bayern München"); yeni eşleşmeyen takım çıkarsa buraya eklenir.
+TAKIM_ADI_ESLEMELERI = {"athletic bilbao": "athletic club", "bayern munih": "bayern munchen"}
+
+
 class SporTotoFetchError(Exception):
     """Kullanıcıya gösterilebilecek, beklenen hata."""
 
@@ -112,6 +117,7 @@ def resolve_team(sportoto_team_id: int, sportoto_team_name: str) -> Optional[Dic
 
     all_teams = query_to_df("SELECT id, fotmob_team_id, name FROM public.teams")
     normalized_target = _normalize(sportoto_team_name)
+    normalized_target = TAKIM_ADI_ESLEMELERI.get(normalized_target, normalized_target)
 
     match = None
     # 1. geçiş: tam eşleşme
@@ -186,37 +192,53 @@ def _count_text(matches: List[Dict[str, Any]]) -> Optional[str]:
     return ", ".join(parts) or None
 
 
-def summarize_form(maclar: Optional[List[Dict[str, Any]]]) -> Optional[Dict[str, Any]]:
+def _gol_ayir(skor: Any) -> Optional[tuple]:
+    """"3-2" -> (3, 2): takımın kendi golü önce yazılır; (attığı, yediği). Okunamazsa None."""
+    m = re.fullmatch(r"\s*(\d+)\s*-\s*(\d+)\s*", str(skor or ""))
+    return (int(m.group(1)), int(m.group(2))) if m else None
+
+
+def _gol_notu(skor: Any) -> str:
+    g = _gol_ayir(skor)
+    return f" ({g[0]} gol attı, {g[1]} gol yedi)" if g else ""
+
+
+def summarize_form(maclar: Optional[List[Dict[str, Any]]], takim: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """son_5_mac_formu.maclar (EN YENİ BAŞTA; skor = takımın kendi golü önce; saha H=ev, A=deplasman) -> hazır cümleler + sayılar.
-    Takım/rakip adları çekimsiz yazılır ("Alanyaspor 1-2 yenilgi"); LLM kendi ev/deplasman sayımı yapmak yerine bunları alıntılar."""
+    Takım/rakip adları çekimsiz yazılır ("Alanyaspor 1-2 yenilgi"); LLM kendi ev/deplasman sayımı yapmak yerine bunları alıntılar.
+    `takim` verilirse her cümle o takımın adıyla başlar ("Athletic Club: Son 5 lig maçı: ...") ve skorlar "(3 gol attı, 2 gol yedi)" diye açık yazılır:
+    LLM bir takımın maçını rakibine ya da öbür takıma atfetmesin, skorun yönünü karıştırmasın."""
     if not maclar:
         return None
+    onek = f"{takim}: " if takim else ""
     maclar = list(maclar)
     home = [m for m in maclar if m.get("saha") == "H"]
     away = [m for m in maclar if m.get("saha") == "A"]
     out: Dict[str, Any] = {"son_5": _count_text(maclar), "evde": _count_text(home), "deplasman": _count_text(away)}
     cumleler = []
     if out["son_5"]:
-        cumleler.append(f"Son {len(maclar)} lig maçı: {out['son_5']}.")
+        cumleler.append(f"{onek}Son {len(maclar)} lig maçı: {out['son_5']}.")
     if home and out["evde"]:
-        cumleler.append(f"Evinde oynadığı son {len(home)} maç: {out['evde']}." if len(home) > 1 else f"Evinde oynadığı son maç: {out['evde']}.")
+        cumleler.append(f"{onek}Evinde oynadığı son {len(home)} maç: {out['evde']}." if len(home) > 1 else f"{onek}Evinde oynadığı son maç: {out['evde']}.")
     if away and out["deplasman"]:
-        cumleler.append(f"Deplasmanda oynadığı son {len(away)} maç: {out['deplasman']}." if len(away) > 1 else f"Deplasmanda oynadığı son maç: {out['deplasman']}.")
+        cumleler.append(f"{onek}Deplasmanda oynadığı son {len(away)} maç: {out['deplasman']}." if len(away) > 1 else f"{onek}Deplasmanda oynadığı son maç: {out['deplasman']}.")
     last = maclar[0]
     out["son_mac"] = {"rakip": last.get("rakip"), "saha": "ev" if last.get("saha") == "H" else "deplasman", "skor": last.get("skor"), "sonuc": _SONUC.get(last.get("sonuc"))}
+    if _gol_ayir(last.get("skor")):
+        out["son_mac"]["atilan"], out["son_mac"]["yenilen"] = _gol_ayir(last.get("skor"))
     if out["son_mac"]["sonuc"]:
-        cumleler.append(f"Son maçı: {last.get('rakip')} ({out['son_mac']['saha']}) {last.get('skor')} {out['son_mac']['sonuc']}.")
+        cumleler.append(f"{onek}Son maçı: {last.get('rakip')} ({out['son_mac']['saha']}) {last.get('skor')} {out['son_mac']['sonuc']}{_gol_notu(last.get('skor'))}.")
     for key, group, label in (("evde_son_mac", home, "Evinde oynadığı en son maç"), ("deplasman_son_mac", away, "Deplasmanda oynadığı en son maç")):
         if group:
             m = group[0]
             out[key] = {"rakip": m.get("rakip"), "skor": m.get("skor"), "sonuc": _SONUC.get(m.get("sonuc"))}
             if len(group) > 1 and m is not last and out[key]["sonuc"]:
-                cumleler.append(f"{label}: {m.get('rakip')} {m.get('skor')} {out[key]['sonuc']}.")
+                cumleler.append(f"{onek}{label}: {m.get('rakip')} {m.get('skor')} {out[key]['sonuc']}{_gol_notu(m.get('skor'))}.")
     streak = 1
     while streak < len(maclar) and maclar[streak].get("sonuc") == maclar[0].get("sonuc"):
         streak += 1
     if streak >= 2 and _SONUC.get(maclar[0].get("sonuc")):
-        cumleler.append(f"Üst üste {streak} {_SONUC[maclar[0].get('sonuc')]}.")
+        cumleler.append(f"{onek}Üst üste {streak} {_SONUC[maclar[0].get('sonuc')]}.")
     out["cumleler"] = cumleler
     return out
 
@@ -362,7 +384,12 @@ def build_match_data(home: Dict[str, Any], away: Dict[str, Any], sportoto_round_
         if not team_data:
             team_data = _fetch_fallback_team_data(team_id)
         if team_data:
-            ozet = summarize_form((team_data.get("son_5_mac_formu") or {}).get("maclar"))
+            maclar = (team_data.get("son_5_mac_formu") or {}).get("maclar")
+            for mac in maclar or []:        # skorun yönü açık olsun: LLM "kim kaç gol yedi"yi skor sırasından çıkarmasın
+                g = _gol_ayir(mac.get("skor"))
+                if g:
+                    mac["atilan"], mac["yenilen"] = g
+            ozet = summarize_form(maclar, translate_team_name(team.get("name")))
             if ozet:
                 team_data["form_ozeti"] = ozet
             data[side] = team_data

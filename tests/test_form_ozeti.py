@@ -29,7 +29,7 @@ def test_rizespor_away_form_is_strong_not_weak():
 
 def test_corum_last_match_is_alanyaspor_loss_not_eyupspor_win():
     o = summarize_form(CORUM)
-    assert o["son_mac"] == {"rakip": "Gaziantep FK", "saha": "deplasman", "skor": "3-0", "sonuc": "galibiyet"}
+    assert o["son_mac"] == {"rakip": "Gaziantep FK", "saha": "deplasman", "skor": "3-0", "sonuc": "galibiyet", "atilan": 3, "yenilen": 0}
     assert o["evde_son_mac"] == {"rakip": "Alanyaspor", "skor": "1-2", "sonuc": "yenilgi"}   # "son iç saha maçı" = Alanyaspor, Eyüpspor değil
     assert o["deplasman"] == "2 galibiyet, 1 yenilgi"
 
@@ -88,3 +88,21 @@ def test_build_match_data_without_form_data_has_no_form_ozeti(monkeypatch):
     monkeypatch.setattr(stf, "_fetch_fallback_team_data", lambda tid: {"sezon_istatistikleri": {"x": 1}})
     md = stf.build_match_data({"team_id": 1, "name": "A"}, {"team_id": 2, "name": "B"}, "7. Hafta")
     assert "form_ozeti" not in md["ev_sahibi_verisi"]
+
+
+def test_takim_adi_verilince_her_cumle_ozneli_ve_skor_yonu_acik():
+    c = summarize_form(CORUM, "Çorum FK")["cumleler"]
+    assert all(s.startswith("Çorum FK: ") for s in c)
+    assert any("Son maçı: Gaziantep FK (deplasman) 3-0 galibiyet (3 gol attı, 0 gol yedi)" in s for s in c)
+    assert any("Evinde oynadığı en son maç: Alanyaspor 1-2 yenilgi (1 gol attı, 2 gol yedi)" in s for s in c)
+
+
+def test_son_mac_atilan_yenilen_sayilari():
+    o = summarize_form([{"rakip": "Atalanta", "skor": "3-2", "sonuc": "W", "saha": "H"}], "Milan")
+    assert o["son_mac"]["atilan"] == 3 and o["son_mac"]["yenilen"] == 2          # "evinde Atalanta'dan 3 gol yedi" hatası: 3 attı, 2 yedi
+    assert "Milan: Son maçı: Atalanta (ev) 3-2 galibiyet (3 gol attı, 2 gol yedi)." in o["cumleler"]
+
+
+def test_okunamayan_skorda_gol_notu_eklenmez():
+    o = summarize_form([{"rakip": "X", "skor": None, "sonuc": "W", "saha": "H"}], "Milan")
+    assert "atilan" not in o["son_mac"] and all("gol attı" not in s for s in o["cumleler"])
