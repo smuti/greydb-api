@@ -44,3 +44,44 @@ def test_turkce_medya_adlari_veritabani_adina_baglanir(monkeypatch):
     assert stf.resolve_team(112, "Athletic Bilbao")["team_id"] == 76          # canlıda eşleşmeyen ikili
     assert stf.resolve_team(7, "Bayern Münih")["team_id"] == 90
     assert [y["matchforge_team_id"] for y in yazilan] == [76, 90]
+
+
+# ---------------- eşleşme önerisi ve kalıcılık ----------------
+def test_oneri_en_yakin_takimi_ilk_verir(monkeypatch):
+    takimlar = pd.DataFrame([
+        {"id": 76, "name": "Athletic Club", "league_name": "LaLiga"}, {"id": 73, "name": "Real Sociedad", "league_name": "LaLiga"},
+        {"id": 5, "name": "Athletic Bilbao B", "league_name": None}, {"id": 9, "name": "Fenerbahçe", "league_name": "Süper Lig"},
+    ])
+    monkeypatch.setattr(stf, "query_to_df", lambda sql, params=None: takimlar)
+    o = stf.suggest_teams("Athletic Bilbao")
+    assert o[0]["team_id"] in (76, 5) and all(x["team_id"] != 9 for x in o)          # alakasız takım önerilmez
+    assert stf.suggest_teams("Xyzzy Qwerty") == []
+
+
+def test_oneri_alias_adi_kullanir(monkeypatch):
+    takimlar = pd.DataFrame([{"id": 90, "name": "Bayern München", "league_name": "Bundesliga"}, {"id": 3, "name": "Bayer Leverkusen", "league_name": "Bundesliga"}])
+    monkeypatch.setattr(stf, "query_to_df", lambda sql, params=None: takimlar)
+    assert stf.suggest_teams("Bayern Münih")[0]["team_id"] == 90
+
+
+def test_otomatik_eslesme_basarisizken_elle_baglanan_taraf_korunur(monkeypatch):
+    from app.routers import spor_toto as st
+    olaylar = []
+    monkeypatch.setattr(st, "execute_insert", lambda sql, p=None: olaylar.append((" ".join(sql.split()), p)))
+    st._set_match_team_ids_korunur(7, None, 73)
+    sql, p = olaylar[0]
+    assert "home_team_id = COALESCE(:h, home_team_id)" in sql and "CASE WHEN" in sql and p == {"h": None, "a": 73, "id": 7}
+
+
+def test_elle_baglama_kalici_haritaya_yazilir(monkeypatch):
+    import asyncio
+    from app.routers import spor_toto as st
+    olaylar = []
+    maclar = iter([pd.DataFrame([{"id": 7, "ev_takim": "Athletic Bilbao", "deplasman_takim": "Real Sociedad", "home_team_id": None, "away_team_id": 73, "lig_haftasi": None, "mac_tarihi": None}]),
+                   pd.DataFrame([{"id": 7, "ev_takim": "Athletic Bilbao", "deplasman_takim": "Real Sociedad", "home_team_id": 76, "away_team_id": 73, "lig_haftasi": None, "mac_tarihi": None}])])
+    monkeypatch.setattr(st, "query_to_df", lambda sql, params=None: next(maclar))
+    monkeypatch.setattr(st, "execute_insert", lambda sql, p=None: olaylar.append((" ".join(sql.split()), p)))
+    monkeypatch.setattr(st, "_generate_for_match", lambda *a, **k: None)
+    asyncio.run(st.manual_team_link(7, st.ManualTeamLinkRequest(side="home", matchforge_team_id=76)))
+    harita = [o for o in olaylar if "spor_toto_team_map" in o[0]]
+    assert harita and harita[0][1] == {"tid": 76, "ad": "Athletic Bilbao"}
