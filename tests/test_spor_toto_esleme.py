@@ -34,3 +34,13 @@ def test_dolu_onbellek_aynen_kullanilir(monkeypatch):
     yazilan = _sahte(monkeypatch, [{"matchforge_team_id": 142}])
     assert stf.resolve_team(1, "Paris St Germain") == {"team_id": 142}
     assert yazilan == []
+
+
+def test_turkce_medya_adlari_veritabani_adina_baglanir(monkeypatch):
+    takimlar = pd.DataFrame([{"id": 76, "fotmob_team_id": 8315, "name": "Athletic Club"}, {"id": 90, "fotmob_team_id": 9823, "name": "Bayern München"}])
+    yazilan = []
+    monkeypatch.setattr(stf, "query_to_df", lambda sql, params=None: pd.DataFrame([{"matchforge_team_id": None}]) if "spor_toto_team_map" in sql else takimlar)
+    monkeypatch.setattr(stf, "execute_insert", lambda sql, p=None: yazilan.append(p))
+    assert stf.resolve_team(112, "Athletic Bilbao")["team_id"] == 76          # canlıda eşleşmeyen ikili
+    assert stf.resolve_team(7, "Bayern Münih")["team_id"] == 90
+    assert [y["matchforge_team_id"] for y in yazilan] == [76, 90]
