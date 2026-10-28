@@ -13,6 +13,7 @@ HAFTALAR = pd.DataFrame([
     {"id": 1, "hafta_no": 901, "hafta_etiketi": "11. Hafta", "youtube_linki": "https://youtu.be/AbCdEfGhIjK?t=5", "mac_sayisi": 15},
     {"id": 0, "hafta_no": 800, "hafta_etiketi": "12. Hafta", "youtube_linki": "https://youtu.be/ZZZZZZZZZZZ", "mac_sayisi": 15},     # eski sezonun aynı numaralı haftası
     {"id": 9, "hafta_no": 950, "hafta_etiketi": "13. Hafta", "youtube_linki": "bozuk", "mac_sayisi": 15},
+    {"id": 8, "hafta_no": 960, "hafta_etiketi": "14. Hafta", "youtube_linki": None, "mac_sayisi": 15},     # ne hafta ne maç bağlantısı var
 ])
 MACLAR = pd.DataFrame([{"mac_no": 1, "ev_takim": "Konyaspor", "deplasman_takim": "Galatasaray", "lig": "Süper Lig", "mac_tarihi": date(2026, 10, 30), "ev_fotmob_id": 8689.0, "dep_fotmob_id": 8637.0},
                        {"mac_no": 2, "ev_takim": "Erzurumspor FK", "deplasman_takim": "Çorum FK", "lig": None, "mac_tarihi": None, "ev_fotmob_id": None, "dep_fotmob_id": float("nan")}])
@@ -57,6 +58,7 @@ def test_hafta_detayi_guvenli_alanlar(istemci):
     assert j["maclar"][0] == {"mac_no": 1, "ev": "Konyaspor", "dep": "Galatasaray", "lig": "Süper Lig", "tarih": "2026-10-30", "ev_fotmob_id": 8689, "dep_fotmob_id": 8637}
     assert j["maclar"][1]["ev_fotmob_id"] is None and j["maclar"][1]["dep_fotmob_id"] is None and j["maclar"][1]["lig"] is None
     sorgu = " ".join(istemci.sorgular)
+    assert "~* 'youtu'" in sorgu                                       # haftanın kendi bağlantısı yoksa maçlara önceden girilmiş YouTube bağlantısı kullanılır
     for yasak in ("secilen_senaryo", "final_metin", "model_", "entries", "metin"):
         assert yasak not in sorgu                                      # tercih ve yorum bu uçlarda hiç okunmaz
     assert istemci.get("/api/spor-toto/yayinlar/99").status_code == 404

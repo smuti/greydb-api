@@ -50,18 +50,21 @@ async def youtube_linki_kaydet(hafta_no: int, govde: YoutubeLinki):
 
 
 def _haftalar():
+    """Yayını olan haftalar. Hafta için bağlantı: önce haftanın kendi youtube_linki; yoksa maçlarına önceden girilmiş ilk YouTube bağlantısı."""
     df = query_to_df(
         """
-        SELECT w.id, w.hafta_no, w.hafta_etiketi, w.youtube_linki,
+        SELECT w.id, w.hafta_no, w.hafta_etiketi,
+               COALESCE(NULLIF(w.youtube_linki, ''),
+                        (SELECT m.video_linki FROM greydb.spor_toto_matches m
+                         WHERE m.week_id = w.id AND m.video_linki ~* 'youtu' ORDER BY m.mac_no LIMIT 1)) AS youtube_linki,
                (SELECT COUNT(*) FROM greydb.spor_toto_matches m WHERE m.week_id = w.id) AS mac_sayisi
         FROM greydb.spor_toto_weeks w
-        WHERE w.youtube_linki IS NOT NULL AND w.youtube_linki <> ''
         ORDER BY w.hafta_no DESC
         """
     )
     sonuc = []
     for _, r in df.iterrows():
-        vid = youtube_id(r["youtube_linki"])
+        vid = youtube_id(r["youtube_linki"]) if isinstance(r["youtube_linki"], str) else None
         if not vid:
             continue
         sonuc.append({"id": int(r["id"]), "hafta_no": int(r["hafta_no"]), "hafta": hafta_numarasi(r["hafta_etiketi"], int(r["hafta_no"])),
