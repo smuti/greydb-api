@@ -29,16 +29,25 @@ from ms_model.engine import MSModel  # noqa: E402
 from app.services.gol_geri_test import bolumlu_rapor, satir_json, uret  # noqa: E402
 from app.services.gol_karne import yazma_sorgusu  # noqa: E402
 
-EGITIM_SQL = """select m.id as match_id, m.match_date as date, m.league_id as league, m.home_team_id as h, m.away_team_id as a,
- m.home_score as gh, m.away_score as ga, x.xg_home as xh, x.xg_away as xa
- from public.matches m left join public.ms_match_xg x on x.match_id=m.id
- where m.finished and not m.cancelled and m.home_score is not null and m.away_score is not null and m.league_id = any(%s) and m.match_date >= %s"""
 MAC_SQL = """select m.fotmob_match_id, m.home_team_id, m.away_team_id, ev.name as home_name, dep.name as away_name, m.league_id,
  m.match_date, m.home_score, m.away_score
  from public.matches m join public.teams ev on ev.id=m.home_team_id join public.teams dep on dep.id=m.away_team_id
  where m.finished and not coalesce(m.cancelled,false) and m.home_score is not null and m.away_score is not null
    and m.fotmob_match_id is not null and m.league_id = any(%s) and m.match_date >= %s and m.match_date < %s
  order by m.match_date"""
+
+
+def _sa_url(url: str) -> str:
+    for eski in ("postgres://", "postgresql://"):
+        if url.startswith(eski):
+            return url.replace(eski, "postgresql+psycopg2://", 1)
+    return url
+
+
+def egitim_verisi(engine):
+    """Eğitim tablosu matchforge'un kendi yükleyicisinden: kurulu model sürümünün beklediği sütunlar (ör. m4 xh_dc/xa_dc) birlikte gelir."""
+    from ms_model.data import load_matches
+    return load_matches(engine)
 
 
 def main():
@@ -53,11 +62,11 @@ def main():
     sinav_bas = datetime.combine(son - timedelta(weeks=a.sinav_hafta) + timedelta(days=1), datetime.min.time())
     print(f"model {MC.MODEL_VERSION} · dönem {bas}..{son} · sınav {sinav_bas.date()}..{son}", flush=True)
 
+    from sqlalchemy import create_engine, text
+    salt_okunur = create_engine(_sa_url(os.environ["DATABASE_URL"]), connect_args={"options": "-c default_transaction_read_only=on"})
+    D = egitim_verisi(salt_okunur)
     con = psycopg2.connect(os.environ["DATABASE_URL"])
     con.set_session(readonly=True, autocommit=True)
-    D = pd.read_sql(EGITIM_SQL, con, params=(MC.POOL_LEAGUES, MC.ELO_START.to_pydatetime()))
-    D["date"] = pd.to_datetime(D["date"]); D["gh"] = D.gh.astype(float); D["ga"] = D.ga.astype(float)
-    D = D.sort_values(["date", "match_id"]).reset_index(drop=True)
     cur = con.cursor()
     cur.execute(MAC_SQL, (MC.POOL_LEAGUES, bas, son + timedelta(days=1)))
     kol = [c[0] for c in cur.description]
@@ -86,11 +95,7 @@ def main():
             print(f"  {t['pazar']:<16} n={t['n']:>5} bizim={t['ort_p']*100:5.1f} gerçek={t['gercek']*100:5.1f} brier={t['brier']:.4f} z={t['z']:+.2f}")
 
     if a.yukle:
-        from sqlalchemy import create_engine, text
-        url = os.environ["DATABASE_URL"].replace("postgres://", "postgresql+psycopg2://", 1)
-        if url.startswith("postgresql://"):
-            url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
-        with create_engine(url).begin() as conn:
+        with create_engine(_sa_url(os.environ["DATABASE_URL"])).begin() as conn:
             for s in satirlar:
                 sql, params = yazma_sorgusu(s)
                 conn.execute(text(sql), params)

@@ -102,3 +102,18 @@ def test_jsonl_gidis_donus_tarihleri_korur():
     satirlar, _ = t.uret([mac(1, 25)], SahteModel().kur)
     geri = [t.satir_oku(t.satir_json(s)) for s in satirlar]
     assert geri == satirlar and isinstance(geri[0]["kickoff"], datetime)
+
+
+# ---------------- betik: eğitim verisi matchforge'un kendi yükleyicisinden (sürüme özgü sütunlar, ör. m4 xh_dc) ----------------
+def test_betik_egitim_verisini_ms_model_yukleyicisinden_alir(monkeypatch):
+    pytest.importorskip("ms_model")
+    import importlib.util, os as _os
+    yol = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "scripts", "gol_geri_test.py")
+    spec = importlib.util.spec_from_file_location("gol_geri_test_betik", yol)
+    B = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(B)
+    assert not hasattr(B, "EGITIM_SQL")                                   # kendi SQL'i yok (model sürümüyle kayar)
+    import ms_model.data as MD
+    cagri = []
+    monkeypatch.setattr(MD, "load_matches", lambda engine, since=None: cagri.append(engine) or "D")
+    assert B.egitim_verisi("ENGINE") == "D" and cagri == ["ENGINE"]
