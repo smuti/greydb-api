@@ -27,6 +27,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Uygulama içi zamanlayıcı (ZAMANLAYICI=1 ise; Skorjin ön maç işi ve iddaa eşleştirme)
+from app.services import zamanlayici  # noqa: E402
+
+_zamanlayici = None
+
+
+@app.on_event("startup")
+def _zamanlayici_baslat():
+    global _zamanlayici
+    _zamanlayici = zamanlayici.baslat()
+
+
+@app.on_event("shutdown")
+def _zamanlayici_durdur():
+    zamanlayici.durdur(_zamanlayici)
+
+
 # Routers
 app.include_router(form.router, prefix="/api")
 app.include_router(h2h.router, prefix="/api")

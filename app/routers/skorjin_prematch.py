@@ -1,4 +1,4 @@
-"""Skorjin maç öncesi anlık görüntüsünü (greydb.match_prematch) hazırlar. Zamanlayıcı (GitHub Actions) çağırır.
+"""Skorjin maç öncesi anlık görüntüsünü (greydb.match_prematch) hazırlar. Uygulama içi zamanlayıcı (app/services/zamanlayici.py, ZAMANLAYICI=1) ya da elle çağrılır.
 
 Yazan bir uç olduğu için X-Cron-Anahtari başlığıyla korunur; sunucuda CRON_ANAHTARI tanımlı değilse uç tamamen kapalıdır (503).
 Varsayılan KURU çalışmadır: yalnızca raporlar. Yazmak için ?dry_run=false. Aynı anda tek koşu (409).
@@ -77,6 +77,17 @@ def _arka_plan_isi(kapsam: str, dry_run: bool) -> None:
         son = {"durum": "hata", "hata": f"{type(e).__name__}: {e}"}
     with _kilit:
         _durum.update(son, bitis=_utc_metin())
+
+
+def zamanli_prematch(kapsam: str) -> str:
+    """Uygulama içi zamanlayıcıdan: yazan koşu, durum ucunda görünür. Başka koşu sürüyorsa 'atlandi'."""
+    with _kilit:
+        if _calisiyor():
+            return "atlandi"
+        _durum.clear()
+        _durum.update(durum="calisiyor", kapsam=kapsam, dry_run=False, baslangic=_utc_metin(), kaynak="zamanlayici")
+    _arka_plan_isi(kapsam, False)
+    return _durum.get("durum", "yok")
 
 
 @router.post("/skorjin/prematch-hazirla")
