@@ -7,7 +7,7 @@ Biçim sözleşmesi Skorjin deposunda: docs/prematch-snapshot.md.
 import json
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from app.services.iddaa_dagilim import _ad as market_adi
@@ -190,6 +190,8 @@ class Kaynaklar:
     program: Optional[Callable[[Any, datetime], Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]]] = None   # (takım, maç günü) -> (schedule, rotation)
     hakem: Optional[Callable[[str, Optional[str], Any, datetime], Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]]] = None   # (ad, ülke, lig, maç günü) -> (hakem, lig istatistiği)
     karne: Optional[Callable[[Dict[str, Any]], None]] = None      # gol karnesi kaydı (greydb.gol_karne_tahmin); yoksa karne tutulmaz
+    son_oran_kaydi: Optional[Callable[[int], Optional[datetime]]] = None   # iddaa kimliği -> son otomatik oran kaydının zamanı (UTC, naive)
+    oran_kaydet: Optional[Callable[[Dict[str, Any], Dict[str, Any]], None]] = None   # (maç, ham iddaa olayı) -> greydb.odds_snapshots'a yeni satır
 
 
 def _ad(m: Dict[str, Any]) -> str:
@@ -225,13 +227,46 @@ def _model_kullanilabilir(m: Dict[str, Any], sonuc: Optional[Dict[str, Any]]) ->
     return bool(sonuc) and not sonuc.get("new_team_home") and not sonuc.get("new_team_away")
 
 
-def _oran_alanlari(m: Dict[str, Any], k: Kaynaklar, simdi: datetime, rapor: Dict[str, Any]) -> Dict[str, Any]:
-    """Başarılı çekimde piyasa yoksa None (artık yok); iddaa hatasında ANAHTARLAR OLMAZ (eski değer korunur)."""
+# Oran geçmişi (otomatik): ham iddaa olayı greydb.odds_snapshots'a, maça kalan süreye göre aralıkla (saat): >24 → 12, 6–24 → 3, ≤6 → 1.
+ORAN_KAYDI_KAYNAK = "otomatik:prematch"
+ORAN_KAYDI_TOLERANS_SAAT = 5 / 60          # 30 dakikalık zamanlamanın oynaması
+ORAN_KAYDI_SQL = """INSERT INTO greydb.odds_snapshots (iddaa_match_id, home_team, away_team, total_markets, raw_data, interpretation, created_by_email)
+VALUES (:eid, :ev, :dep, :n, CAST(:ham AS jsonb), NULL, :kaynak)"""
+SON_ORAN_KAYDI_SQL = "SELECT max(created_at) AS son FROM greydb.odds_snapshots WHERE iddaa_match_id = :eid AND created_by_email = :kaynak"
+
+
+def oran_kaydi_gerekli(kickoff: datetime, simdi: datetime, son: Optional[datetime]) -> bool:
+    """Bu çekimde oran kaydı yazılmalı mı? Başlamış maç için hayır; ilk kayıt her zaman."""
+    if kickoff <= simdi:
+        return False
+    if son is None:
+        return True
+    kalan = (kickoff - simdi).total_seconds() / 3600
+    aralik = 12 if kalan > 24 else 3 if kalan > 6 else 1
+    return (simdi - son).total_seconds() / 3600 >= aralik - ORAN_KAYDI_TOLERANS_SAAT
+
+
+def _oran_kaydi(m: Dict[str, Any], olay: Optional[Dict[str, Any]], k: Kaynaklar, simdi: datetime, rapor: Dict[str, Any]) -> None:
+    if not olay or k.oran_kaydet is None:
+        return
+    try:
+        son = k.son_oran_kaydi(m["iddaa_event_id"]) if k.son_oran_kaydi else None
+        if oran_kaydi_gerekli(m["match_date"], simdi, son):
+            k.oran_kaydet(m, olay)
+            rapor["oran_kaydi"] += 1
+    except Exception as e:  # noqa: BLE001 — oran geçmişi yazılamazsa ön maç verisi yine hazırlanır
+        rapor["hatalar"].append({"fotmob_match_id": m["fotmob_match_id"], "hata": f"oran_kaydi: {type(e).__name__}"})
+
+
+def _oran_alanlari(m: Dict[str, Any], k: Kaynaklar, simdi: datetime, rapor: Dict[str, Any], dry_run: bool = True) -> Dict[str, Any]:
+    """Başarılı çekimde piyasa yoksa None (artık yok); iddaa hatasında ANAHTARLAR OLMAZ (eski değer korunur). Yazan koşuda oran geçmişi de tutulur."""
     try:
         olay, yuzdeler, cfg = k.iddaa(m["iddaa_event_id"])
     except Exception:  # noqa: BLE001 — iddaa erişilemezse mevcut veri bozulmaz
         rapor["iddaa_hatasi"] += 1
         return {}
+    if not dry_run:
+        _oran_kaydi(m, olay, k, simdi, rapor)
     oran, kalabalik = iddaa_oranlari(olay, cfg), iddaa_kalabalik(olay, yuzdeler, cfg)
     return {"odds": oran, "odds_at": simdi if oran else None, "crowd": kalabalik, "crowd_at": simdi if kalabalik else None}
 
@@ -245,7 +280,7 @@ def hazirla(kapsam: str, dry_run: bool, k: Kaynaklar, simdi: datetime, model_sur
     ufuk = simdi + (timedelta(days=ufuk_gun) if kapsam == "gunluk" else timedelta(hours=oran_ufku_saat))
     maclar = k.maclar(simdi, ufuk)
     rapor: Dict[str, Any] = {"kapsam": kapsam, "dry_run": dry_run, "aday": len(maclar), "hazirlanan": 0, "model_yok": 0,
-                             "iddaa_hatasi": 0, "fotmob_hatasi": 0, "sezon_hatasi": 0, "hakem_hatasi": 0, "program_hatasi": 0, "satiri_yok": 0, "iddaa_kimligi_yok": 0, "karne_kaydi": 0,
+                             "iddaa_hatasi": 0, "fotmob_hatasi": 0, "sezon_hatasi": 0, "hakem_hatasi": 0, "program_hatasi": 0, "satiri_yok": 0, "iddaa_kimligi_yok": 0, "karne_kaydi": 0, "oran_kaydi": 0,
                              "model_yok_ayrinti": {"kapsam_disi": 0, "yeni_takim": 0, "matris_yok": 0}, "hatalar": [], "maclar": []}
 
     modeller: Dict[int, Dict[str, Any]] = {}
@@ -272,12 +307,12 @@ def hazirla(kapsam: str, dry_run: bool, k: Kaynaklar, simdi: datetime, model_sur
                     continue
                 if not m.get("iddaa_event_id"):
                     rapor["iddaa_kimligi_yok"] += 1
-                alanlar = {**(_oran_alanlari(m, k, simdi, rapor) if m.get("iddaa_event_id") else {}), **_eksik_alanlari(m, k, simdi, rapor)}
+                alanlar = {**(_oran_alanlari(m, k, simdi, rapor, dry_run) if m.get("iddaa_event_id") else {}), **_eksik_alanlari(m, k, simdi, rapor)}
                 if not alanlar:
                     continue
                 satir = {"fotmob_match_id": fid, **alanlar}
             else:
-                satir = _gunluk_satir(m, k, modeller.get(fid), simdi, model_surumu, rapor)
+                satir = _gunluk_satir(m, k, modeller.get(fid), simdi, model_surumu, rapor, dry_run)
             if not dry_run:
                 k.yaz(kapsam, satir)
             if kapsam == "gunluk" and k.karne is not None:
@@ -344,7 +379,7 @@ def _program_alanlari(m: Dict[str, Any], k: Kaynaklar, simdi: datetime, rapor: D
     return {"schedule": schedule, "schedule_at": simdi if schedule else None, "rotation": rotation, "rotation_at": simdi if rotation else None}
 
 
-def _gunluk_satir(m, k, sonuc, simdi, model_surumu, rapor) -> Dict[str, Any]:
+def _gunluk_satir(m, k, sonuc, simdi, model_surumu, rapor, dry_run=True) -> Dict[str, Any]:
     tarih = m["match_date"]
     ev, dep = m["home_team_id"], m["away_team_id"]
     form = {"home": takim_maclari(k.form(ev, tarih), ev), "away": takim_maclari(k.form(dep, tarih), dep)}
@@ -354,7 +389,7 @@ def _gunluk_satir(m, k, sonuc, simdi, model_surumu, rapor) -> Dict[str, Any]:
     if scoreline is None:
         rapor["model_yok"] += 1
         rapor["model_yok_ayrinti"][_model_yok_nedeni(m, sonuc)] += 1
-    oran = _oran_alanlari(m, k, simdi, rapor) if m.get("iddaa_event_id") else {"odds": None, "odds_at": None, "crowd": None, "crowd_at": None}
+    oran = _oran_alanlari(m, k, simdi, rapor, dry_run) if m.get("iddaa_event_id") else {"odds": None, "odds_at": None, "crowd": None, "crowd_at": None}
     eksik = _eksik_alanlari(m, k, simdi, rapor)
     return {
         "fotmob_match_id": m["fotmob_match_id"], "iddaa_event_id": m.get("iddaa_event_id"),
@@ -569,7 +604,22 @@ def gercek_kaynaklar() -> Kaynaklar:
         form=lambda takim, tarih: execute_query(FORM_SQL, {"t": takim, "tarih": tarih}),
         h2h=lambda a, b, tarih: execute_query(H2H_SQL, {"a": a, "b": b, "tarih": tarih}),
         model=_model, iddaa=_iddaa, mevcut=_mevcut, yaz=_yaz, fotmob=_fotmob, sezon=_sezon_kaynagi(), hakem=_hakem_kaynagi(), program=_program_kaynagi(), alias=_alias_senkron, karne=_karne_yaz,
+        son_oran_kaydi=_son_oran_kaydi, oran_kaydet=_oran_kaydet,
     )
+
+
+def _son_oran_kaydi(eid: int) -> Optional[datetime]:
+    from app.services import db
+    r = db.execute_query(SON_ORAN_KAYDI_SQL, {"eid": eid, "kaynak": ORAN_KAYDI_KAYNAK})
+    son = r[0]["son"] if r else None
+    return son.astimezone(timezone.utc).replace(tzinfo=None) if son is not None and son.tzinfo else son
+
+
+def _oran_kaydet(m: Dict[str, Any], olay: Dict[str, Any]) -> None:
+    import json
+    from app.services import db
+    db.execute_insert(ORAN_KAYDI_SQL, {"eid": m["iddaa_event_id"], "ev": m["home_name"], "dep": m["away_name"], "n": len(olay.get("m") or []),
+                                       "ham": json.dumps(olay, ensure_ascii=False), "kaynak": ORAN_KAYDI_KAYNAK})
 
 
 from contextlib import contextmanager  # noqa: E402

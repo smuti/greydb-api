@@ -99,9 +99,21 @@ async def iddaa_eslestir(dry_run: bool = True, x_cron_anahtari: str = Header(def
     if not hmac.compare_digest(x_cron_anahtari.encode(), anahtar.encode()):
         raise HTTPException(status_code=401, detail="Geçersiz anahtar")
     try:
+        return eslestir_calistir(dry_run)
+    except IddaaListeHatasi as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+class IddaaListeHatasi(Exception):
+    pass
+
+
+def eslestir_calistir(dry_run: bool = True) -> Dict[str, Any]:
+    """Eşleştirmenin kendisi (uç ve uygulama içi zamanlayıcı ortak kullanır)."""
+    try:
         olaylar = olaylari_cek()
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"iddaa listesi alınamadı: {type(e).__name__}")
+        raise IddaaListeHatasi(f"iddaa listesi alınamadı: {type(e).__name__}")
     simdi = _simdi()
     satirlar = yakin_maclar(simdi - timedelta(hours=6), simdi + timedelta(days=4))
     # Aynı maç hem matches hem upcoming_matches'ta (farklı saat/yazımla) olabilir: kimlik başına en güncel (son saatli) satır
@@ -135,6 +147,8 @@ async def iddaa_eslestir(dry_run: bool = True, x_cron_anahtari: str = Header(def
         "belirsiz": [{"fotmob_match_id": m["fotmob_match_id"], "mac": ad(m), "saat": saat(m)} for m in sonuc["belirsiz"]],
         "eslesmeyen": eslesmeyen,
     }
+
+
 
 
 _ONBELLEK: Dict[str, Any] = {}
