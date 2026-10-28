@@ -189,10 +189,36 @@ class Kaynaklar:
     alias: Optional[Callable[[bool], Dict[str, Any]]] = None      # (dry_run) -> hakem alias senkron raporu
     program: Optional[Callable[[Any, datetime], Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]]] = None   # (takım, maç günü) -> (schedule, rotation)
     hakem: Optional[Callable[[str, Optional[str], Any, datetime], Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]]] = None   # (ad, ülke, lig, maç günü) -> (hakem, lig istatistiği)
+    karne: Optional[Callable[[Dict[str, Any]], None]] = None      # gol karnesi kaydı (greydb.gol_karne_tahmin); yoksa karne tutulmaz
 
 
 def _ad(m: Dict[str, Any]) -> str:
     return f"{m['home_name']} - {m['away_name']}"
+
+
+def _model_yok_nedeni(m: Dict[str, Any], sonuc: Optional[Dict[str, Any]]) -> str:
+    """Matris neden yok: lig model kapsamı dışı / takım modelde yeni / matchforge matris vermedi."""
+    if m["league_id"] not in MODEL_LIGLERI:
+        return "kapsam_disi"
+    if sonuc and (sonuc.get("new_team_home") or sonuc.get("new_team_away")):
+        return "yeni_takim"
+    return "matris_yok"
+
+
+def _karne_kaydet(m: Dict[str, Any], sonuc: Optional[Dict[str, Any]], k: Kaynaklar, dry_run: bool, simdi: datetime, rapor: Dict[str, Any]) -> None:
+    """Gol karnesi: matris varsa greydb.gol_karne_tahmin'e kaydı düşer (kuru çalışmada yalnız sayar). Hata ana satırı bozmaz."""
+    from app.services.gol_karne import tahmin_satiri
+    kayit = tahmin_satiri(m, sonuc, simdi)
+    if kayit is None:
+        return
+    if dry_run:
+        rapor["karne_kaydi"] += 1
+        return
+    try:
+        k.karne(kayit)
+        rapor["karne_kaydi"] += 1
+    except Exception as e:  # noqa: BLE001 — karne hatası anlık görüntüyü durdurmaz
+        rapor["hatalar"].append({"fotmob_match_id": m["fotmob_match_id"], "hata": f"karne: {type(e).__name__}: {e}"})
 
 
 def _model_kullanilabilir(m: Dict[str, Any], sonuc: Optional[Dict[str, Any]]) -> bool:
@@ -219,7 +245,8 @@ def hazirla(kapsam: str, dry_run: bool, k: Kaynaklar, simdi: datetime, model_sur
     ufuk = simdi + (timedelta(days=ufuk_gun) if kapsam == "gunluk" else timedelta(hours=oran_ufku_saat))
     maclar = k.maclar(simdi, ufuk)
     rapor: Dict[str, Any] = {"kapsam": kapsam, "dry_run": dry_run, "aday": len(maclar), "hazirlanan": 0, "model_yok": 0,
-                             "iddaa_hatasi": 0, "fotmob_hatasi": 0, "sezon_hatasi": 0, "hakem_hatasi": 0, "program_hatasi": 0, "satiri_yok": 0, "iddaa_kimligi_yok": 0, "hatalar": [], "maclar": []}
+                             "iddaa_hatasi": 0, "fotmob_hatasi": 0, "sezon_hatasi": 0, "hakem_hatasi": 0, "program_hatasi": 0, "satiri_yok": 0, "iddaa_kimligi_yok": 0, "karne_kaydi": 0,
+                             "model_yok_ayrinti": {"kapsam_disi": 0, "yeni_takim": 0, "matris_yok": 0}, "hatalar": [], "maclar": []}
 
     modeller: Dict[int, Dict[str, Any]] = {}
     if kapsam == "gunluk":
@@ -253,6 +280,8 @@ def hazirla(kapsam: str, dry_run: bool, k: Kaynaklar, simdi: datetime, model_sur
                 satir = _gunluk_satir(m, k, modeller.get(fid), simdi, model_surumu, rapor)
             if not dry_run:
                 k.yaz(kapsam, satir)
+            if kapsam == "gunluk" and k.karne is not None:
+                _karne_kaydet(m, modeller.get(fid), k, dry_run, simdi, rapor)
             rapor["hazirlanan"] += 1
             rapor["maclar"].append({"fotmob_match_id": fid, "mac": _ad(m), "alanlar": sorted(
                 a for a in ("form", "h2h", "scoreline", "odds", "crowd", "absences", "referee", "season", "league_avg", "season_matches", "standings", "style", "timing", "schedule", "rotation") if satir.get(a))})
@@ -324,6 +353,7 @@ def _gunluk_satir(m, k, sonuc, simdi, model_surumu, rapor) -> Dict[str, Any]:
     scoreline = model_verisi(sonuc, model_surumu) if _model_kullanilabilir(m, sonuc) else None
     if scoreline is None:
         rapor["model_yok"] += 1
+        rapor["model_yok_ayrinti"][_model_yok_nedeni(m, sonuc)] += 1
     oran = _oran_alanlari(m, k, simdi, rapor) if m.get("iddaa_event_id") else {"odds": None, "odds_at": None, "crowd": None, "crowd_at": None}
     eksik = _eksik_alanlari(m, k, simdi, rapor)
     return {
@@ -444,8 +474,9 @@ ORDER BY u.match_date
 
 def tablo_hazirla() -> None:
     from app.services.db import execute_insert
+    from app.services.gol_karne import TABLO_DDL as KARNE_DDL
     from app.services.skorjin_hakem import ALIAS_DDL
-    for parca in (TABLO_DDL + ";" + ALIAS_DDL).split(";"):
+    for parca in (TABLO_DDL + ";" + ALIAS_DDL + ";" + KARNE_DDL).split(";"):
         if parca.strip():
             execute_insert(parca)
 
@@ -498,6 +529,13 @@ def _fotmob(fotmob_match_id: int) -> Dict[str, Any]:
     return detay
 
 
+def _karne_yaz(satir: Dict[str, Any]) -> None:
+    from app.services.db import execute_insert
+    from app.services.gol_karne import yazma_sorgusu as karne_sorgusu
+    sql, params = karne_sorgusu(satir)
+    execute_insert(sql, params)
+
+
 def _yaz(kapsam: str, satir: Dict[str, Any]) -> None:
     from app.services.db import execute_insert
     sql, params = yazma_sorgusu(kapsam, satir)
@@ -530,7 +568,7 @@ def gercek_kaynaklar() -> Kaynaklar:
         maclar=_yaklasan,
         form=lambda takim, tarih: execute_query(FORM_SQL, {"t": takim, "tarih": tarih}),
         h2h=lambda a, b, tarih: execute_query(H2H_SQL, {"a": a, "b": b, "tarih": tarih}),
-        model=_model, iddaa=_iddaa, mevcut=_mevcut, yaz=_yaz, fotmob=_fotmob, sezon=_sezon_kaynagi(), hakem=_hakem_kaynagi(), program=_program_kaynagi(), alias=_alias_senkron,
+        model=_model, iddaa=_iddaa, mevcut=_mevcut, yaz=_yaz, fotmob=_fotmob, sezon=_sezon_kaynagi(), hakem=_hakem_kaynagi(), program=_program_kaynagi(), alias=_alias_senkron, karne=_karne_yaz,
     )
 
 
