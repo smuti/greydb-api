@@ -48,6 +48,16 @@ def _iddaa_id(tablo, fid):
     return (satir[0].get("iddaa_event_id") if satir else None) or None
 
 
+def _stadyum(p):
+    """Maçın stadyumu (match_context). Kayıt ya da ad yoksa None; sorgu hatası sayfayı çökertmez (SEO işaretlemesi için isteğe bağlı bilgi)."""
+    try:
+        satir = execute_query("SELECT stadium, stadium_capacity FROM public.match_context WHERE match_id = :id", p)
+    except Exception:
+        return None
+    ad = ((satir[0].get("stadium") if satir else None) or "").strip()
+    return {"ad": ad, "kapasite": satir[0].get("stadium_capacity")} if ad else None
+
+
 def _iso(d):
     return d.isoformat() if d is not None else None
 
@@ -89,6 +99,7 @@ async def match_detail(fotmob_match_id: int):
     dizilis = execute_query(_Q["dizilis"], p)
     sakat = execute_query(_Q["sakat"], p)
     oyuncu = execute_query(_Q["oyuncu"], p)
+    stadyum = _stadyum(p)
 
     istatistik = cift_istatistik(istatistik_satir[0]) if istatistik_satir else None
     if istatistik is not None and ileri_satir:
@@ -119,4 +130,5 @@ async def match_detail(fotmob_match_id: int):
             key=lambda x: (x["puan"] is None, -(x["puan"] or 0)),
         ),
         "veri": {"istatistik": istatistik is not None, "olaylar": bool(olay_satirlari), "kadro": bool(kadro_satirlari)},
+        "stadyum": stadyum,
     }
