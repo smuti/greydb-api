@@ -40,3 +40,11 @@ def test_istatistik_ve_xg_toplanir_beklenen_puan_gercege_yakin_yon():
 def test_skorsuz_mac_sayilmaz_ve_siralama_puana_gore():
     r = hesapla([mac(1, 2, None, None), mac(3, 4, 1, 0), mac(5, 6, 0, 0)])
     assert [x["takim_id"] for x in r][:1] == [3] and all(x["oynanan"] == 1 for x in r) and len(r) == 4
+
+
+def test_korner_puani_rakipten_cok_3_esit_1_az_0():
+    maclar = [mac(1, 2, 1, 0, ev_korner=7, dep_korner=3), mac(2, 1, 0, 0, ev_korner=4, dep_korner=4), mac(1, 3, 0, 1, ev_korner=2, dep_korner=9), mac(1, 4, 1, 1)]
+    t = {x["takim_id"]: x for x in hesapla(maclar)}
+    assert (t[1]["korner_g"], t[1]["korner_b"], t[1]["korner_m"], t[1]["korner_puan"], t[1]["korner_mac"]) == (1, 1, 1, 4, 3)     # korner yazılmamış maç sayılmaz
+    assert (t[2]["korner_puan"], t[2]["korner_mac"]) == (1, 2) and t[3]["korner_puan"] == 3 and t[4]["korner_mac"] == 0
+    assert t[1]["korner"] == 7 + 4 + 2 and t[1]["korner_yenilen"] == 3 + 4 + 9

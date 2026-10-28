@@ -29,7 +29,7 @@ _STAT = ("sut", "isabetli", "korner", "faul", "sari", "kirmizi", "top")
 
 def _bos(kimlik: Any, ad: str) -> Dict[str, Any]:
     t: Dict[str, Any] = {"takim_id": kimlik, "takim": ad, "oynanan": 0, "puan": 0, "atilan": 0, "yenilen": 0, "temiz_sayfa": 0, "kg_var": 0,
-                         "stat_mac": 0, "xg_mac": 0, "xg_atilan": 0.0, "xg_yenilen": 0.0, "xp": 0.0}
+                         "stat_mac": 0, "xg_mac": 0, "korner_mac": 0, "korner_puan": 0, "korner_g": 0, "korner_b": 0, "korner_m": 0, "xg_atilan": 0.0, "xg_yenilen": 0.0, "xp": 0.0}
     for c in CIZGILER:
         t[f"ust{c}5"] = 0
     for k in _STAT:
@@ -72,6 +72,15 @@ def hesapla(maclar: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 for k in _STAT:
                     t[k] += _say(m.get(f"{taraf}_{k}")) or 0
                     t[f"{k}_yenilen"] += _say(m.get(f"{rakip}_{k}")) or 0
+            ka, kr = _say(m.get(f"{taraf}_korner")), _say(m.get(f"{rakip}_korner"))
+            if ka is not None and kr is not None:       # korner puanı: rakipten çok korner 3, eşit 1, az 0
+                t["korner_mac"] += 1
+                if ka > kr:
+                    t["korner_g"] += 1; t["korner_puan"] += 3
+                elif ka == kr:
+                    t["korner_b"] += 1; t["korner_puan"] += 1
+                else:
+                    t["korner_m"] += 1
             if xg_var:
                 t["xg_mac"] += 1
                 t["xg_atilan"] += float(m[f"{taraf}_xg"])
