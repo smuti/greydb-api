@@ -68,7 +68,7 @@ def _utc(d):
 
 
 @router.get("/match-detail/{fotmob_match_id}")
-async def match_detail(fotmob_match_id: int):
+def match_detail(fotmob_match_id: int):
     ana = execute_query(_ANA, {"fid": fotmob_match_id})
     if not ana:
         planli = execute_query(_PLANLI, {"fid": fotmob_match_id})

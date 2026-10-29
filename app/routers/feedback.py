@@ -53,7 +53,7 @@ def _row_to_response(row) -> FeedbackResponse:
 
 
 @router.post("/feedback", response_model=FeedbackResponse)
-async def create_or_update_feedback(feedback: FeedbackCreate):
+def create_or_update_feedback(feedback: FeedbackCreate):
     """
     Feedback oluştur veya güncelle.
     Aynı kullanıcı aynı içeriğe tekrar tıklarsa feedback güncellenir.
@@ -101,7 +101,7 @@ async def create_or_update_feedback(feedback: FeedbackCreate):
 
 
 @router.get("/feedback/counts/{content_type}/{content_id}", response_model=FeedbackCountResponse)
-async def get_feedback_counts(content_type: str, content_id: str, user_id: Optional[str] = None):
+def get_feedback_counts(content_type: str, content_id: str, user_id: Optional[str] = None):
     """
     Belirli bir içeriğin feedback sayılarını getir.
     user_id verilirse kullanıcının verdiği feedback de döner.
@@ -140,7 +140,7 @@ async def get_feedback_counts(content_type: str, content_id: str, user_id: Optio
 
 
 @router.get("/feedback/bulk-counts/{content_type}", response_model=List[FeedbackCountResponse])
-async def get_bulk_feedback_counts(content_type: str, content_ids: str, user_id: Optional[str] = None):
+def get_bulk_feedback_counts(content_type: str, content_ids: str, user_id: Optional[str] = None):
     """
     Birden fazla içeriğin feedback sayılarını tek seferde getir.
     content_ids: virgülle ayrılmış ID listesi (örn: "1,2,3")
@@ -194,7 +194,7 @@ async def get_bulk_feedback_counts(content_type: str, content_ids: str, user_id:
 
 
 @router.delete("/feedback/{content_type}/{content_id}")
-async def delete_user_feedback(content_type: str, content_id: str, user_id: str):
+def delete_user_feedback(content_type: str, content_id: str, user_id: str):
     """Kullanıcının feedback'ini sil"""
     delete_sql = """
         DELETE FROM greydb.feedbacks

@@ -52,7 +52,7 @@ class MessageFeedbackResponse(BaseModel):
 
 
 @router.post("/skorjin/conversations", response_model=ConversationResponse)
-async def save_conversation(conversation: ConversationCreate):
+def save_conversation(conversation: ConversationCreate):
     """Skorjin konuşmasını kaydet"""
     sql = """
         INSERT INTO greydb.skorjin_conversations (
@@ -76,7 +76,7 @@ async def save_conversation(conversation: ConversationCreate):
 
 
 @router.get("/skorjin/conversations", response_model=List[ConversationResponse])
-async def list_conversations(
+def list_conversations(
     user_id: Optional[str] = None,
     limit: int = 50,
     offset: int = 0
@@ -106,7 +106,7 @@ async def list_conversations(
 
 
 @router.get("/skorjin/conversations/stats")
-async def get_conversation_stats():
+def get_conversation_stats():
     """Konuşma istatistikleri"""
     sql = """
         SELECT 
@@ -160,7 +160,7 @@ class MatchAnalysisResponse(BaseModel):
 
 
 @router.post("/skorjin/match-analysis", response_model=MatchAnalysisResponse)
-async def get_match_analysis(request: MatchAnalysisRequest):
+def get_match_analysis(request: MatchAnalysisRequest):
     """
     Henüz başlamamış bir maç için sabit şablonlu Skorjin analizi.
 
@@ -227,7 +227,7 @@ async def get_match_analysis(request: MatchAnalysisRequest):
 
 
 @router.post("/skorjin/feedback", response_model=MessageFeedbackResponse)
-async def save_message_feedback(feedback: MessageFeedbackCreate):
+def save_message_feedback(feedback: MessageFeedbackCreate):
     """Skorjin mesajı için feedback kaydet (mevcut feedbacks tablosunu kullanır)"""
     content_id = str(feedback.conversation_id)
     content_type = "skorjin_message"
@@ -267,7 +267,7 @@ async def save_message_feedback(feedback: MessageFeedbackCreate):
 
 
 @router.get("/skorjin/feedback/{conversation_id}")
-async def get_message_feedback_counts(conversation_id: int):
+def get_message_feedback_counts(conversation_id: int):
     """Belirli bir konuşma için feedback sayıları"""
     content_id = str(conversation_id)
     content_type = "skorjin_message"

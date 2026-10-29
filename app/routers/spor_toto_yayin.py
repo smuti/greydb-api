@@ -35,7 +35,7 @@ def hafta_numarasi(etiket: Optional[str], hafta_no: int) -> int:
 
 
 @router.put("/spor-toto/weeks/{hafta_no}/youtube")
-async def youtube_linki_kaydet(hafta_no: int, govde: YoutubeLinki):
+def youtube_linki_kaydet(hafta_no: int, govde: YoutubeLinki):
     """Haftanın yayın bağlantısını kaydeder; boş gönderilirse bağlantıyı kaldırır."""
     link = govde.youtube_linki.strip()
     if link and not youtube_id(link):
@@ -73,7 +73,7 @@ def _haftalar():
 
 
 @router.get("/spor-toto/yayinlar")
-async def yayin_listesi():
+def yayin_listesi():
     """Yayını girilmiş haftalar, yeniden eskiye (aynı hafta numarası tekrar ederse en yeni kayıt kalır)."""
     goruldu, liste = set(), []
     for h in _haftalar():
@@ -85,7 +85,7 @@ async def yayin_listesi():
 
 
 @router.get("/spor-toto/yayinlar/{hafta}")
-async def yayin_haftasi(hafta: int):
+def yayin_haftasi(hafta: int):
     secili = next((h for h in _haftalar() if h["hafta"] == hafta), None)
     if not secili:
         raise HTTPException(status_code=404, detail="Bu hafta için yayın yok")

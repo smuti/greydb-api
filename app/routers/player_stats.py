@@ -14,7 +14,7 @@ router = APIRouter(tags=["player_stats"])
 
 
 @router.get("/players/season-stats")
-async def get_player_season_stats(player_name: str, team_id: int, since: str = "2026-08-01"):
+def get_player_season_stats(player_name: str, team_id: int, since: str = "2026-08-01"):
     """
     Bir oyuncunun belirtilen tarihten (varsayılan: bu sezon başlangıcı) bu yana
     tüm resmi maçlardaki (Avrupa kupaları dahil) toplam/ortalama istatistiği.

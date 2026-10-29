@@ -50,7 +50,7 @@ class OddsSnapshotMatchSummary(BaseModel):
 
 
 @router.post("/odds-snapshots", response_model=OddsSnapshotResponse)
-async def create_odds_snapshot(snapshot: OddsSnapshotCreate):
+def create_odds_snapshot(snapshot: OddsSnapshotCreate):
     """Yeni oran snapshot'ı kaydet (append-only, her çağrı yeni bir satır ekler)"""
     sql = """
         INSERT INTO greydb.odds_snapshots (
@@ -78,7 +78,7 @@ async def create_odds_snapshot(snapshot: OddsSnapshotCreate):
 
 
 @router.get("/odds-snapshots", response_model=List[OddsSnapshotResponse])
-async def list_odds_snapshots(
+def list_odds_snapshots(
     iddaa_match_id: Optional[int] = None,
     limit: int = 50,
     offset: int = 0,
@@ -106,7 +106,7 @@ async def list_odds_snapshots(
 
 
 @router.get("/odds-snapshots/matches", response_model=List[OddsSnapshotMatchSummary])
-async def list_odds_snapshot_matches(limit: int = 50):
+def list_odds_snapshot_matches(limit: int = 50):
     """Kaydı olan maçları, en son kaydedilenden başlayarak listele (admin'in hızlıca
     daha önce baktığı bir maça dönebilmesi için — her maç tek satır)."""
     sql = """
@@ -132,7 +132,7 @@ async def list_odds_snapshot_matches(limit: int = 50):
 
 
 @router.delete("/odds-snapshots/{snapshot_id}")
-async def delete_odds_snapshot(snapshot_id: int):
+def delete_odds_snapshot(snapshot_id: int):
     """Oran snapshot kaydını sil"""
     sql = "DELETE FROM greydb.odds_snapshots WHERE id = :id RETURNING id"
     df = query_to_df(sql, {"id": snapshot_id}, commit=True)

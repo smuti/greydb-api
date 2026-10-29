@@ -48,7 +48,7 @@ class MatchCommentResponse(BaseModel):
 
 
 @router.post("/match-comments", response_model=MatchCommentResponse)
-async def create_match_comment(comment: MatchCommentCreate):
+def create_match_comment(comment: MatchCommentCreate):
     """Yeni maç yorumu oluştur"""
     sql = """
         INSERT INTO greydb.match_comments (
@@ -71,7 +71,7 @@ async def create_match_comment(comment: MatchCommentCreate):
 
 
 @router.get("/match-comments", response_model=List[MatchCommentResponse])
-async def list_match_comments(
+def list_match_comments(
     status: Optional[str] = None,
     limit: int = 50,
     offset: int = 0
@@ -99,7 +99,7 @@ async def list_match_comments(
 
 
 @router.get("/match-comments/active", response_model=List[MatchCommentResponse])
-async def get_active_match_comments():
+def get_active_match_comments():
     """Bugünün aktif maç yorumlarını getir (ana sayfa için)"""
     sql = """
         SELECT * FROM greydb.match_comments
@@ -115,7 +115,7 @@ async def get_active_match_comments():
 
 
 @router.get("/match-comments/{comment_id}", response_model=MatchCommentResponse)
-async def get_match_comment(comment_id: int):
+def get_match_comment(comment_id: int):
     """Maç yorumu detayı getir"""
     sql = "SELECT * FROM greydb.match_comments WHERE id = :id"
     df = query_to_df(sql, {"id": comment_id})
@@ -127,7 +127,7 @@ async def get_match_comment(comment_id: int):
 
 
 @router.put("/match-comments/{comment_id}", response_model=MatchCommentResponse)
-async def update_match_comment(comment_id: int, update: MatchCommentUpdate):
+def update_match_comment(comment_id: int, update: MatchCommentUpdate):
     """Maç yorumu güncelle"""
     update_data = {k: v for k, v in update.model_dump().items() if v is not None}
     
@@ -154,7 +154,7 @@ async def update_match_comment(comment_id: int, update: MatchCommentUpdate):
 
 
 @router.delete("/match-comments/{comment_id}")
-async def delete_match_comment(comment_id: int):
+def delete_match_comment(comment_id: int):
     """Maç yorumu sil"""
     sql = "DELETE FROM greydb.match_comments WHERE id = :id RETURNING id"
     df = query_to_df(sql, {"id": comment_id}, commit=True)
@@ -166,7 +166,7 @@ async def delete_match_comment(comment_id: int):
 
 
 @router.post("/match-comments/deactivate-expired")
-async def deactivate_expired_comments():
+def deactivate_expired_comments():
     """Günü geçmiş yorumları inaktif yap"""
     sql = """
         UPDATE greydb.match_comments

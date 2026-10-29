@@ -92,7 +92,7 @@ def iddaa_yaz(eslesen):
 
 
 @router.post("/iddaa/eslestir")
-async def iddaa_eslestir(dry_run: bool = True, x_cron_anahtari: str = Header(default="")):
+def iddaa_eslestir(dry_run: bool = True, x_cron_anahtari: str = Header(default="")):
     anahtar = _anahtar()
     if not anahtar:
         raise HTTPException(status_code=503, detail="Uç kapalı: sunucuda CRON_ANAHTARI tanımlı değil")
@@ -178,7 +178,7 @@ def iddaa_dagilim_verisi(event_id: int):
 
 
 @router.get("/iddaa/dagilim/{event_id}")
-async def iddaa_dagilim(event_id: int):
+def iddaa_dagilim(event_id: int):
     """Maçın iddaa'daki oynanma dağılımı: en çok oynanan 10 seçim ve market içi yüzdeler (iddaa'nın kendi açık verisi)."""
     try:
         olay, yuzdeler, pay, cfg = iddaa_dagilim_verisi(event_id)

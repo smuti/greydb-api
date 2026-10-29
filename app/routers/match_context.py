@@ -31,7 +31,7 @@ _H2H = f"-- HEAD_H2H\n{_ORTAK} WHERE ((m.home_team_id = :a AND m.away_team_id = 
 
 
 @router.get("/match-context/{fotmob_match_id}")
-async def match_context(fotmob_match_id: int):
+def match_context(fotmob_match_id: int):
     temel = execute_query(_TEMEL, {"fid": fotmob_match_id})
     if not temel:
         raise HTTPException(status_code=404, detail="Maç veritabanında yok")

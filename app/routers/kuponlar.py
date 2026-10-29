@@ -4,9 +4,12 @@ Kimlik greydb-api'de doğrulanmaz: Supabase oturumunu bilen Next.js sunucusu GÜ
 ile tanıtır; üyenin seviyesini X-Uye-Seviyesi, admin yetkisini X-Yetki: admin, e-postayı X-Kullanici-Email başlığıyla bildirir.
 Anahtarsız ya da yanlış anahtarlı istek anonimdir (yalnız Açık kuponlar açık görünür). Anahtar tanımlı değilse yazma kapalıdır (503).
 """
+import copy
+import functools
 import hmac
 import json
 import os
+import time
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
@@ -55,6 +58,28 @@ def admin_gerek(request: Request) -> Kimlik:
 
 
 # ---------------- Veritabanı katmanı (testlerde değiştirilir) ----------------
+# Liste/sonuçlar uçları aynı veriyi art arda ister (admin ana sayfası 3 istek atar): kısa süreli önbellek.
+# Her yazma (ekle/güncelle/sil/bacak sonucu) önbelleği hemen boşaltır; başka yoldan değişirse en geç _LISTE_OMRU_SN sonra yansır.
+_LISTE_OMRU_SN = 30
+_LISTE_EN_FAZLA = 64
+_liste_onbellek: Dict[Any, Any] = {}
+
+
+def liste_onbellegini_bosalt() -> None:
+    _liste_onbellek.clear()
+
+
+def _yazma(fn):
+    """Yazma bittikten sonra liste önbelleğini boşaltır (başarısız olsa da)."""
+    @functools.wraps(fn)
+    def sar(*a, **kw):
+        try:
+            return fn(*a, **kw)
+        finally:
+            liste_onbellegini_bosalt()
+    return sar
+
+
 def _bacak_satiri(b: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "id": b["id"], "sira": b["sira"], "iddaa_event_id": b["iddaa_event_id"], "fotmob_match_id": b["fotmob_match_id"], "ev": b["ev"], "dep": b["dep"],
@@ -140,6 +165,7 @@ def db_getir(kupon_id: int) -> Optional[Dict[str, Any]]:
     return _kupon_satiri(satir[0], execute_query("SELECT * FROM greydb.kupon_bacaklari WHERE kupon_id = :id", {"id": kupon_id}))
 
 
+@_yazma
 def db_ekle(k: Dict[str, Any], email: str) -> Dict[str, Any]:
     _takim_sutunlarini_hazirla()
     k = {**k, "bacaklar": _takimli(k["bacaklar"])}
@@ -159,6 +185,19 @@ def db_ekle(k: Dict[str, Any], email: str) -> Dict[str, Any]:
 
 
 def db_liste(filtre: Dict[str, Any]):
+    anahtar = tuple(sorted((k, str(v)) for k, v in filtre.items()))
+    simdi = time.monotonic()
+    var = _liste_onbellek.get(anahtar)
+    if var and var[0] > simdi:
+        return copy.deepcopy(var[1])
+    sonuc = _db_liste_ham(filtre)
+    if len(_liste_onbellek) >= _LISTE_EN_FAZLA:
+        _liste_onbellek.clear()
+    _liste_onbellek[anahtar] = (simdi + _LISTE_OMRU_SN, copy.deepcopy(sonuc))
+    return sonuc
+
+
+def _db_liste_ham(filtre: Dict[str, Any]):
     kosul, p = ["1=1"], {"limit": filtre.get("limit", 20), "offset": filtre.get("offset", 0)}
     if filtre.get("durum"):
         kosul.append("durum = :durum"); p["durum"] = filtre["durum"]
@@ -182,6 +221,7 @@ def db_liste(filtre: Dict[str, Any]):
     return [_kupon_satiri(s, [b for b in bac if b["kupon_id"] == s["id"]]) for s in satirlar], toplam
 
 
+@_yazma
 def db_guncelle(kupon_id: int, k: Dict[str, Any]) -> Dict[str, Any]:
     _takim_sutunlarini_hazirla()
     k = {**k, "bacaklar": _takimli(k["bacaklar"])}
@@ -202,6 +242,7 @@ def db_guncelle(kupon_id: int, k: Dict[str, Any]) -> Dict[str, Any]:
     return db_getir(kupon_id)
 
 
+@_yazma
 def db_sil(kupon_id: int) -> bool:
     return execute_insert("DELETE FROM greydb.kuponlar WHERE id = :id RETURNING id", {"id": kupon_id}) is not None
 
@@ -218,6 +259,7 @@ def _sonucu_yeniden_hesapla(kupon_id: int) -> None:
     )
 
 
+@_yazma
 def db_bacak_sonucu(kupon_id: int, bacak_id: int, sonuc: str, kaynak: str = "elle") -> Optional[Dict[str, Any]]:
     with transaction():
         s = execute_insert(
@@ -253,7 +295,7 @@ def _hata(e: KuponHatasi):
 
 
 @router.post("/kuponlar", status_code=201)
-async def kupon_olustur(govde: KuponGirdisi, request: Request):
+def kupon_olustur(govde: KuponGirdisi, request: Request):
     k = admin_gerek(request)
     if not k.email:
         raise HTTPException(status_code=400, detail="X-Kullanici-Email gerekli")
@@ -265,7 +307,7 @@ async def kupon_olustur(govde: KuponGirdisi, request: Request):
 
 
 @router.get("/kuponlar")
-async def kupon_listele(request: Request, durum: Optional[str] = None, seviye: Optional[str] = None, one_cikan: Optional[bool] = None,
+def kupon_listele(request: Request, durum: Optional[str] = None, seviye: Optional[str] = None, one_cikan: Optional[bool] = None,
                         sonuclanmis: Optional[bool] = None, sayfa: int = Query(1, ge=1), sayfa_boyutu: int = Query(20, ge=1, le=100)):
     k = kimlik(request)
     filtre = {"durum": durum if k.admin else "yayinda", "seviye": seviye if seviye in SEVIYELER else None, "one_cikan": one_cikan,
@@ -275,7 +317,7 @@ async def kupon_listele(request: Request, durum: Optional[str] = None, seviye: O
 
 
 @router.get("/kuponlar/{kupon_id}")
-async def kupon_getir(kupon_id: int, request: Request):
+def kupon_getir(kupon_id: int, request: Request):
     k = kimlik(request)
     kupon = db_getir(kupon_id)
     if kupon is None or not (k.admin or gorunur_mu(kupon, k.seviye)):
@@ -284,7 +326,7 @@ async def kupon_getir(kupon_id: int, request: Request):
 
 
 @router.put("/kuponlar/{kupon_id}")
-async def kupon_guncelle(kupon_id: int, govde: KuponGirdisi, request: Request):
+def kupon_guncelle(kupon_id: int, govde: KuponGirdisi, request: Request):
     yazar = admin_gerek(request)
     mevcut = db_getir(kupon_id)
     if mevcut is None:
@@ -304,7 +346,7 @@ async def kupon_guncelle(kupon_id: int, govde: KuponGirdisi, request: Request):
 
 
 @router.delete("/kuponlar/{kupon_id}")
-async def kupon_sil(kupon_id: int, request: Request):
+def kupon_sil(kupon_id: int, request: Request):
     admin_gerek(request)
     if not db_sil(kupon_id):
         raise HTTPException(status_code=404, detail="Kupon bulunamadı")
@@ -312,7 +354,7 @@ async def kupon_sil(kupon_id: int, request: Request):
 
 
 @router.post("/kuponlar/{kupon_id}/bacaklar/{bacak_id}/sonuc")
-async def bacak_sonucu_isaretle(kupon_id: int, bacak_id: int, govde: BacakSonucu, request: Request):
+def bacak_sonucu_isaretle(kupon_id: int, bacak_id: int, govde: BacakSonucu, request: Request):
     yazar = admin_gerek(request)
     if govde.sonuc not in ("pending", "won", "lost", "void"):
         raise HTTPException(status_code=422, detail={"alan": "sonuc", "mesaj": "pending, won, lost ya da void olmalı"})
