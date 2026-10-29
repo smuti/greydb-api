@@ -8,7 +8,7 @@ router = APIRouter(prefix="/h2h", tags=["H2H"])
 
 
 @router.get("/{team1_fotmob_id}/{team2_fotmob_id}")
-async def head_to_head(
+def head_to_head(
     team1_fotmob_id: int,
     team2_fotmob_id: int,
     limit: int = Query(10, ge=1, le=50, description="Maç sayısı"),

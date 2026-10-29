@@ -17,7 +17,7 @@ WHERE status = 'active'
 
 
 @router.get("/analysis-matches")
-async def analysis_matches(date_: str = Query(..., alias="date", pattern=r"^\d{4}-\d{2}-\d{2}$")):
+def analysis_matches(date_: str = Query(..., alias="date", pattern=r"^\d{4}-\d{2}-\d{2}$")):
     try:
         gun = datetime.strptime(date_, "%Y-%m-%d").date()
     except ValueError:

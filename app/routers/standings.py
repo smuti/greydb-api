@@ -34,7 +34,7 @@ ORDER BY m.match_date
 
 
 @router.get("/standings/{fotmob_league_id}")
-async def standings(fotmob_league_id: int, season: Optional[int] = Query(None, ge=2000, le=2100)):
+def standings(fotmob_league_id: int, season: Optional[int] = Query(None, ge=2000, le=2100)):
     lig = execute_query(_LIG_SQL, {"lig": fotmob_league_id})
     if not lig:
         raise HTTPException(status_code=404, detail="Lig bulunamadı")
@@ -76,7 +76,7 @@ ORDER BY m.match_date
 
 
 @router.get("/lig-tablolari/{fotmob_league_id}")
-async def lig_tablolari(fotmob_league_id: int, season: Optional[int] = Query(None, ge=2000, le=2100)):
+def lig_tablolari(fotmob_league_id: int, season: Optional[int] = Query(None, ge=2000, le=2100)):
     """Lig sayfasındaki 'diğer tablolar' (xG puan durumu, gol, şut, kart, korner, üst/alt, KG) için takım bazında sezon toplamları.
 
     Her takımda `stat_mac` / `xg_mac`: o istatistiğin bulunduğu maç sayısı (kapsam). Ön yüz düşük kapsamlı ölçüyü göstermez."""

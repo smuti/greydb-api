@@ -14,7 +14,7 @@ router = APIRouter(prefix="/algorithms/over15", tags=["over15-algorithm"])
 
 
 @router.get("/evaluate")
-async def evaluate(
+def evaluate(
     home_team_id: int = Query(...),
     away_team_id: int = Query(...),
     league_id: int = Query(...),
@@ -44,7 +44,7 @@ async def evaluate(
 
 
 @router.get("/matches/{match_id}")
-async def evaluate_existing_match(match_id: int):
+def evaluate_existing_match(match_id: int):
     """public.matches'taki mevcut bir maç kaydı için algoritmayı çalıştırır."""
     df = query_to_df(
         """
@@ -77,7 +77,7 @@ async def evaluate_existing_match(match_id: int):
 
 
 @router.get("/scan")
-async def scan_day(
+def scan_day(
     scan_date: date = Query(..., alias="date", description="YYYY-MM-DD"),
 ):
     """O güne ait tüm planlı maçları algoritmadan geçirir, filtreleri geçenleri üstte listeler."""

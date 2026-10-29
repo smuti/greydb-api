@@ -14,7 +14,7 @@ ORDER BY oncelik, anahtar
 
 
 @router.get("/tracked-leagues")
-async def tracked_leagues():
+def tracked_leagues():
     try:
         satirlar = execute_query(_SQL)
     except Exception as e:  # tablo henüz yoksa site çökmesin; frontend yerleşik varsayılana düşer

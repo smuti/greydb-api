@@ -46,7 +46,7 @@ def mac_yukle_yedekli(m):
 
 
 @router.get("/kuponlar/sonuclar")
-async def sonuclar(request: Request, days: Optional[int] = Query(None, ge=1, le=3650), seviye: Optional[str] = None, sonuc: Optional[str] = None,
+def sonuclar(request: Request, days: Optional[int] = Query(None, ge=1, le=3650), seviye: Optional[str] = None, sonuc: Optional[str] = None,
                    bacak: Optional[str] = None, zamanlama: Optional[str] = None, yazar: Optional[str] = None, sayfa: int = Query(1, ge=1), sayfa_boyutu: int = Query(20, ge=1, le=100)):
     k = K.kimlik(request)
     kuponlar, _ = K.db_liste({"durum": "yayinda", "sonuclanmis": True, "seviye": seviye if seviye in K.SEVIYELER else None, "yazar": yazar.strip().lower() if yazar else None, "limit": 5000, "offset": 0})

@@ -17,7 +17,7 @@ class LeagueResponse(BaseModel):
 
 
 @router.get("/leagues/{league_id}", response_model=LeagueResponse)
-async def get_league_by_id(league_id: int):
+def get_league_by_id(league_id: int):
     """Get league name by FotMob ID"""
     sql = "SELECT id, name, country FROM greydb.leagues WHERE id = %s"
     df = query_to_df(sql, (league_id,))
@@ -34,7 +34,7 @@ async def get_league_by_id(league_id: int):
 
 
 @router.post("/leagues/batch", response_model=dict)
-async def get_leagues_batch(league_ids: List[int]):
+def get_leagues_batch(league_ids: List[int]):
     """Get multiple league names by IDs"""
     if not league_ids:
         return {}

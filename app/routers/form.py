@@ -8,7 +8,7 @@ router = APIRouter(prefix="/form", tags=["Form"])
 
 
 @router.get("/by-name/{team_name}")
-async def team_form_by_name(
+def team_form_by_name(
     team_name: str,
     limit: int = Query(5, ge=1, le=20, description="Maç sayısı"),
     venue: str = Query(None, description="home, away veya boş (genel)")
@@ -28,7 +28,7 @@ async def team_form_by_name(
 
 
 @router.get("/{team_fotmob_id}")
-async def team_form(
+def team_form(
     team_fotmob_id: int,
     limit: int = Query(5, ge=1, le=20, description="Maç sayısı"),
     venue: str = Query(None, description="home, away veya boş (genel)"),
@@ -51,7 +51,7 @@ async def team_form(
 
 
 @router.get("/{team_fotmob_id}/home")
-async def team_home_form(
+def team_home_form(
     team_fotmob_id: int,
     limit: int = Query(5, ge=1, le=20)
 ):
@@ -60,7 +60,7 @@ async def team_home_form(
 
 
 @router.get("/{team_fotmob_id}/away")
-async def team_away_form(
+def team_away_form(
     team_fotmob_id: int,
     limit: int = Query(5, ge=1, le=20)
 ):
@@ -69,7 +69,7 @@ async def team_away_form(
 
 
 @router.get("/{team_fotmob_id}/league/{league_fotmob_id}")
-async def team_league_form(
+def team_league_form(
     team_fotmob_id: int,
     league_fotmob_id: int,
     limit: int = Query(5, ge=1, le=20)

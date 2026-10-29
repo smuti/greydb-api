@@ -20,7 +20,8 @@ elif database_url.startswith("postgresql://") and "+psycopg2" not in database_ur
     database_url = database_url.replace("postgresql://", "postgresql+psycopg2://", 1)
 
 # SQLAlchemy engine
-engine = create_engine(database_url, pool_pre_ping=True)
+# Uçlar artık iş parçacığı havuzunda eş zamanlı çalışır: varsayılan 5+10 bağlantı kuyruğa sokar.
+engine = create_engine(database_url, pool_pre_ping=True, pool_size=10, max_overflow=15, pool_recycle=1800)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
