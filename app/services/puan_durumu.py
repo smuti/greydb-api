@@ -16,8 +16,9 @@ def guncel_sezon(bugun: date) -> int:
     return bugun.year if bugun.month >= 7 else bugun.year - 1
 
 
-def hesapla(maclar: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """maclar: tarih, ev_id, ev_ad, dep_id, dep_ad, ev_gol, dep_gol. Skoru olmayan maç sayılmaz."""
+def hesapla(maclar: List[Dict[str, Any]], saha: Optional[str] = None) -> List[Dict[str, Any]]:
+    """maclar: tarih, ev_id, ev_ad, dep_id, dep_ad, ev_gol, dep_gol. Skoru olmayan maç sayılmaz.
+    saha: None genel; "ev" yalnız ev sahibi olarak oynanan maçlar (iç saha); "dep" yalnız deplasmandakiler (dış saha)."""
     takimlar: Dict[Any, Dict[str, Any]] = {}
 
     def al(kimlik, ad):
@@ -28,7 +29,12 @@ def hesapla(maclar: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
     gecerli = [m for m in maclar if m.get("ev_gol") is not None and m.get("dep_gol") is not None]
     for m in sorted(gecerli, key=lambda x: x["tarih"]):
-        for kimlik, ad, atilan, yenilen in ((m["ev_id"], m["ev_ad"], m["ev_gol"], m["dep_gol"]), (m["dep_id"], m["dep_ad"], m["dep_gol"], m["ev_gol"])):
+        taraflar = ((m["ev_id"], m["ev_ad"], m["ev_gol"], m["dep_gol"]), (m["dep_id"], m["dep_ad"], m["dep_gol"], m["ev_gol"]))
+        if saha == "ev":
+            taraflar = taraflar[:1]
+        elif saha == "dep":
+            taraflar = taraflar[1:]
+        for kimlik, ad, atilan, yenilen in taraflar:
             t = al(kimlik, ad)
             t["oynanan"] += 1
             t["atilan"] += atilan

@@ -98,6 +98,7 @@ def test_uc_puan_durumunu_hesaplayip_doner(monkeypatch):
     assert [x["takim"] for x in j["tablo"]] == ["A", "B"] and j["tablo"][0]["puan"] == 3
     assert j["bitmis_mac_sayisi"] == 1
     assert "kendi" in j["hesap"]["kaynak"].lower()
+    assert [x["takim"] for x in j["ic_saha"]] == ["A"] and [x["takim"] for x in j["dis_saha"]] == ["B"]   # A yalnız evinde, B yalnız deplasmanda oynadı
 
 
 def test_uc_sezon_verilmezse_guncel_sezon_kullanilir(monkeypatch):
@@ -138,3 +139,15 @@ def test_hesap_notu_canli_maclarin_sayilmadigini_soyler(monkeypatch):
     kur(monkeypatch, [])
     ne = client.get("/api/standings/71?season=2026").json()["hesap"]["not"].lower()
     assert "canlı" in ne or "oynanmakta" in ne
+
+
+def test_ic_ve_dis_saha_yalniz_o_sahadaki_maclari_sayar():
+    maclar = [mac("A", 2, 0, "B"), mac("B", 3, 1, "A", gun=2), mac("A", 1, 1, "C", gun=3)]
+    ic = {r["takim"]: r for r in hesapla(maclar, "ev")}
+    dis = {r["takim"]: r for r in hesapla(maclar, "dep")}
+    assert (ic["A"]["oynanan"], ic["A"]["galibiyet"], ic["A"]["beraberlik"], ic["A"]["puan"]) == (2, 1, 1, 4)   # A'nın evindeki 2 maç
+    assert "C" not in ic                                                                                       # C hiç ev sahibi olmadı
+    assert (dis["A"]["oynanan"], dis["A"]["maglubiyet"], dis["A"]["puan"]) == (1, 1, 0)                         # A'nın tek deplasmanı: B'ye 1-3
+    assert (dis["C"]["oynanan"], dis["C"]["beraberlik"], dis["C"]["puan"]) == (1, 1, 1)
+    assert sum(r["oynanan"] for r in ic.values()) == len(maclar) == sum(r["oynanan"] for r in dis.values())   # her maç iki tabloda da bir kez
+    assert [r["sira"] for r in hesapla(maclar, "ev")] == list(range(1, len(ic) + 1))

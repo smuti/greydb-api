@@ -46,6 +46,8 @@ def standings(fotmob_league_id: int, season: Optional[int] = Query(None, ge=2000
         "sezon": f"{sezon}/{sezon + 1}",
         "bitmis_mac_sayisi": len(maclar),
         "tablo": hesapla(maclar),
+        "ic_saha": hesapla(maclar, "ev"),     # yalnız ev sahibi olarak oynanan maçlar
+        "dis_saha": hesapla(maclar, "dep"),   # yalnız deplasman maçları
         "hesap": {
             "kaynak": "Kendi veritabanımızdaki bitmiş maçlardan hesaplanır",
             "siralama": "Puan, averaj, atılan gol",
