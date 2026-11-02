@@ -107,15 +107,25 @@ def hazir(db):
         client.post("/api/kuponlar", json={**GIRDI, "seviye": seviye, "durum": durum, "bacaklar": [{**GIRDI["bacaklar"][0], "iddaa_event_id": len(db.kuponlar) + 1}]}, headers=ADMIN)
 
 
-def test_anonim_liste_taslaksiz_ve_kilitli(db):
+def test_anonim_liste_taslaksiz_ve_sonuclanmamis_kuponlarda_tercih_gizli_toplam_oran_gorunur(db):
     hazir(db)
     j = client.get("/api/kuponlar").json()
     assert j["total"] == 3
-    acik = next(k for k in j["items"] if k["seviye"] == "acik")
-    assert acik["kilitli"] is False and acik["bacaklar"][0]["secim"] == "1"
-    for k in j["items"]:
-        if k["seviye"] != "acik":
-            assert k["kilitli"] is True and k["bacaklar"][0]["secim"] is None and k["nedenler"] is None and k["ana_risk"] is None
+    for k in j["items"]:      # ziyaretçi: Açık dahil sonuçlanmamış hiçbir kuponun tercihini göremez; maç adları ve toplam oran görünür
+        b = k["bacaklar"][0]
+        assert k["kilitli"] is True, k["seviye"]
+        assert b["ev"] is not None and b["dep"] is not None
+        assert b["secim"] is None and b["oran"] is None and k["nedenler"] is None and k["ana_risk"] is None
+        assert k["toplam_oran"] is not None and k["bacak_sayisi"] == 1
+
+
+def test_giris_yapmis_uye_acik_kuponu_tam_gorur_bayiyi_kilitli(db):
+    hazir(db)
+    items = {k["seviye"]: k for k in client.get("/api/kuponlar", headers=uye("acik")).json()["items"]}
+    acik = items["acik"]
+    assert acik["kilitli"] is False and acik["bacaklar"][0]["secim"] == "1" and acik["bacaklar"][0]["ev"] is not None
+    bayi = items["bayi"]
+    assert bayi["kilitli"] is True and bayi["bacaklar"][0]["secim"] is None and bayi["bacaklar"][0]["oran"] is None and bayi["toplam_oran"] is not None
 
 
 def test_seviyeye_gore_acilir_birikimli(db):

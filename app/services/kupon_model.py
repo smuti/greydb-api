@@ -136,15 +136,23 @@ def gorunur_mu(kupon: Dict[str, Any], uye_seviyesi: Optional[str]) -> bool:
     return kupon.get("durum") == "yayinda"
 
 
-_GIZLI_KUPON = ("nedenler", "ana_risk", "yorum", "toplam_oran", "en_yuksek_odeme", "odeme", "sinyal", "risk_seviyesi")
+# Kilitli görünüm: kupon (toplam) oranı ve maç adları görünür. Tercih, tek tek oran, gerekçe ve yorum gizli.
+_GIZLI_KUPON = ("nedenler", "ana_risk", "yorum", "en_yuksek_odeme", "odeme", "sinyal", "risk_seviyesi")
 _GIZLI_BACAK = ("bahis_turu", "secim", "oran", "sonuc", "iddaa_event_id", "fotmob_match_id", "kisa_nedenler")
 
 
 def kilitle(kupon: Dict[str, Any], uye_seviyesi: Optional[str]) -> Dict[str, Any]:
-    """Üyenin seviyesine göre kuponun görünümü. Girdiyi değiştirmez."""
+    """Görüntüleyenin seviyesine göre kuponun görünümü. Girdiyi değiştirmez.
+
+    uye_seviyesi: None = siteye girmemiş ziyaretçi, "acik" = giriş yapmış üye, "bayi"/"elit" = üstü.
+    - Seviyesi yetenler tam görür. Ziyaretçi, SONUÇLANMAMIŞ kuponların hiçbirini (Açık dahil) tam göremez; sonuçlanmış Açık kuponları görür (şeffaflık).
+    - Kilitli görünümde kupon (toplam) oranı, maç adları ve maç sayısı görünür; tercihler, tek tek oranlar, gerekçe ve yorum gizlidir.
+    """
     k = copy.deepcopy(kupon)
     k["bacak_sayisi"] = len(k.get("bacaklar", []))
-    if seviye_yeter(k["seviye"], uye_seviyesi):
+    sonuclandi = k.get("sonuc") is not None
+    ziyaretci = uye_seviyesi is None
+    if seviye_yeter(k["seviye"], uye_seviyesi) and not (ziyaretci and not sonuclandi):
         k["kilitli"] = False
         return k
     k["kilitli"] = True
