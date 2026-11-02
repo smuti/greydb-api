@@ -23,12 +23,24 @@ def _eslestir() -> None:
     log.info("iddaa eşleştir: eşleşen %s / %s", r.get("eslesen"), r.get("toplam_mac"))
 
 
+def _tercih(is_adi: str) -> Callable[[], None]:
+    def is_():
+        from app.services import tercih_izleme as t
+        try:
+            log.info("tercih %s: %s", is_adi, t.calistir(is_adi, dry_run=False))
+        except Exception:  # noqa: BLE001 — bir koşunun hatası zamanlayıcı iş parçacığını ya da diğer işleri durdurmasın
+            log.exception("tercih %s koşusu hata verdi", is_adi)
+    return is_
+
+
 def isler() -> List[Tuple[str, dict, Callable[[], None]]]:
     """(kimlik, cron alanları, iş). GitHub iş akışlarının eski planıyla aynı saatler."""
     return [
         ("prematch-gunluk", dict(hour="3", minute="30"), _prematch("gunluk")),
         ("prematch-oran", dict(hour="5-22", minute="0,30"), _prematch("oran")),
         ("iddaa-eslestir", dict(hour="*/4", minute="20"), _eslestir),
+        ("tercih-kaydet", dict(hour="5-22", minute="10,40"), _tercih("kaydet")),
+        ("tercih-sonuc", dict(hour="*/2", minute="50"), _tercih("sonuc")),
     ]
 
 
