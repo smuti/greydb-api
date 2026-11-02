@@ -152,3 +152,84 @@ def sonuclandir_bekleyenler(simdi: datetime, k: Kaynaklar, dry_run: bool = True)
             if not dry_run:
                 k.sonuc_yaz(r["id"], sonuc, simdi)
     return rapor
+
+
+# ---- gerçek kaynaklar (DB ve matchforge); iş mantığı yukarıda sahte kaynaklarla test edilir ----
+YAZ_SQL = """INSERT INTO greydb.tercih_izleme (fotmob_match_id, iddaa_match_id, kickoff, lig_ad, ev, dep, pencere, kategori, secim, olasilik, oran, guvenilirlik, model_surum)
+VALUES (:fotmob_match_id, :iddaa_match_id, :kickoff, :lig_ad, :ev, :dep, :pencere, :kategori, :secim, :olasilik, :oran, :guvenilirlik, :model_surum)
+ON CONFLICT (fotmob_match_id, pencere, kategori, secim) DO NOTHING RETURNING id"""
+MEVCUT_SQL = "SELECT fotmob_match_id, pencere FROM greydb.tercih_izleme WHERE fotmob_match_id = ANY(:ids) GROUP BY fotmob_match_id, pencere"
+BEKLEYEN_SQL = ("SELECT id, fotmob_match_id, ev, dep, kategori, secim, kickoff FROM greydb.tercih_izleme "
+                "WHERE sonuclandi IS NULL AND kickoff < :son ORDER BY kickoff LIMIT 5000")
+SONUC_SQL = "UPDATE greydb.tercih_izleme SET sonuc = :sonuc, sonuclandi = :an WHERE id = :id"
+
+
+def _utc(d: datetime) -> datetime:
+    from datetime import timezone
+    return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+
+
+def _yaklasan(bas: datetime, son: datetime) -> List[Dict[str, Any]]:
+    from app.services.skorjin_prematch import _yaklasan as yaklasan
+    return yaklasan(bas, son)
+
+
+def _mevcut(ids: List[int]) -> Dict[int, Set[str]]:
+    from app.services.db import execute_query
+    sonuc: Dict[int, Set[str]] = {}
+    for r in execute_query(MEVCUT_SQL, {"ids": list(ids)}):
+        sonuc.setdefault(int(r["fotmob_match_id"]), set()).add(r["pencere"])
+    return sonuc
+
+
+def _liste(ids: List[int]) -> List[Dict[str, Any]]:
+    """matchforge /api/liste: günün tercih listesi, iddaa oranıyla (maç henüz başlamadığı için canlı oran gelir)."""
+    import httpx
+    from app.services.skorjin_match_analysis import MATCHFORGE_BASE
+    yanit = httpx.post(f"{MATCHFORGE_BASE}/api/liste", json={"fotmob_match_ids": ids, "iddaa": True}, timeout=170.0)
+    yanit.raise_for_status()
+    return yanit.json().get("results", [])
+
+
+def _yaz(satirlar: List[Dict[str, Any]]) -> int:
+    from app.services.db import execute_insert
+    n = 0
+    for s in satirlar:
+        if execute_insert(YAZ_SQL, {**s, "kickoff": _utc(s["kickoff"])}):
+            n += 1
+    return n
+
+
+def _bekleyen(son: datetime) -> List[Dict[str, Any]]:
+    from app.services.db import execute_query
+    return execute_query(BEKLEYEN_SQL, {"son": _utc(son)})
+
+
+def _sonuc_yaz(id_: int, sonuc: Optional[bool], an: datetime) -> None:
+    from app.services.db import execute_insert
+    execute_insert(SONUC_SQL, {"id": id_, "sonuc": sonuc, "an": _utc(an)})
+
+
+def _mac_sonucu(fotmob_match_id: int) -> Optional[Dict[str, Any]]:
+    import httpx
+    from app.services.skorjin_match_analysis import MATCHFORGE_BASE
+    yanit = httpx.get(f"{MATCHFORGE_BASE}/api/matches/db/{fotmob_match_id}", timeout=40.0)
+    if yanit.status_code == 404:
+        return None
+    yanit.raise_for_status()
+    d = yanit.json()
+    return {"finished": bool(d.get("finished")), "cancelled": bool(d.get("cancelled")), "score": d.get("score"), "stats": d.get("stats")}
+
+
+def gercek_kaynaklar() -> Kaynaklar:
+    return Kaynaklar(maclar=_yaklasan, mevcut=_mevcut, liste=_liste, yaz=_yaz, bekleyen=_bekleyen, sonuc_yaz=_sonuc_yaz, mac_sonucu=_mac_sonucu)
+
+
+def calistir(is_adi: str, dry_run: bool = True) -> Dict[str, Any]:
+    """Zamanlayıcı ve uç buradan çağırır. is_adi: "kaydet" (maçtan önce liste+oran) ya da "sonuc" (biten maçların sonucu)."""
+    from datetime import timezone
+    if is_adi not in ("kaydet", "sonuc"):
+        raise ValueError(f"bilinmeyen iş: {is_adi}")
+    simdi = datetime.now(timezone.utc).replace(tzinfo=None)
+    k = gercek_kaynaklar()
+    return kaydet(simdi, k, dry_run=dry_run) if is_adi == "kaydet" else sonuclandir_bekleyenler(simdi, k, dry_run=dry_run)
