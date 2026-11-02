@@ -33,6 +33,14 @@ def _tercih(is_adi: str) -> Callable[[], None]:
     return is_
 
 
+def _oyuncu_json_mat() -> None:
+    from app.services import stat_yenile as s
+    try:
+        log.info("oyuncu_json_mat yenileme: %s", s.calistir(False))
+    except Exception:  # noqa: BLE001 — yenileme hatası zamanlayıcıyı ve diğer işleri durdurmasın
+        log.exception("oyuncu_json_mat yenileme hata verdi")
+
+
 def isler() -> List[Tuple[str, dict, Callable[[], None]]]:
     """(kimlik, cron alanları, iş). GitHub iş akışlarının eski planıyla aynı saatler."""
     return [
@@ -41,6 +49,7 @@ def isler() -> List[Tuple[str, dict, Callable[[], None]]]:
         ("iddaa-eslestir", dict(hour="*/4", minute="20"), _eslestir),
         ("tercih-kaydet", dict(hour="5-22", minute="10,40"), _tercih("kaydet")),
         ("tercih-sonuc", dict(hour="*/2", minute="50"), _tercih("sonuc")),
+        ("oyuncu-json-mat", dict(hour="2", minute="30"), _oyuncu_json_mat),
     ]
 
 

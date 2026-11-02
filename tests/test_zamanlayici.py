@@ -8,7 +8,7 @@ from app.services import zamanlayici as Z
 def test_is_tanimlari():
     t = {ad: kw for ad, kw, _ in Z.isler()}
     assert t == {"prematch-gunluk": dict(hour="3", minute="30"), "prematch-oran": dict(hour="5-22", minute="0,30"), "iddaa-eslestir": dict(hour="*/4", minute="20"),
-                 "tercih-kaydet": dict(hour="5-22", minute="10,40"), "tercih-sonuc": dict(hour="*/2", minute="50")}
+                 "tercih-kaydet": dict(hour="5-22", minute="10,40"), "tercih-sonuc": dict(hour="*/2", minute="50"), "oyuncu-json-mat": dict(hour="2", minute="30")}
 
 
 def test_kapali_varsayilan(monkeypatch):
@@ -20,7 +20,7 @@ def test_acik_uc_is(monkeypatch):
     monkeypatch.setenv("ZAMANLAYICI", "1")
     s = Z.baslat(calistir=False)
     try:
-        assert sorted(j.id for j in s.get_jobs()) == ["iddaa-eslestir", "prematch-gunluk", "prematch-oran", "tercih-kaydet", "tercih-sonuc"]
+        assert sorted(j.id for j in s.get_jobs()) == ["iddaa-eslestir", "oyuncu-json-mat", "prematch-gunluk", "prematch-oran", "tercih-kaydet", "tercih-sonuc"]
         j = s.get_job("prematch-oran")
         assert j.max_instances == 1 and j.coalesce and str(j.trigger.timezone) == "UTC"
     finally:
