@@ -170,14 +170,26 @@ def _generate_for_match(match_id: int, home: dict, away: dict, lig_haftasi: Opti
     home_league = stf.get_team_league(home["team_id"]) if home.get("team_id") else {}
     away_league = stf.get_team_league(away["team_id"]) if away.get("team_id") else {}
     # Istatistiksel model (opsiyonel): olasilik + karar + gerekce. Basarisizsa None -> eski akis.
-    model = stf.fetch_model_prediction(home, away, mac_tarihi, home_league.get("league_id") or away_league.get("league_id"))
+    farkli_lig = home_league.get("league_id") != away_league.get("league_id")
+    if farkli_lig:
+        # Avrupa kupası: model yalnızca iç ligleri görür, iki ligin gücü aynı ölçekte değil -> piyasa oranı (yoksa model yok)
+        model = stf.fetch_piyasa_tahmini(home, away)
+        match_data["lig"] = stf.GENEL_TURNUVA
+    else:
+        model = stf.fetch_model_prediction(home, away, mac_tarihi, home_league.get("league_id") or away_league.get("league_id"))
     if model:
         match_data["model_tahmini"] = model["facts"]
     scenarios = stf.apply_model_choice(stf.generate_scenarios(match_data), model)
     _save_entries(match_id, scenarios)
     _save_model(match_id, model)
     real_lig = home_league.get("league_name") or away_league.get("league_name")
-    if real_lig:
+    if farkli_lig:
+        # Turnuva adı hafta çekilirken yazıldı; yazılmadıysa ya da eski üretimden ev sahibinin iç ligi kaldıysa genel ad
+        execute_insert(
+            "UPDATE greydb.spor_toto_matches SET lig = :lig WHERE id = :id AND (lig IS NULL OR lig IN (:h, :a))",
+            {"lig": stf.GENEL_TURNUVA, "id": match_id, "h": home_league.get("league_name") or "", "a": away_league.get("league_name") or ""},
+        )
+    elif real_lig:
         execute_insert(
             "UPDATE greydb.spor_toto_matches SET lig = :lig WHERE id = :id",
             {"lig": real_lig, "id": match_id},
@@ -220,6 +232,9 @@ async def fetch_week(request: FetchWeekRequest):
     results = []
     for m in sportoto_matches:
         match_id, already_approved = _get_or_create_match(week_id, m)
+        if not already_approved and stf.turnuva_adi(m.get("turnuva_id")):
+            # Spor Toto turnuva kimliği biliniyorsa kartın ligi o olur ("Şampiyonlar Ligi, 4. Hafta"); bilinmiyorsa üretimde genel ad yazılır
+            execute_insert("UPDATE greydb.spor_toto_matches SET lig = :lig WHERE id = :id", {"lig": stf.turnuva_adi(m["turnuva_id"]), "id": match_id})
 
         if already_approved:
             results.append({"mac_no": m["mac_no"], "match_id": match_id, "durum": "atlandi_onaylanmis"})
