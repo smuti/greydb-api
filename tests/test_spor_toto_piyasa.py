@@ -119,3 +119,22 @@ def test_ayni_lig_eski_akis_modeli_kullanir(akis, monkeypatch):
     monkeypatch.setattr(router.stf, "get_team_league", lambda t: {"league_id": 4, "league_name": "Super Lig"})
     router._generate_for_match(5, HOME, AWAY, "4. Hafta", "2026-11-04T20:45:00")
     assert akis["model_cagri"] == 1 and akis["md"]["lig"] == "Super Lig"
+
+
+def test_hafta_listesi_bos_hucreyle_json_uretir(monkeypatch):
+    """Regresyon: haftalar sütunlarından biri NaN olunca list_weeks 500 veriyordu (ValueError: Out of range float values)."""
+    import asyncio
+    import json
+    import pandas as pd
+    monkeypatch.setattr(router, "query_to_df", lambda q, p=None: pd.DataFrame([
+        {"id": 1, "hafta_no": 1540, "hafta_etiketi": "13. Oyun Programı", "ekstra": float("nan")},
+        {"id": 2, "hafta_no": 1539, "hafta_etiketi": "12. Hafta", "ekstra": 3.0},
+    ]))
+    out = asyncio.run(router.list_weeks())
+    assert json.loads(json.dumps(out))["weeks"][0]["ekstra"] is None
+
+
+@pytest.mark.parametrize("ev,dep,beklenen", [(4, 5, True), (4, 4, False), (1, 1, True), (2, 2, True), (39, 39, True), (4, 1, True), (None, None, False)])
+def test_farkli_lig_mi_avrupa_kupa_kimligi_ayni_olsa_da_farkli_sayilir(ev, dep, beklenen):
+    """Shakhtar–Sporting: iki takımın 'ligi' de Champions League (1) görünür ama iç ligleri yok; model uygun değil."""
+    assert pz.farkli_lig_mi(ev, dep) is beklenen
