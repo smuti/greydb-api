@@ -233,3 +233,50 @@ def calistir(is_adi: str, dry_run: bool = True) -> Dict[str, Any]:
     simdi = datetime.now(timezone.utc).replace(tzinfo=None)
     k = gercek_kaynaklar()
     return kaydet(simdi, k, dry_run=dry_run) if is_adi == "kaydet" else sonuclandir_bekleyenler(simdi, k, dry_run=dry_run)
+
+
+# ---- birikimli rapor: SQL gruplanmış satırları döndürür, toplamlar saf fonksiyonda ----
+BAHIS_TUTARI = 50.0         # varsayımsal eşit tutar (TL); rapor "her tercihe 50 TL olsaydı" hesabıdır
+OZET_SQL = """SELECT pencere, kategori, LEAST(floor(olasilik * 10)::int, 9) AS bant, COALESCE(olasilik * oran > 1, false) AS deger,
+    count(*) AS n, count(*) FILTER (WHERE sonuc) AS tuttu, count(*) FILTER (WHERE oran > 1.0) AS oranli,
+    count(*) FILTER (WHERE oran > 1.0 AND sonuc) AS oranli_tuttu, COALESCE(sum(oran) FILTER (WHERE oran > 1.0 AND sonuc), 0) AS getiri_oran_toplam,
+    sum(olasilik) AS olasilik_toplam
+FROM greydb.tercih_izleme
+WHERE sonuc IS NOT NULL AND kickoff >= :bas
+GROUP BY 1, 2, 3, 4"""
+
+
+def _topla(satirlar: List[Dict[str, Any]]) -> Dict[str, Any]:
+    n = sum(int(s["n"]) for s in satirlar)
+    tuttu = sum(int(s["tuttu"]) for s in satirlar)
+    oranli = sum(int(s["oranli"]) for s in satirlar)
+    yatirilan = round(oranli * BAHIS_TUTARI, 2)
+    donen = round(sum(float(s["getiri_oran_toplam"]) for s in satirlar) * BAHIS_TUTARI, 2)
+    ort = None
+    if n and all(s.get("olasilik_toplam") is not None for s in satirlar):
+        ort = round(100 * sum(float(s["olasilik_toplam"]) for s in satirlar) / n, 1)
+    return dict(tercih=n, tuttu=tuttu, tutma_yuzde=round(100 * tuttu / n, 1) if n else None, ort_olasilik=ort, oranli=oranli, yatirilan=yatirilan, donen=donen,
+                sonuc=round(donen - yatirilan, 2), getiri_yuzde=round(100 * (donen - yatirilan) / yatirilan, 1) if yatirilan else None)
+
+
+def ozet(satirlar: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Sonuçlanmış tercihlerin özeti. Para hesabı yalnızca oranı olan (oran > 1,00) tercihleri sayar; `deger_kurali`: bizim olasılık × oran > 1 olanlar."""
+    sirali = {"acilis": 0, "orta": 1, "kapanis": 2}
+    pencere = {}
+    for p in sorted({s["pencere"] for s in satirlar}, key=lambda x: sirali.get(x, 9)):
+        ps = [s for s in satirlar if s["pencere"] == p]
+        pencere[p] = {**_topla(ps), "deger_kurali": _topla([s for s in ps if s["deger"]])}
+    bant_no = lambda s: min(int(s["bant"]), 9)      # %100 olasılık da "90-100" bandına girer
+    bant = [{"bant": f"{b * 10}-{b * 10 + 10}", **_topla([s for s in satirlar if bant_no(s) == b])} for b in sorted({bant_no(s) for s in satirlar})]
+    kategoriler = sorted({s["kategori"] for s in satirlar})
+    kategori = sorted(({"kategori": k, **_topla([s for s in satirlar if s["kategori"] == k])} for k in kategoriler), key=lambda x: (-x["tercih"], x["kategori"]))
+    return dict(tum=_topla(satirlar), deger_kurali=_topla([s for s in satirlar if s["deger"]]), pencere=pencere, bant=bant, kategori=kategori)
+
+
+def ozet_getir(gun: int = 30) -> Dict[str, Any]:
+    from datetime import timezone
+    from app.services.db import execute_query
+    simdi = datetime.now(timezone.utc)
+    satirlar = execute_query(OZET_SQL, {"bas": simdi - timedelta(days=gun)})
+    return {"gun": gun, "uretildi": simdi.isoformat(timespec="seconds"), "bahis_tutari": BAHIS_TUTARI,
+            "not": "Her tercihe eşit tutar yatırılmış varsayımıdır; oranı olmayan ya da 1,00 olan tercihler para hesabına girmez. Yalnızca iç analiz.", **ozet(satirlar)}

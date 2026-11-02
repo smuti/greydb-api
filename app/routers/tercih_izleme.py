@@ -9,7 +9,7 @@ import hmac
 import os
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Query
 
 from app.services import tercih_izleme as t
 
@@ -32,3 +32,10 @@ def _dogrula(x_cron_anahtari: str) -> None:
 def tercih_izleme_calistir(is_adi: Literal["kaydet", "sonuc"], dry_run: bool = True, x_cron_anahtari: str = Header(default="")):
     _dogrula(x_cron_anahtari)
     return t.calistir(is_adi, dry_run=dry_run)
+
+
+@router.get("/skorjin/tercih-izleme/ozet")
+def tercih_izleme_ozet(gun: int = Query(30, ge=1, le=365), x_cron_anahtari: str = Header(default="")):
+    """Son `gun` günün sonuçlanmış tercihleri: tutma ve eşit tutarlı getiri; pencere (açılış/orta/kapanış), "olasılık × oran > 1" kuralı, olasılık bandı, kategori."""
+    _dogrula(x_cron_anahtari)
+    return t.ozet_getir(gun)
