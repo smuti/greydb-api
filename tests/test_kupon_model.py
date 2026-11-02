@@ -98,17 +98,65 @@ def tam_kupon(seviye="elit"):
                           "bahis_turu": "Maç Sonucu", "secim": "1", "oran": 1.5, "sonuc": "won"}]}
 
 
-def test_yetkisiz_gorunum_secim_oran_neden_riski_gizler_maci_gosterir():
+def bekleyen(seviye="elit"):
+    """Henüz sonuçlanmamış kupon (kupon sonucu yok, bacak sonuçları bekliyor)."""
+    k = tam_kupon(seviye)
+    k["sonuc"], k["odeme"] = None, None
+    k["bacaklar"][0]["sonuc"] = "pending"
+    k["bacaklar"][0]["ev_takim_id"], k["bacaklar"][0]["dep_takim_id"] = 11, 22
+    return k
+
+
+def test_yetkisiz_sonuclanmis_kupon_tercih_oran_neden_riski_gizler_maci_ve_toplam_orani_gosterir():
     g = kilitle(tam_kupon("elit"), "acik")
     assert g["kilitli"] is True
-    for alan in ("nedenler", "ana_risk", "yorum", "toplam_oran", "en_yuksek_odeme", "odeme", "sinyal", "risk_seviyesi"):
+    for alan in ("nedenler", "ana_risk", "yorum", "en_yuksek_odeme", "odeme", "sinyal", "risk_seviyesi"):
         assert g[alan] is None, alan
+    assert g["toplam_oran"] == 3.0          # kilitli görünümde kupon (toplam) oranı görünür
     b = g["bacaklar"][0]
-    assert (b["ev"], b["dep"], b["lig"], b["mac_zamani"]) == ("A", "B", "L", "2026-10-25T17:00:00Z")
-    for alan in ("bahis_turu", "secim", "oran", "sonuc", "iddaa_event_id", "fotmob_match_id"):
+    assert (b["ev"], b["dep"], b["lig"], b["mac_zamani"]) == ("A", "B", "L", "2026-10-25T17:00:00Z")   # maç adları görünür
+    for alan in ("bahis_turu", "secim", "oran", "sonuc", "iddaa_event_id", "fotmob_match_id"):     # tercih ve tek tek oran gizli
         assert b[alan] is None, alan
     assert g["sonuc"] == "won"          # kuponun tuttu/yattı bilgisi herkese açık (şeffaflık)
     assert g["seviye"] == "elit" and g["bacak_sayisi"] == 1
+
+
+def test_yetkisiz_sonuclanmamis_kuponda_da_maclar_gorunur_tercih_ve_oran_gizli_toplam_oran_gorunur():
+    g = kilitle(bekleyen("bayi"), "acik")
+    assert g["kilitli"] is True and g["toplam_oran"] == 3.0 and g["bacak_sayisi"] == 1
+    b = g["bacaklar"][0]
+    assert (b["ev"], b["dep"], b["lig"]) == ("A", "B", "L") and b["ev_takim_id"] == 11 and b["dep_takim_id"] == 22
+    for alan in ("bahis_turu", "secim", "oran", "sonuc", "iddaa_event_id", "fotmob_match_id", "kisa_nedenler"):
+        assert b[alan] is None, alan
+    for alan in ("nedenler", "ana_risk", "yorum", "en_yuksek_odeme", "odeme", "sinyal", "risk_seviyesi"):
+        assert g[alan] is None, alan
+
+
+def test_ziyaretci_giris_yapmamis_sonuclanmamis_acik_kuponda_tercihi_gormez_toplam_orani_gorur():
+    g = kilitle(bekleyen("acik"), None)
+    assert g["kilitli"] is True and g["toplam_oran"] == 3.0
+    b = g["bacaklar"][0]
+    assert b["ev"] == "A" and b["dep"] == "B" and b["secim"] is None and b["oran"] is None
+
+
+def test_ziyaretci_sonuclanmis_acik_kuponu_tam_gorur():
+    g = kilitle(tam_kupon("acik"), None)
+    assert g["kilitli"] is False and g["bacaklar"][0]["secim"] == "1" and g["bacaklar"][0]["ev"] == "A"
+
+
+def test_giris_yapmis_uye_sonuclanmamis_acik_kuponu_tam_gorur():
+    g = kilitle(bekleyen("acik"), "acik")
+    assert g["kilitli"] is False and g["bacaklar"][0]["ev"] == "A" and g["bacaklar"][0]["secim"] == "1"
+
+
+def test_bayi_olmayan_uye_bayi_kuponunda_maclari_ve_toplam_orani_gorur_tercihi_gormez():
+    g = kilitle(bekleyen("bayi"), "acik")
+    assert g["kilitli"] is True and g["toplam_oran"] == 3.0 and g["bacaklar"][0]["ev"] == "A" and g["bacaklar"][0]["secim"] is None
+
+
+def test_bayi_uye_bayi_kuponunu_tam_gorur():
+    g = kilitle(bekleyen("bayi"), "bayi")
+    assert g["kilitli"] is False and g["bacaklar"][0]["ev"] == "A" and g["bacaklar"][0]["secim"] == "1" and g["toplam_oran"] == 3.0
 
 
 def test_yetkili_gorunum_degismez():
