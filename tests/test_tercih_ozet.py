@@ -73,3 +73,35 @@ def test_ozet_bantta_bizim_ortalama_olasilik():
 
 def test_ozet_yuzde_bir_olan_bant_doksan_yuz():
     assert t.ozet([s(bant=10, n=1, tuttu=1, oranli=1, oranli_tuttu=1, getiri=1.1)])["bant"][0]["bant"] == "90-100"
+
+
+# ---- oran kapsamı: hangi ligde tercihler oransız yazılıyor (LaLiga örneği) ----
+def lig(ad, mac, n, oransiz):
+    return dict(lig_ad=ad, mac=mac, n=n, oransiz=oransiz)
+
+
+def test_oran_kapsami_oransiz_yuzde_ve_siralama():
+    k = t.oran_kapsami([lig("Premier League", 8, 800, 40), lig("LaLiga", 4, 400, 400), lig("Serie A", 5, 500, 100)])
+    assert [x["lig"] for x in k] == ["LaLiga", "Serie A", "Premier League"]                     # oransız yüzdesi azalan
+    assert k[0]["oransiz_yuzde"] == 100.0 and k[0]["oran_yok"] is True
+    assert k[1]["oransiz_yuzde"] == 20.0 and k[1]["oran_yok"] is False
+    assert k[2]["mac"] == 8 and k[2]["tercih"] == 800
+
+
+def test_oran_kapsami_bos_ve_adsiz_lig():
+    assert t.oran_kapsami([]) == []
+    assert t.oran_kapsami([lig(None, 1, 10, 0)])[0]["lig"] == "bilinmiyor"
+
+
+def test_oran_kapsami_sql_oransiz_null_ya_da_bir_ve_alti():
+    assert "oran IS NULL OR oran <= 1.0" in t.ORAN_KAPSAMI_SQL and "GROUP BY lig_ad" in t.ORAN_KAPSAMI_SQL and "kickoff >= :bas" in t.ORAN_KAPSAMI_SQL
+
+
+def test_ozet_getir_oran_kapsamini_icerir(monkeypatch):
+    cevaplar = {"OZET": [s()], "KAPSAM": [lig("LaLiga", 4, 400, 400)]}
+
+    def sorgu(sql, params=None):
+        return cevaplar["KAPSAM"] if "GROUP BY lig_ad" in sql else cevaplar["OZET"]
+    monkeypatch.setattr("app.services.db.execute_query", sorgu)
+    o = t.ozet_getir(7)
+    assert o["oran_kapsami"][0]["lig"] == "LaLiga" and o["tum"]["tercih"] == 10

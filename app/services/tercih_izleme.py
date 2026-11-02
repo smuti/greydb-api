@@ -277,6 +277,24 @@ def ozet_getir(gun: int = 30) -> Dict[str, Any]:
     from datetime import timezone
     from app.services.db import execute_query
     simdi = datetime.now(timezone.utc)
-    satirlar = execute_query(OZET_SQL, {"bas": simdi - timedelta(days=gun)})
-    return {"gun": gun, "uretildi": simdi.isoformat(timespec="seconds"), "bahis_tutari": BAHIS_TUTARI,
+    bas = simdi - timedelta(days=gun)
+    satirlar = execute_query(OZET_SQL, {"bas": bas})
+    kapsam = oran_kapsami(execute_query(ORAN_KAPSAMI_SQL, {"bas": bas}))
+    return {"gun": gun, "oran_kapsami": kapsam, "uretildi": simdi.isoformat(timespec="seconds"), "bahis_tutari": BAHIS_TUTARI,
             "not": "Her tercihe eşit tutar yatırılmış varsayımıdır; oranı olmayan ya da 1,00 olan tercihler para hesabına girmez. Yalnızca iç analiz.", **ozet(satirlar)}
+
+
+# ---- oran kapsamı: oransız yazılan tercihler lig bazında (iddaa olayı eşleşmeyen ligler hemen görünsün) ----
+ORAN_KAPSAMI_SQL = """SELECT lig_ad, count(DISTINCT fotmob_match_id) AS mac, count(*) AS n, count(*) FILTER (WHERE oran IS NULL OR oran <= 1.0) AS oransiz
+FROM greydb.tercih_izleme
+WHERE kickoff >= :bas
+GROUP BY lig_ad"""
+
+
+def oran_kapsami(satirlar: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    cikti = []
+    for s in satirlar:
+        n, oransiz = int(s["n"]), int(s["oransiz"])
+        cikti.append(dict(lig=s["lig_ad"] or "bilinmiyor", mac=int(s["mac"]), tercih=n, oransiz=oransiz, oransiz_yuzde=round(100 * oransiz / n, 1) if n else 0.0,
+                          oran_yok=bool(n) and oransiz == n))
+    return sorted(cikti, key=lambda x: (-x["oransiz_yuzde"], x["lig"]))
