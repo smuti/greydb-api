@@ -18,6 +18,7 @@ import httpx
 import pandas as pd
 
 from app.services.db import query_to_df, execute_insert
+from app.services.spor_toto_piyasa import GENEL_TURNUVA, turnuva_adi  # noqa: F401 (GENEL_TURNUVA router tarafından stf üzerinden kullanılır)
 from app.services.skorjin_match_analysis import (
     MATCHFORGE_BASE,
     _get as _mf_get,
@@ -95,6 +96,7 @@ def fetch_round_matches(game_round_id: int) -> List[Dict[str, Any]]:
             "sportoto_home_id": home.get("id"),
             "sportoto_away_id": away.get("id"),
             "lig_haftasi": (m.get("round") or {}).get("name") or (m.get("stage") or {}).get("name"),
+            "turnuva_id": m.get("tournamentId"),
             "mac_tarihi": m.get("date"),
         })
     return matches
@@ -460,13 +462,25 @@ def fetch_model_prediction(home: Dict[str, Any], away: Dict[str, Any], mac_tarih
         return None
 
 
+def fetch_piyasa_tahmini(home: Dict[str, Any], away: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Farklı ülke ligleri maçı için iddaa Maç Sonucu oranından tahmin (matchforge sonucuyla aynı şekil). Maç iddaa listesinde yoksa
+    (liste ~3 günlük pencere) ya da istek patlarsa None: üretim ASLA bunun yüzünden düşmez."""
+    try:
+        from app.routers.iddaa import olaylari_cek
+        from app.services.spor_toto_piyasa import piyasa_tahmini
+        return piyasa_tahmini(olaylari_cek(), translate_team_name(home.get("name")) or "", translate_team_name(away.get("name")) or "")
+    except Exception as e:  # noqa: BLE001 — piyasa opsiyonel
+        print(f"[spor_toto] piyasa oranı alınamadı: {e}")
+        return None
+
+
 def apply_model_choice(scenarios: List[Dict[str, Any]], model: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Model varsa 'önerilen' kartı model belirler (Skorjin eski sürümde kalsa bile). Girdiyi değiştirmez."""
-    if not model:
-        return scenarios
-    pick = (model.get("decision") or {}).get("senaryo")
+    pick = (model.get("decision") or {}).get("senaryo") if model else None
     if not pick:
-        return scenarios
+        if sum(1 for s in scenarios if s.get("onerilen")) == 1:
+            return scenarios
+        pick = "1-0-2"   # model yok ve LLM tek bir önerilen işaretlemedi: en temkinli kart (karar admin'de)
     return [{**s, "onerilen": s["senaryo"] == pick} for s in scenarios]
 
 
