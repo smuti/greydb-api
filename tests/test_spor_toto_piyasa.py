@@ -56,7 +56,8 @@ def test_karar_dengeli_ise_uclu_ve_beraberlik_favori_olmaz():
 
 def test_turnuva_adi_bilinmeyende_uydurmaz():
     assert pz.turnuva_adi(218) == "Şampiyonlar Ligi"
-    assert pz.turnuva_adi(237) is None and pz.turnuva_adi(None) is None
+    assert pz.turnuva_adi(237) == "Avrupa Ligi" and pz.turnuva_adi(236) == "Konferans Ligi"
+    assert pz.turnuva_adi(999) is None and pz.turnuva_adi(None) is None
 
 
 def test_onerilen_yedegi_model_yokken_1_0_2():

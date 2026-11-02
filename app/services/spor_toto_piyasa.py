@@ -13,7 +13,7 @@ DOUBLE_MIN = 0.43   # >= favori + beraberlik, altı üçlü
 KAYNAK = "piyasa-iddaa"
 
 # Spor Toto turnuva kimliği -> ad. Haritada olmayan kimlikte ad UYDURULMAZ (çağıran genel ad kullanır).
-TURNUVALAR = {218: "Şampiyonlar Ligi"}
+TURNUVALAR = {218: "Şampiyonlar Ligi", 237: "Avrupa Ligi", 236: "Konferans Ligi"}
 GENEL_TURNUVA = "Avrupa Kupası"
 
 
