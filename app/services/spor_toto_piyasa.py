@@ -17,6 +17,17 @@ TURNUVALAR = {218: "Şampiyonlar Ligi", 237: "Avrupa Ligi", 236: "Konferans Ligi
 GENEL_TURNUVA = "Avrupa Kupası"
 
 
+# public.leagues: 1 Champions League, 2 Europa League, 39 Conference League. Bu "lige" kayıtlı takımın iç ligi yoktur (Shakhtar, Sporting...):
+# iki takım da aynı kupa kimliğinde görünse bile maç farklı ülke liglerindendir, model uygun değil.
+AVRUPA_KUPA_LIG_IDLERI = {1, 2, 39}
+
+
+def farkli_lig_mi(ev_lig_id: Optional[int], dep_lig_id: Optional[int]) -> bool:
+    if ev_lig_id in AVRUPA_KUPA_LIG_IDLERI or dep_lig_id in AVRUPA_KUPA_LIG_IDLERI:
+        return True
+    return ev_lig_id != dep_lig_id
+
+
 def turnuva_adi(turnuva_id: Optional[int]) -> Optional[str]:
     return TURNUVALAR.get(turnuva_id) if turnuva_id is not None else None
 

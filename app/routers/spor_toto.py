@@ -170,7 +170,7 @@ def _generate_for_match(match_id: int, home: dict, away: dict, lig_haftasi: Opti
     home_league = stf.get_team_league(home["team_id"]) if home.get("team_id") else {}
     away_league = stf.get_team_league(away["team_id"]) if away.get("team_id") else {}
     # Istatistiksel model (opsiyonel): olasilik + karar + gerekce. Basarisizsa None -> eski akis.
-    farkli_lig = home_league.get("league_id") != away_league.get("league_id")
+    farkli_lig = stf.farkli_lig_mi(home_league.get("league_id"), away_league.get("league_id"))
     if farkli_lig:
         # Avrupa kupası: model yalnızca iç ligleri görür, iki ligin gücü aynı ölçekte değil -> piyasa oranı (yoksa model yok)
         model = stf.fetch_piyasa_tahmini(home, away)
@@ -290,7 +290,8 @@ async def generate_match(match_id: int, bastan: bool = False):
 @router.get("/spor-toto/weeks")
 async def list_weeks():
     df = query_to_df("SELECT * FROM greydb.spor_toto_weeks ORDER BY hafta_no DESC")
-    return {"weeks": df.to_dict(orient="records")}
+    # Boş (NaN/NaT) hücre JSON'a çevrilemez ve tüm listeyi 500'e düşürür (ekran "Henüz hiç hafta getirilmedi" gösterirdi): None yap
+    return {"weeks": df.astype(object).where(df.notna(), None).to_dict(orient="records")}
 
 
 @router.get("/spor-toto/weeks/{hafta_no}")
