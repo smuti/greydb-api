@@ -27,6 +27,8 @@ from app.services.skorjin_match_analysis import (
     _translate_names_in_place,
 )
 
+from app.services.skorjin_anahtar import skorjin_basliklari
+
 SPORTOTO_BASE = "https://webapi.sportoto.gov.tr"
 SKORJIN_BASE = "https://skorjin-production.up.railway.app"
 HTTP_TIMEOUT = 20.0
@@ -492,6 +494,7 @@ def generate_scenarios(match_data: Dict[str, Any]) -> List[Dict[str, Any]]:
             resp = client.post(
                 f"{SKORJIN_BASE}/api/v1/spor-toto-scenarios",
                 json={"match_data": match_data},
+                headers=skorjin_basliklari(),
                 timeout=90.0,
             )
         except httpx.HTTPError as e:

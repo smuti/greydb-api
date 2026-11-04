@@ -13,6 +13,8 @@ from typing import Any, Dict, Optional
 
 import httpx
 
+from app.services.skorjin_anahtar import skorjin_basliklari
+
 MATCHFORGE_BASE = "https://web-production-0ce73.up.railway.app"
 SKORJIN_BASE = "https://skorjin-production.up.railway.app"
 
@@ -238,6 +240,7 @@ def generate_analysis(match_data: Dict[str, Any]) -> str:
             resp = client.post(
                 f"{SKORJIN_BASE}/api/v1/match-analysis",
                 json={"match_data": match_data},
+                headers=skorjin_basliklari(),
                 timeout=90.0,  # LLM çağrısı — ilk istek yavaş olabilir
             )
         except httpx.HTTPError as e:
