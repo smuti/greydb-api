@@ -172,7 +172,7 @@ def eksik_oyuncular(detay: Optional[Dict[str, Any]], ev_ad: str, dep_ad: str) ->
 
 # ---------------------------------------------------------------- orkestrasyon (kaynaklar enjekte edilir)
 KAPSAMLAR = ("gunluk", "oran")
-MODEL_LIGLERI = {4, 5, 6, 7, 8, 9, 12, 20, 21}     # matchforge ms_model kapsamı (SCOPE + EXTRA ligler)
+MODEL_LIGLERI = {4, 5, 6, 7, 8, 9, 12, 20, 21, 10, 11}     # matchforge ms_model kapsamı (SCOPE + EXTRA ligler + kupalar 10/11; kupa gol dağılımı kupa ortalamasına çekilir)
 
 
 @dataclass(frozen=True)
