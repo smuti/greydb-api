@@ -101,6 +101,15 @@ def test_model_yalniz_kapsamdaki_maclar_icin_toplu_cagrilir():
     assert s.model_cagrilari == [[1001, 1003]]
 
 
+def test_kupa_maclari_model_kapsamindadir_matris_yazilir():
+    """Avrupa Ligi (11) ve Şampiyonlar Ligi (10): matchforge kupaları havuza aldı; matris yazılır, model çağrılır."""
+    s = Sahte(maclar=[mac(1001, lig=11), mac(1002, lig=10)], model={1001: {"p1": .5, "p0": .3, "p2": .2, "score_matrix": MATRIS},
+                                                                    1002: {"p1": .5, "p0": .3, "p2": .2, "score_matrix": MATRIS}})
+    r = calistir(s)
+    assert s.model_cagrilari == [[1001, 1002]] and r["model_yok"] == 0
+    assert all(satir["scoreline"] is not None for _, satir in s.yazilan)
+
+
 def test_yeni_takim_isaretli_modelde_matris_yazilmaz():
     s = Sahte(model={1001: {"p1": .5, "p0": .3, "p2": .2, "score_matrix": MATRIS, "new_team_home": True, "new_team_away": False}})
     r = calistir(s)
