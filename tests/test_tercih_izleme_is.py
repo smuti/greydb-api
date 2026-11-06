@@ -99,11 +99,17 @@ def test_kaydet_pencere_disindaki_ve_baslamis_maclari_almaz():
     assert k.cagri["liste"] == [] and rapor["aday"] == 0
 
 
-def test_kaydet_otuzluk_gruplar():
+def test_kaydet_kucuk_gruplar():
+    # matchforge tek işçili: tek çağrıda çok maç onu dakikalarca meşgul edip Skorjin'in model isteklerini zaman aşımına düşürüyordu; küçük parçalar arasında diğer istekler işlenir
     cok = [mac(100 + i, f"E{i}", f"D{i}", SIMDI + timedelta(hours=3)) for i in range(65)]
     k = Kay(maclar=cok, liste=[])
     kaydet(SIMDI, k.kaynaklar(), dry_run=False)
-    assert [len(g) for g in k.cagri["liste"]] == [30, 30, 5]
+    assert [len(g) for g in k.cagri["liste"]] == [6] * 10 + [5]
+
+
+def test_grup_boyutu_kucuk():
+    from app.services.tercih_izleme import GRUP
+    assert GRUP == 6
 
 
 def test_kaydet_liste_hatasi_digerlerini_durdurmaz():
