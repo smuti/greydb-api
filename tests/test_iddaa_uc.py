@@ -21,6 +21,7 @@ def kur(monkeypatch, anahtar="gizli", olaylar=None, satirlar=None):
     monkeypatch.setattr(r, "yakin_maclar", lambda bas, son: satirlar if satirlar is not None else [
         {"fotmob_match_id": 11, "home": "Tottenham Hotspur", "away": "Coventry City", "match_date": KICK}])
     monkeypatch.setattr(r, "iddaa_yaz", lambda eslesen: yazilan.append(dict(eslesen)))
+    monkeypatch.setattr(r, "saat_yaz", lambda kayma, eslesen: yazilan.append(("saat", dict(kayma), dict(eslesen))))
     return yazilan
 
 
@@ -121,3 +122,18 @@ def test_iki_taraf_eslesen_mac_tek_taraf_listesinde_degildir(monkeypatch):
     kur(monkeypatch)
     j = client.post("/api/iddaa/eslestir", headers=ANAHTAR).json()
     assert j["tek_taraf_eslesen"] == []
+
+
+def test_saat_kaymasi_olan_mac_baglanir_saati_duzeltilir_ve_raporda_gorunur(monkeypatch):
+    # kayıtlı saat yer tutucu (gerçekten 18 saat sonra): iki takım adı eşleşir, saat iddaa'dan alınır
+    yazilan = kur(monkeypatch, satirlar=[mac(11, "Tottenham Hotspur", "Coventry City", KICK + timedelta(hours=18))])
+    j = client.post("/api/iddaa/eslestir?dry_run=false", headers=ANAHTAR).json()
+    assert yazilan == [{11: 3222006}, ("saat", {11: D}, {11: 3222006})]
+    assert j["saat_kaymasi_eslesen"] == [{"fotmob_match_id": 11, "mac": "Tottenham Hotspur - Coventry City", "iddaa_event_id": 3222006,
+                                         "eski_saat": (KICK + timedelta(hours=18)).isoformat() + "Z", "yeni_saat": KICK.isoformat() + "Z"}]
+
+
+def test_kuru_calismada_saat_yazilmaz(monkeypatch):
+    yazilan = kur(monkeypatch, satirlar=[mac(11, "Tottenham Hotspur", "Coventry City", KICK + timedelta(hours=18))])
+    j = client.post("/api/iddaa/eslestir", headers=ANAHTAR).json()
+    assert yazilan == [] and len(j["saat_kaymasi_eslesen"]) == 1
