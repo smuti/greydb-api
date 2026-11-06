@@ -9,6 +9,7 @@ from difflib import SequenceMatcher
 from typing import Any, Dict, List
 
 TOLERANS_SN = 1800
+KAYMA_SN = 3 * 86400      # kayıtlı saat yer tutucu/eskiyse: iki takım adı güçlü eşleşen tek aday bu pencerede aranır (iddaa listesi ~3 gün)
 BENZERLIK_ESIGI = 0.76
 
 _HARF = str.maketrans({"ø": "o", "Ø": "O", "æ": "ae", "Æ": "AE", "ð": "d", "đ": "d", "ł": "l", "Ł": "L", "ı": "i", "ß": "ss"})
@@ -16,6 +17,9 @@ _DOLGU = {"fc", "cf", "afc", "fk", "ac", "as", "ss", "us", "the", "calcio", "sk"
 # iddaa'nın Türkçe/farklı yazımları → bizim yazım
 _ESLEME = {"munih": "munchen", "muenchen": "munchen", "lizbon": "cp", "prag": "prague", "milano": "milan", "internazionale": "inter",
             "saint": "st", "kopenhag": "kobenhavn", "marsilya": "marseille", "bilbao": "club"}
+# Çok sözcüklü yazım farkları (sözcük sınırıyla, normalleştirilmiş metinde): iddaa "Santander" / "Deportivo La Coruna" yazar, bizde "Racing Santander" / "Deportivo A Coruña".
+# "a coruna" -> "la coruna" ayrıca baştaki tek harfli "A"nın kısaltma sanılıp "Deportivo Alaves" ile karışmasını önler.
+_TAKMA_AD = (("racing santander", "santander"), ("a coruna", "la coruna"))
 # Kadın ve genç takım işaretleri: erkek A takımıyla karışmamalı
 _ISARET = {"u15", "u16", "u17", "u18", "u19", "u20", "u21", "u23", "k", "w", "women", "ii", "b", "reserves", "youth"}
 
@@ -23,6 +27,9 @@ _ISARET = {"u15", "u16", "u17", "u18", "u19", "u20", "u21", "u23", "k", "w", "wo
 def normalize_takim(ad: str) -> str:
     s = unicodedata.normalize("NFKD", (ad or "").translate(_HARF)).encode("ascii", "ignore").decode().lower()
     s = re.sub(r"[^a-z0-9 ]", " ", s.replace("-", " "))
+    s = " ".join(s.split())
+    for kaynak, hedef in _TAKMA_AD:
+        s = re.sub(rf"\b{kaynak}\b", hedef, s)
     jetonlar = [_ESLEME.get(t, t) for t in s.split() if t not in _DOLGU and not t.isdigit()]
     return " ".join(jetonlar)
 
@@ -90,7 +97,9 @@ def eslestir(iddaa_olaylari: List[Dict[str, Any]], maclar: List[Dict[str, Any]],
             eslesen[m["fotmob_match_id"]] = liste[0]
     tek_taraf = _tek_taraf_eslestir(iddaa_olaylari, eslesmeyen, eslesen, adaylar, tolerans_sn)
     eslesmeyen = [m for m in eslesmeyen if m["fotmob_match_id"] not in eslesen]
-    return {"eslesen": eslesen, "belirsiz": belirsiz, "eslesmeyen": eslesmeyen, "tek_taraf": tek_taraf}
+    saat_kaymasi = _saat_kaymasi_eslestir(iddaa_olaylari, eslesmeyen, eslesen, tolerans_sn)
+    eslesmeyen = [m for m in eslesmeyen if m["fotmob_match_id"] not in eslesen]
+    return {"eslesen": eslesen, "belirsiz": belirsiz, "eslesmeyen": eslesmeyen, "tek_taraf": tek_taraf, "saat_kaymasi": saat_kaymasi}
 
 
 def _tek_taraf_eslestir(iddaa_olaylari, eslesmeyen, eslesen, adaylar, tolerans_sn) -> List[Any]:
@@ -116,4 +125,30 @@ def _tek_taraf_eslestir(iddaa_olaylari, eslesmeyen, eslesen, adaylar, tolerans_s
         if len(liste) == 1 and len(sahip[liste[0]]) == 1:
             eslesen[m["fotmob_match_id"]] = liste[0]
             yeni.append(m["fotmob_match_id"])
+    return yeni
+
+
+def _saat_kaymasi_eslestir(iddaa_olaylari, eslesmeyen, eslesen, tolerans_sn) -> Dict[Any, Any]:
+    """Üçüncü geçiş: kayıtlı saat yer tutucu ya da eski olduğunda (ör. fikstür programı kesinleşmeden yüklenen LaLiga: tüm maçlar aynı saatte, gerçekten bir gün önce).
+    Ev VE deplasman adı birlikte güçlü eşleşir, saat farkı `tolerans_sn`'den büyük ama `KAYMA_SN` içindedir ve aday TEK ise bağlanır; iddaa saati doğru kabul edilir.
+    Güvenceler: başka bir maça güçlü kuralla atanmış olay çalınmaz; maçın tek adayı, olayın tek sahibi olmalı; genç/kadın işareti farklıysa eşleşmez (takim_benzer).
+    Eşleşen {fotmob_match_id: iddaa_saati (saniye, UTC)} döner; `eslesen`e de eklenir."""
+    alinmis = set(eslesen.values())
+    aday: Dict[Any, List[Dict[str, Any]]] = {}
+    for m in eslesmeyen:
+        aday[m["fotmob_match_id"]] = [
+            e for e in iddaa_olaylari
+            if e["i"] not in alinmis and tolerans_sn < abs(e["d"] - m["kickoff_ts"]) <= KAYMA_SN
+            and takim_benzer(m["home"], e["hn"]) and takim_benzer(m["away"], e["an"])
+        ]
+    sahip: Dict[Any, List[Any]] = {}
+    for fid, liste in aday.items():
+        for e in liste:
+            sahip.setdefault(e["i"], []).append(fid)
+    yeni: Dict[Any, Any] = {}
+    for m in eslesmeyen:
+        liste = aday[m["fotmob_match_id"]]
+        if len(liste) == 1 and len(sahip[liste[0]["i"]]) == 1:
+            eslesen[m["fotmob_match_id"]] = liste[0]["i"]
+            yeni[m["fotmob_match_id"]] = liste[0]["d"]
     return yeni

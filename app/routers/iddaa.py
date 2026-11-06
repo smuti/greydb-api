@@ -91,6 +91,22 @@ def iddaa_yaz(eslesen):
                 execute_insert(f"UPDATE {tablo} SET iddaa_event_id = :i WHERE fotmob_match_id = :fid", {"i": i, "fid": fid})
 
 
+def saat_yaz(kayma, eslesen) -> None:
+    """Saat kayması olan maçlarda kayıtlı saati iddaa'nın saatiyle düzeltir (matches, upcoming_matches; match_date saat dilimsiz UTC). Ön maç satırı varsa
+    (greydb.match_prematch) kimlik ve saat orada da güncellenir: günlük işin yenilemesini beklemeden piyasa görünür. Ön maç tablosu henüz yoksa o adım atlanır."""
+    with transaction():
+        for fid, d in kayma.items():
+            t = datetime.fromtimestamp(d, timezone.utc).replace(tzinfo=None)
+            for tablo in ("public.matches", "public.upcoming_matches"):
+                execute_insert(f"UPDATE {tablo} SET match_date = :t WHERE fotmob_match_id = :fid", {"t": t, "fid": fid})
+    for fid, d in kayma.items():
+        try:
+            execute_insert("UPDATE greydb.match_prematch SET iddaa_event_id = :i, kickoff = :t WHERE fotmob_match_id = :fid",
+                           {"i": eslesen[fid], "t": datetime.fromtimestamp(d, timezone.utc), "fid": fid})
+        except Exception:  # noqa: BLE001 — ön maç tablosu yoksa ya da erişilemezse günlük iş zaten yazar
+            pass
+
+
 @router.post("/iddaa/eslestir")
 def iddaa_eslestir(dry_run: bool = True, x_cron_anahtari: str = Header(default="")):
     anahtar = _anahtar()
@@ -129,6 +145,8 @@ def eslestir_calistir(dry_run: bool = True) -> Dict[str, Any]:
     sonuc = eslestir(olaylar, maclar)
     if not dry_run and sonuc["eslesen"]:
         iddaa_yaz(sonuc["eslesen"])
+        if sonuc["saat_kaymasi"]:
+            saat_yaz(sonuc["saat_kaymasi"], sonuc["eslesen"])
     ad = lambda m: f"{m['home']} - {m['away']}"   # noqa: E731
     saat = lambda m: m["match_date"].isoformat() + "Z"   # noqa: E731
     ufuk = max((e["d"] for e in olaylar if e.get("_liste", 0) == 0), default=None)   # canlı listede çok ileri tek tük olay olabilir
@@ -144,6 +162,9 @@ def eslestir_calistir(dry_run: bool = True) -> Dict[str, Any]:
         "eslesenler": [{"fotmob_match_id": fid, "mac": ad(por_id[fid]), "iddaa_event_id": i} for fid, i in sonuc["eslesen"].items()],
         # İkinci geçiş: yalnızca bir takım adı benzeyen ama aynı saatte tek aday olan maçlar (incelemek için ayrıca listelenir)
         "tek_taraf_eslesen": [{"fotmob_match_id": fid, "mac": ad(por_id[fid]), "iddaa_event_id": sonuc["eslesen"][fid]} for fid in sonuc["tek_taraf"]],
+        # Üçüncü geçiş: kayıtlı saat yer tutucu/eski (iki takım adı eşleşir, tek aday); saat iddaa'dan düzeltilir
+        "saat_kaymasi_eslesen": [{"fotmob_match_id": fid, "mac": ad(por_id[fid]), "iddaa_event_id": sonuc["eslesen"][fid], "eski_saat": saat(por_id[fid]),
+                                  "yeni_saat": datetime.fromtimestamp(d, timezone.utc).replace(tzinfo=None).isoformat() + "Z"} for fid, d in sonuc["saat_kaymasi"].items()],
         "belirsiz": [{"fotmob_match_id": m["fotmob_match_id"], "mac": ad(m), "saat": saat(m)} for m in sonuc["belirsiz"]],
         "eslesmeyen": eslesmeyen,
     }

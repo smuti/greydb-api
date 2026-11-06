@@ -47,9 +47,9 @@ def test_ad_benzerligi_ve_saat_ile_eslesir():
     assert r["eslesen"] == {5: 111} and r["belirsiz"] == [] and r["eslesmeyen"] == []
 
 
-def test_saat_toleransi_disindaysa_eslesmez():
-    r = eslestir([ev(111, "Napoli", "Roma", d=T0)], [mac(5, "Napoli", "Roma", d=T0 + 3 * 3600)])
-    assert r["eslesen"] == {} and [m["fotmob_match_id"] for m in r["eslesmeyen"]] == [5]
+def test_saat_toleransi_ve_kayma_penceresi_disindaysa_eslesmez():
+    r = eslestir([ev(111, "Napoli", "Roma", d=T0)], [mac(5, "Napoli", "Roma", d=T0 + 4 * 86400)])           # 3 günlük kayma penceresinin de dışında
+    assert r["eslesen"] == {} and r["saat_kaymasi"] == {} and [m["fotmob_match_id"] for m in r["eslesmeyen"]] == [5]
 
 
 def test_ayni_takimlar_iki_kez_oynuyorsa_saate_gore_dogru_olay_secilir():
@@ -74,7 +74,7 @@ def test_ev_deplasman_ters_ise_eslesmez():
 
 
 def test_bos_girdiler_cokmez():
-    assert eslestir([], []) == {"eslesen": {}, "belirsiz": [], "eslesmeyen": [], "tek_taraf": []}
+    assert eslestir([], []) == {"eslesen": {}, "belirsiz": [], "eslesmeyen": [], "tek_taraf": [], "saat_kaymasi": {}}
     assert eslestir([ev(1, "A", "B")], [])["eslesen"] == {}
     assert len(eslestir([], [mac(5, "A", "B")])["eslesmeyen"]) == 1
 
@@ -167,3 +167,61 @@ def test_tek_taraf_eslesen_olay_baska_macin_guclu_adayi_degilse_atanir_ve_diger_
     r = eslestir([ev(11, "Boluspor", "Vanspor FK"), ev(12, "Genk", "Standard Liege")],
                  [mac(21, "Boluspor", "Van Spor Kulübü"), mac(22, "Genk", "Standard Liège")])
     assert r["eslesen"] == {21: 11, 22: 12} and r["tek_taraf"] == [21]
+
+
+# ---- Saat kayması: kayıtlı saat yer tutucu/eski ise iki takım adı güçlü eşleşir, tek aday varsa bağlanır ve saat iddaa'dan düzeltilir ----
+def test_saat_kaymasi_iki_takim_adi_eslesir_ve_saat_iddaadan_duzeltilir():
+    # LaLiga: kayıtta tüm maçlar yer tutucu saatte (gerçek maçtan 18 saat sonra), iddaa gerçek saati veriyor
+    r = eslestir([ev(10, "Valencia", "Real Madrid", d=T0)], [mac(5, "Valencia", "Real Madrid", d=T0 + 18 * 3600)])
+    assert r["eslesen"] == {5: 10} and r["saat_kaymasi"] == {5: T0} and r["eslesmeyen"] == []
+
+
+def test_saat_kaymasi_ters_yonde_de_calisir():
+    r = eslestir([ev(10, "Valencia", "Real Madrid", d=T0 + 20 * 3600)], [mac(5, "Valencia", "Real Madrid", d=T0)])
+    assert r["eslesen"] == {5: 10} and r["saat_kaymasi"] == {5: T0 + 20 * 3600}
+
+
+def test_saat_tamsa_kayma_listesi_bos():
+    r = eslestir([ev(10, "Valencia", "Real Madrid")], [mac(5, "Valencia", "Real Madrid")])
+    assert r["eslesen"] == {5: 10} and r["saat_kaymasi"] == {}
+
+
+def test_saat_kaymasi_yalniz_iki_takim_adi_de_eslesirse():
+    r = eslestir([ev(10, "Valencia", "Real Madrid", d=T0)], [mac(5, "Valencia", "Girona", d=T0 + 18 * 3600)])
+    assert r["eslesen"] == {} and r["saat_kaymasi"] == {}
+
+
+def test_saat_kaymasi_iki_aday_varsa_yanlis_baglamaz():
+    r = eslestir([ev(10, "Napoli", "Roma", d=T0), ev(11, "Napoli", "Roma", d=T0 + 2 * 86400)], [mac(5, "Napoli", "Roma", d=T0 + 86400)])
+    assert r["eslesen"] == {} and r["saat_kaymasi"] == {} and [m["fotmob_match_id"] for m in r["eslesmeyen"]] == [5]
+
+
+def test_saat_kaymasi_iki_kayit_ayni_olaya_aday_olursa_ikisi_de_baglanmaz():
+    r = eslestir([ev(10, "Napoli", "Roma", d=T0)], [mac(5, "Napoli", "Roma", d=T0 + 86400), mac(6, "Napoli", "Roma", d=T0 + 2 * 86400)])
+    assert r["eslesen"] == {} and r["saat_kaymasi"] == {}
+
+
+def test_saat_kaymasi_guclu_kuralla_alinmis_olayi_calmaz():
+    r = eslestir([ev(10, "Napoli", "Roma", d=T0)], [mac(5, "Napoli", "Roma", d=T0), mac(6, "Napoli", "Roma", d=T0 + 86400)])
+    assert r["eslesen"] == {5: 10} and r["saat_kaymasi"] == {}
+
+
+def test_saat_kaymasi_genc_ya_da_kadin_isareti_farkliysa_baglanmaz():
+    r = eslestir([ev(10, "Valencia (K)", "Real Madrid (K)", d=T0)], [mac(5, "Valencia", "Real Madrid", d=T0 + 18 * 3600)])
+    assert r["eslesen"] == {} and r["saat_kaymasi"] == {}
+
+
+def test_ispanya_yazim_farklari_eslesir():
+    # iddaa "Deportivo La Coruna" / "Santander" / "Malaga CF" yazar; bizde "Deportivo A Coruña" / "Racing Santander" / "Málaga"
+    assert takim_benzer("Deportivo A Coruña", "Deportivo La Coruna")
+    assert takim_benzer("Racing Santander", "Santander")
+    assert takim_benzer("Málaga", "Malaga CF")
+    r = eslestir([ev(1, "Espanyol", "Deportivo La Coruna"), ev(2, "Malaga CF", "Santander")],
+                 [mac(5, "Espanyol", "Deportivo A Coruña"), mac(6, "Málaga", "Racing Santander")])
+    assert r["eslesen"] == {5: 1, 6: 2}
+
+
+def test_takma_adlar_baska_takimlari_karistirmaz():
+    assert not takim_benzer("Racing Santander", "Racing Genk")
+    assert not takim_benzer("Deportivo A Coruña", "Deportivo Alaves")
+    assert not takim_benzer("Santander", "Santos")
