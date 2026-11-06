@@ -16,7 +16,7 @@ log = logging.getLogger("tercih-izleme")
 
 # (pencere adı, kickoff'a kalan saat): bir maç, kalan süre bu değerin altına indiğinde o pencerenin kaydını bir kez alır
 PENCERELER = (("acilis", 24.0), ("orta", 6.0), ("kapanis", 1.0))
-GRUP = 30                         # matchforge /api/liste tek çağrıda en çok bu kadar maç alır
+GRUP = 6                          # matchforge /api/liste tek çağrıda en çok bu kadar maç alır: matchforge tek işçili, büyük çağrı Skorjin'in model (sence) isteklerini dakikalarca bekletir
 SONUC_BEKLEME_SAAT = 2            # kickoff'tan bu kadar sonra sonuçlandırma denenir (bitmemişse bir sonraki koşuda)
 
 TABLO_DDL = """
