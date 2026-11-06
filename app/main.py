@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import gol_karne, form, h2h, predictions, coupons, match_comments, feedback, skorjin, leagues, tracked_leagues, analysis_matches, standings, match_detail, match_context, match_data, spor_toto, spor_toto_yayin, odds_snapshots, player_stats, iddaa, kuponlar, kupon_sonuclari, veri_ozeti, yayin, sayac, over15_algorithm, skorjin_prematch, tercih_izleme, stat_yenile
+from app.routers import gol_karne, form, h2h, predictions, coupons, match_comments, feedback, skorjin, leagues, tracked_leagues, analysis_matches, standings, match_detail, match_context, match_data, spor_toto, spor_toto_yayin, odds_snapshots, player_stats, iddaa, kuponlar, kupon_sonuclari, veri_ozeti, yayin, sayac, over15_algorithm, skorjin_prematch, tercih_izleme, stat_yenile, skorjin_kuponlari
 
 settings = get_settings()
 
@@ -66,6 +66,7 @@ app.include_router(odds_snapshots.router, prefix="/api")
 app.include_router(iddaa.router, prefix="/api")
 app.include_router(kupon_sonuclari.router, prefix="/api")   # /kuponlar/{id}'den önce
 app.include_router(kuponlar.router, prefix="/api")
+app.include_router(skorjin_kuponlari.router, prefix="/api")
 app.include_router(yayin.router, prefix="/api")
 app.include_router(sayac.router, prefix="/api")
 app.include_router(player_stats.router, prefix="/api")
