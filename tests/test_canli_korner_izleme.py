@@ -73,6 +73,12 @@ def test_biten_maca_gerceklesen_yazilir():
     assert k.yazilan[0][1] == {"ilkYari": 5, "macSonu": 11, "ev": 7, "dep": 4}
 
 
+def test_30_dakikadan_yeni_kayit_beklemede_eskisi_sonuclanir():
+    k = K([{"id": 1, "fotmob_match_id": 10, "kaydedildi": SIMDI - timedelta(minutes=40)}, {"id": 2, "fotmob_match_id": 11, "kaydedildi": SIMDI - timedelta(minutes=20)}], {10: BITTI, 11: BITTI})
+    c.sonuclandir_bekleyenler(SIMDI, k.kaynaklar(), dry_run=False)
+    assert k.sorgulanan == [10] and [y[0] for y in k.yazilan] == [1]
+
+
 def test_bitmemis_mac_beklemede_kalir_kuru_calisma_yazmaz():
     k = K([satir(1, 10)], {10: {**BITTI, "finished": False}})
     r = c.sonuclandir_bekleyenler(SIMDI, k.kaynaklar(), dry_run=False)

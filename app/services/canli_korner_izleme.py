@@ -15,7 +15,7 @@ HEDEFLER = ("ilkYari", "macSonu", "ev", "dep")
 FAZLAR = ("ilk", "devre", "ikinci")
 KOVA_DK = 5
 EN_FAZLA_BASAMAK = 12
-SONUC_BEKLEME_SAAT = 2          # kayıttan bu kadar sonra sonuçlandırma denenir
+SONUC_BEKLEME_DK = 30           # kayıttan bu kadar sonra sonuçlandırma denenir (maç bitmemişse bir sonraki koşuda yeniden)
 VAZGEC_GUN = 4                  # bu kadar eski kayıt için maç verisi hâlâ yoksa işlenmiş sayılır (sonsuza kadar denenmez)
 
 TABLO_DDL = """
@@ -116,7 +116,7 @@ def sonuclandir_bekleyenler(simdi: datetime, k: Kaynaklar, dry_run: bool = True)
     """Bitmiş maçların kayıtlarına gerçekleşen sayıları yazar. İptal ve çok eski verisiz kayıtlar gerçekleşen=NULL ile işlenmiş sayılır."""
     rapor: Dict[str, Any] = dict(dry_run=dry_run, islenen=0, bitmemis=0, iptal=0, verisiz=0, hata=[])
     gruplar: Dict[int, List[Dict[str, Any]]] = {}
-    for r in k.bekleyen(simdi - timedelta(hours=SONUC_BEKLEME_SAAT)):
+    for r in k.bekleyen(simdi - timedelta(minutes=SONUC_BEKLEME_DK)):
         gruplar.setdefault(int(r["fotmob_match_id"]), []).append(r)
     for fid, satirlar in gruplar.items():
         eski = all(simdi - r["kaydedildi"].replace(tzinfo=None) > timedelta(days=VAZGEC_GUN) for r in satirlar)
