@@ -33,6 +33,14 @@ def _tercih(is_adi: str) -> Callable[[], None]:
     return is_
 
 
+def _canli_korner_sonuc() -> None:
+    from app.services import canli_korner_izleme as c
+    try:
+        log.info("canlı korner sonuç: %s", c.calistir(dry_run=False))
+    except Exception:  # noqa: BLE001 — bir koşunun hatası zamanlayıcı iş parçacığını ya da diğer işleri durdurmasın
+        log.exception("canlı korner sonuç koşusu hata verdi")
+
+
 def _oyuncu_json_mat() -> None:
     from app.services import stat_yenile as s
     try:
@@ -50,6 +58,7 @@ def isler() -> List[Tuple[str, dict, Callable[[], None]]]:
         ("tercih-kaydet", dict(hour="5-22", minute="10,40"), _tercih("kaydet")),
         ("tercih-sonuc", dict(hour="*/2", minute="50"), _tercih("sonuc")),
         ("oyuncu-json-mat", dict(hour="2", minute="30"), _oyuncu_json_mat),
+        ("canli-korner-sonuc", dict(hour="*/2", minute="55"), _canli_korner_sonuc),
     ]
 
 
