@@ -74,6 +74,7 @@ class Girdi(BaseModel):
     seviye: Literal["acik", "bayi", "elit"]
     durum: Literal["taslak", "yayinda", "arsiv"] = "taslak"
     yorum: Optional[str] = None
+    one_cikan: bool = False
     bacaklar: List[Bacak]
 
     @field_validator("baslik")
@@ -112,13 +113,16 @@ CREATE TABLE IF NOT EXISTS greydb.skorjin_kuponlari (
     yorum TEXT,
     bacaklar JSONB NOT NULL,
     olusturan_email TEXT NOT NULL,
+    one_cikan BOOLEAN NOT NULL DEFAULT FALSE,
     yayin_zamani TIMESTAMP,
     olusturma TIMESTAMP NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
     guncelleme TIMESTAMP NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
 )
 """
+# Tablo bu alandan önce oluşmuş olabilir: eksikse eklenir (yeniden çalıştırılabilir)
+_ONE_CIKAN = "ALTER TABLE greydb.skorjin_kuponlari ADD COLUMN IF NOT EXISTS one_cikan BOOLEAN NOT NULL DEFAULT FALSE"
 _INDEKS = "CREATE INDEX IF NOT EXISTS idx_skorjin_kuponlari_durum ON greydb.skorjin_kuponlari (durum, yayin_zamani DESC)"
-_KOLONLAR = "id, baslik, seviye, durum, yorum, bacaklar, olusturan_email, yayin_zamani, olusturma, guncelleme"
+_KOLONLAR = "id, baslik, seviye, durum, yorum, bacaklar, olusturan_email, one_cikan, yayin_zamani, olusturma, guncelleme"
 
 
 def _hazirla() -> None:
@@ -126,6 +130,7 @@ def _hazirla() -> None:
     if _HAZIR:
         return
     execute_insert(_DDL, {})
+    execute_insert(_ONE_CIKAN, {})
     execute_insert(_INDEKS, {})
     _HAZIR = True
 
@@ -138,15 +143,15 @@ def _satir(s: Dict[str, Any]) -> Dict[str, Any]:
     bacaklar = s["bacaklar"]
     return {"id": str(s["id"]), "baslik": s["baslik"], "seviye": s["seviye"], "durum": s["durum"], "yorum": s["yorum"],
             "bacaklar": json.loads(bacaklar) if isinstance(bacaklar, str) else bacaklar, "olusturan_email": s["olusturan_email"],
-            "yayin_at": _z(s["yayin_zamani"]), "olusturma": _z(s["olusturma"]), "guncelleme": _z(s["guncelleme"])}
+            "one_cikan": bool(s.get("one_cikan")), "yayin_at": _z(s["yayin_zamani"]), "olusturma": _z(s["olusturma"]), "guncelleme": _z(s["guncelleme"])}
 
 
 def db_ekle(k: Dict[str, Any], email: str, yayin: bool) -> Dict[str, Any]:
     _hazirla()
     s = execute_insert(
-        f"INSERT INTO greydb.skorjin_kuponlari (baslik, seviye, durum, yorum, bacaklar, olusturan_email, yayin_zamani) "
-        f"VALUES (:baslik, :seviye, :durum, :yorum, CAST(:bacaklar AS JSONB), :email, CASE WHEN :yayin THEN (now() AT TIME ZONE 'utc') END) RETURNING {_KOLONLAR}",
-        {**{x: k[x] for x in ("baslik", "seviye", "durum", "yorum")}, "bacaklar": json.dumps(k["bacaklar"], ensure_ascii=False), "email": email, "yayin": yayin})
+        f"INSERT INTO greydb.skorjin_kuponlari (baslik, seviye, durum, yorum, one_cikan, bacaklar, olusturan_email, yayin_zamani) "
+        f"VALUES (:baslik, :seviye, :durum, :yorum, :one_cikan, CAST(:bacaklar AS JSONB), :email, CASE WHEN :yayin THEN (now() AT TIME ZONE 'utc') END) RETURNING {_KOLONLAR}",
+        {**{x: k[x] for x in ("baslik", "seviye", "durum", "yorum", "one_cikan")}, "bacaklar": json.dumps(k["bacaklar"], ensure_ascii=False), "email": email, "yayin": yayin})
     return _satir(s)
 
 
@@ -166,10 +171,10 @@ def db_liste(yalniz_yayinda: bool) -> List[Dict[str, Any]]:
 def db_guncelle(kid: int, k: Dict[str, Any], yayin: bool) -> Optional[Dict[str, Any]]:
     _hazirla()
     s = execute_insert(
-        f"UPDATE greydb.skorjin_kuponlari SET baslik = :baslik, seviye = :seviye, durum = :durum, yorum = :yorum, bacaklar = CAST(:bacaklar AS JSONB), "
+        f"UPDATE greydb.skorjin_kuponlari SET baslik = :baslik, seviye = :seviye, durum = :durum, yorum = :yorum, one_cikan = :one_cikan, bacaklar = CAST(:bacaklar AS JSONB), "
         f"guncelleme = (now() AT TIME ZONE 'utc'), yayin_zamani = CASE WHEN :yayin THEN (now() AT TIME ZONE 'utc') ELSE yayin_zamani END "
         f"WHERE id = :id RETURNING {_KOLONLAR}",
-        {**{x: k[x] for x in ("baslik", "seviye", "durum", "yorum")}, "bacaklar": json.dumps(k["bacaklar"], ensure_ascii=False), "yayin": yayin, "id": kid})
+        {**{x: k[x] for x in ("baslik", "seviye", "durum", "yorum", "one_cikan")}, "bacaklar": json.dumps(k["bacaklar"], ensure_ascii=False), "yayin": yayin, "id": kid})
     return _satir(s) if s else None
 
 

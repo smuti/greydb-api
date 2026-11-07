@@ -142,3 +142,24 @@ def test_sil(db):
     assert client.delete("/api/skorjin-kuponlari/1", headers=ADMIN).status_code == 200
     assert db.satirlar == {}
     assert client.delete("/api/skorjin-kuponlari/1", headers=ADMIN).status_code == 404
+
+
+# ---- Öne çıkarma
+def test_one_cikan_varsayilan_kapali_acilip_kapanir_ve_yayindaki_listede_gelir(db):
+    k = client.post("/api/skorjin-kuponlari", json={**GIRDI, "durum": "yayinda"}, headers=ADMIN).json()
+    assert k["one_cikan"] is False
+    j = client.put("/api/skorjin-kuponlari/1", json={**GIRDI, "durum": "yayinda", "one_cikan": True}, headers=ADMIN).json()
+    assert j["one_cikan"] is True
+    assert client.get("/api/skorjin-kuponlari/yayinda", headers=GW).json()["kuponlar"][0]["one_cikan"] is True
+    assert client.put("/api/skorjin-kuponlari/1", json={**GIRDI, "durum": "yayinda"}, headers=ADMIN).json()["one_cikan"] is False   # tam değiştirme: gönderilmezse kapanır
+
+
+def test_one_cikan_yalniz_mantiksal_deger(db):
+    assert client.post("/api/skorjin-kuponlari", json={**GIRDI, "one_cikan": "belki"}, headers=ADMIN).status_code == 422
+
+
+def test_satir_one_cikan_alanini_tasir():
+    from datetime import datetime
+    s = {"id": 3, "baslik": "x", "seviye": "acik", "durum": "yayinda", "yorum": None, "bacaklar": "[]", "olusturan_email": "a@b.c", "one_cikan": True,
+         "yayin_zamani": None, "olusturma": datetime(2026, 11, 7), "guncelleme": datetime(2026, 11, 7)}
+    assert r._satir(s)["one_cikan"] is True
