@@ -6,6 +6,7 @@ import json
 from typing import Optional, Dict, Any
 from datetime import datetime
 from app.services.db import execute_query, execute_insert
+from app.services import oyuncu_stat
 
 
 def parse_match_round(round_value) -> int:
@@ -880,137 +881,24 @@ def save_match_advanced_stats(match_id: int, match_data: dict):
 
 
 def save_match_player_stats(match_id: int, match_data: dict, home_team_id: int, away_team_id: int):
-    """Oyuncu istatistiklerini kaydet"""
+    """Oyuncu istatistiklerini kaydet: FotMob'un bütün oyuncu alanları (app/services/oyuncu_stat.py, anahtarla ayıklanır)."""
     check_query = f"SELECT COUNT(*) as cnt FROM public.match_player_stats WHERE match_id = {match_id}"
     existing = execute_query(check_query)
     if existing and existing[0]['cnt'] > 0:
         return
-    
+
     content = match_data.get('content', {})
     player_stats_data = content.get('playerStats', {})
-    lineup = content.get('lineup', {})
-    
     if not player_stats_data:
         return
-    
-    home_team = lineup.get('homeTeam', {})
-    away_team = lineup.get('awayTeam', {})
-    home_team_fotmob_id = home_team.get('id')
-    away_team_fotmob_id = away_team.get('id')
-    
-    def get_stat(stats_dict, key):
-        if not stats_dict:
-            return None
-        stat_obj = stats_dict.get(key, {})
-        if not stat_obj:
-            return None
-        stat_data = stat_obj.get('stat', {})
-        if not stat_data:
-            return None
-        return stat_data.get('value')
-    
-    def get_stat_total(stats_dict, key):
-        if not stats_dict:
-            return None
-        stat_obj = stats_dict.get(key, {})
-        if not stat_obj:
-            return None
-        stat_data = stat_obj.get('stat', {})
-        if not stat_data:
-            return None
-        return stat_data.get('total')
-    
-    for player_id, player_data in player_stats_data.items():
-        player_name = player_data.get('name', '')
-        player_team_id = player_data.get('teamId')
-        is_goalkeeper = player_data.get('isGoalkeeper', False)
-        
-        if player_team_id == home_team_fotmob_id:
-            team_id = home_team_id
-        elif player_team_id == away_team_fotmob_id:
-            team_id = away_team_id
-        else:
+
+    esle = oyuncu_stat.takim_eslemesi(content, home_team_id, away_team_id)
+    oyuncu_stat.sutunlari_hazirla()
+    for player_data in player_stats_data.values():
+        team_id = esle.get(player_data.get('teamId'))
+        if team_id is None:
             continue
-        
-        all_stats = {}
-        for stat_group in player_data.get('stats', []):
-            group_stats = stat_group.get('stats', {})
-            all_stats.update(group_stats)
-        
-        rating = get_stat(all_stats, 'FotMob rating') or get_stat(all_stats, 'rating_title')
-        minutes_played = get_stat(all_stats, 'Minutes played') or get_stat(all_stats, 'minutes_played')
-        
-        goals = get_stat(all_stats, 'Goals') or get_stat(all_stats, 'goals') or 0
-        assists = get_stat(all_stats, 'Assists') or get_stat(all_stats, 'assists') or 0
-        xg = get_stat(all_stats, 'Expected goals (xG)') or get_stat(all_stats, 'expected_goals')
-        xa = get_stat(all_stats, 'Expected assists (xA)') or get_stat(all_stats, 'expected_assists')
-        total_shots = get_stat(all_stats, 'Total shots') or get_stat(all_stats, 'total_shots') or 0
-        shots_on_target = get_stat(all_stats, 'Shots on target') or get_stat(all_stats, 'ShotsOnTarget') or 0
-        touches = get_stat(all_stats, 'Touches') or get_stat(all_stats, 'touches') or 0
-        total_passes = get_stat_total(all_stats, 'Accurate passes') or get_stat_total(all_stats, 'accurate_passes') or 0
-        accurate_passes = get_stat(all_stats, 'Accurate passes') or get_stat(all_stats, 'accurate_passes') or 0
-        key_passes = get_stat(all_stats, 'Key passes') or get_stat(all_stats, 'key_passes') or 0
-        
-        tackles = get_stat(all_stats, 'Tackles') or get_stat(all_stats, 'tackles') or 0
-        interceptions = get_stat(all_stats, 'Interceptions') or get_stat(all_stats, 'interceptions') or 0
-        clearances = get_stat(all_stats, 'Clearances') or get_stat(all_stats, 'clearances') or 0
-        duels_won = get_stat(all_stats, 'Duels won') or get_stat(all_stats, 'duels_won') or 0
-        duels_lost = get_stat(all_stats, 'Duels lost') or get_stat(all_stats, 'duels_lost') or 0
-        fouls_committed = get_stat(all_stats, 'Fouls') or get_stat(all_stats, 'fouls') or 0
-        fouls_won = get_stat(all_stats, 'Was fouled') or get_stat(all_stats, 'was_fouled') or 0
-        
-        # GK stats
-        saves = None
-        goals_conceded = None
-        if is_goalkeeper:
-            saves = get_stat(all_stats, 'Saves') or get_stat(all_stats, 'saves') or 0
-            goals_conceded = get_stat(all_stats, 'Goals conceded') or get_stat(all_stats, 'goals_conceded')
-        
-        query = """
-            INSERT INTO public.match_player_stats (
-                match_id, team_id, player_name, rating, minutes_played, position,
-                goals, assists, xg, xa, total_shots, shots_on_target,
-                touches, total_passes, accurate_passes, key_passes,
-                tackles, interceptions, clearances,
-                duels_won, duels_lost, fouls_committed, fouls_won,
-                saves, goals_conceded
-            )
-            VALUES (
-                :match_id, :team_id, :player_name, :rating, :minutes_played, :position,
-                :goals, :assists, :xg, :xa, :total_shots, :shots_on_target,
-                :touches, :total_passes, :accurate_passes, :key_passes,
-                :tackles, :interceptions, :clearances,
-                :duels_won, :duels_lost, :fouls_committed, :fouls_won,
-                :saves, :goals_conceded
-            )
-        """
-        execute_insert(query, {
-            "match_id": match_id,
-            "team_id": team_id,
-            "player_name": player_name,
-            "rating": rating,
-            "minutes_played": minutes_played,
-            "position": None,
-            "goals": goals,
-            "assists": assists,
-            "xg": xg,
-            "xa": xa,
-            "total_shots": total_shots,
-            "shots_on_target": shots_on_target,
-            "touches": touches,
-            "total_passes": total_passes,
-            "accurate_passes": accurate_passes,
-            "key_passes": key_passes,
-            "tackles": tackles,
-            "interceptions": interceptions,
-            "clearances": clearances,
-            "duels_won": duels_won,
-            "duels_lost": duels_lost,
-            "fouls_committed": fouls_committed,
-            "fouls_won": fouls_won,
-            "saves": saves,
-            "goals_conceded": goals_conceded
-        })
+        execute_insert(oyuncu_stat.EKLE_SQL, {"match_id": match_id, "team_id": team_id, "player_name": player_data.get('name', ''), **oyuncu_stat.ayikla(player_data)})
 
 
 def save_full_match_data(match_data: dict) -> int:
