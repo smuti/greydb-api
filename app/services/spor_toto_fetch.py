@@ -18,7 +18,7 @@ import httpx
 import pandas as pd
 
 from app.services.db import query_to_df, execute_insert
-from app.services.spor_toto_piyasa import GENEL_TURNUVA, ULUSLAR_LIGI, ULUSLAR_LIGI_IDLERI, farkli_lig_mi, milli_mac_mi, turnuva_adi  # noqa: F401 (router tarafından stf üzerinden kullanılır)
+from app.services.spor_toto_piyasa import GENEL_TURNUVA, ULUSLAR_LIGI, ULUSLAR_LIGI_IDLERI, farkli_lig_mi, ikinci_gorus, milli_mac_mi, turnuva_adi  # noqa: F401 (router tarafından stf üzerinden kullanılır)
 from app.services.skorjin_match_analysis import (
     MATCHFORGE_BASE,
     _get as _mf_get,
@@ -253,13 +253,16 @@ def _gol_notu(skor: Any) -> str:
     return f" ({g[0]} gol attı, {g[1]} gol yedi)" if g else ""
 
 
-def summarize_form(maclar: Optional[List[Dict[str, Any]]], takim: Optional[str] = None) -> Optional[Dict[str, Any]]:
+def summarize_form(maclar: Optional[List[Dict[str, Any]]], takim: Optional[str] = None, milli: bool = False) -> Optional[Dict[str, Any]]:
     """son_5_mac_formu.maclar (EN YENİ BAŞTA; skor = takımın kendi golü önce; saha H=ev, A=deplasman) -> hazır cümleler + sayılar.
     Takım/rakip adları çekimsiz yazılır ("Alanyaspor 1-2 yenilgi"); LLM kendi ev/deplasman sayımı yapmak yerine bunları alıntılar.
     `takim` verilirse her cümle o takımın adıyla başlar ("Athletic Club: Son 5 lig maçı: ...") ve skorlar "(3 gol attı, 2 gol yedi)" diye açık yazılır:
     LLM bir takımın maçını rakibine ya da öbür takıma atfetmesin, skorun yönünü karıştırmasın."""
     if not maclar:
         return None
+    # milli=True (milli takım maçı): maçlar lig maçı değil ("Son 5 maç") ve rakip adları Türkçe ("Belgium" -> "Belçika")
+    rk = (lambda m: translate_team_name(m.get("rakip"))) if milli else (lambda m: m.get("rakip"))
+    tur = "maç" if milli else "lig maçı"
     onek = f"{takim}: " if takim else ""
     maclar = list(maclar)
     home = [m for m in maclar if m.get("saha") == "H"]
@@ -267,23 +270,23 @@ def summarize_form(maclar: Optional[List[Dict[str, Any]]], takim: Optional[str] 
     out: Dict[str, Any] = {"son_5": _count_text(maclar), "evde": _count_text(home), "deplasman": _count_text(away)}
     cumleler = []
     if out["son_5"]:
-        cumleler.append(f"{onek}Son {len(maclar)} lig maçı: {out['son_5']}.")
+        cumleler.append(f"{onek}Son {len(maclar)} {tur}: {out['son_5']}.")
     if home and out["evde"]:
         cumleler.append(f"{onek}Evinde oynadığı son {len(home)} maç: {out['evde']}." if len(home) > 1 else f"{onek}Evinde oynadığı son maç: {out['evde']}.")
     if away and out["deplasman"]:
         cumleler.append(f"{onek}Deplasmanda oynadığı son {len(away)} maç: {out['deplasman']}." if len(away) > 1 else f"{onek}Deplasmanda oynadığı son maç: {out['deplasman']}.")
     last = maclar[0]
-    out["son_mac"] = {"rakip": last.get("rakip"), "saha": "ev" if last.get("saha") == "H" else "deplasman", "skor": last.get("skor"), "sonuc": _SONUC.get(last.get("sonuc"))}
+    out["son_mac"] = {"rakip": rk(last), "saha": "ev" if last.get("saha") == "H" else "deplasman", "skor": last.get("skor"), "sonuc": _SONUC.get(last.get("sonuc"))}
     if _gol_ayir(last.get("skor")):
         out["son_mac"]["atilan"], out["son_mac"]["yenilen"] = _gol_ayir(last.get("skor"))
     if out["son_mac"]["sonuc"]:
-        cumleler.append(f"{onek}Son maçı: {last.get('rakip')} ({out['son_mac']['saha']}) {last.get('skor')} {out['son_mac']['sonuc']}{_gol_notu(last.get('skor'))}.")
+        cumleler.append(f"{onek}Son maçı: {rk(last)} ({out['son_mac']['saha']}) {last.get('skor')} {out['son_mac']['sonuc']}{_gol_notu(last.get('skor'))}.")
     for key, group, label in (("evde_son_mac", home, "Evinde oynadığı en son maç"), ("deplasman_son_mac", away, "Deplasmanda oynadığı en son maç")):
         if group:
             m = group[0]
-            out[key] = {"rakip": m.get("rakip"), "skor": m.get("skor"), "sonuc": _SONUC.get(m.get("sonuc"))}
+            out[key] = {"rakip": rk(m), "skor": m.get("skor"), "sonuc": _SONUC.get(m.get("sonuc"))}
             if len(group) > 1 and m is not last and out[key]["sonuc"]:
-                cumleler.append(f"{onek}{label}: {m.get('rakip')} {m.get('skor')} {out[key]['sonuc']}{_gol_notu(m.get('skor'))}.")
+                cumleler.append(f"{onek}{label}: {rk(m)} {m.get('skor')} {out[key]['sonuc']}{_gol_notu(m.get('skor'))}.")
     streak = 1
     while streak < len(maclar) and maclar[streak].get("sonuc") == maclar[0].get("sonuc"):
         streak += 1
@@ -439,7 +442,7 @@ def build_match_data(home: Dict[str, Any], away: Dict[str, Any], sportoto_round_
                 g = _gol_ayir(mac.get("skor"))
                 if g:
                     mac["atilan"], mac["yenilen"] = g
-            ozet = summarize_form(maclar, translate_team_name(team.get("name")))
+            ozet = summarize_form(maclar, translate_team_name(team.get("name")), milli=league_id in ULUSLAR_LIGI_IDLERI)
             if ozet:
                 team_data["form_ozeti"] = ozet
             data[side] = team_data

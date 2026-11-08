@@ -106,3 +106,29 @@ def test_son_mac_atilan_yenilen_sayilari():
 def test_okunamayan_skorda_gol_notu_eklenmez():
     o = summarize_form([{"rakip": "X", "skor": None, "sonuc": "W", "saha": "H"}], "Milan")
     assert "atilan" not in o["son_mac"] and all("gol attı" not in s for s in o["cumleler"])
+
+
+# ---------------- milli takımlar: "lig maçı" denmez, rakip adları Türkçe ----------------
+MILLI = [{"rakip": "Belgium", "saha": "H", "skor": "4-1", "sonuc": "W"}, {"rakip": "Italy", "saha": "H", "skor": "1-1", "sonuc": "D"},
+         {"rakip": "Turkiye", "saha": "A", "skor": "1-0", "sonuc": "W"}]
+
+
+def test_milli_form_cumleleri_lig_demez_ve_rakip_adlari_turkce():
+    o = summarize_form(MILLI, "Fransa", milli=True)
+    metin = " ".join(o["cumleler"])
+    assert "Son 3 maç:" in metin and "lig maçı" not in metin
+    assert "Belçika (ev) 4-1" in metin and "Belgium" not in metin
+    assert o["son_mac"]["rakip"] == "Belçika" and o["evde_son_mac"]["rakip"] == "Belçika"
+
+
+def test_kulup_formu_eskisi_gibi_lig_maci():
+    o = summarize_form(MILLI, "Fransa")
+    assert "Son 3 lig maçı:" in " ".join(o["cumleler"])
+    assert o["son_mac"]["rakip"] == "Belgium"                 # kulüp yolunda adlara dokunulmaz (kulüp adı çevirisi yok)
+
+
+def test_ham_mac_listesinde_rakip_adi_turkcelesir_kulup_adina_dokunulmaz():
+    from app.services.skorjin_match_analysis import _translate_names_in_place
+    veri = {"son_5_mac_formu": {"maclar": [{"rakip": "Belgium", "skor": "4-1"}, {"rakip": "Fenerbahçe", "skor": "1-0"}]}}
+    _translate_names_in_place(veri)
+    assert [m["rakip"] for m in veri["son_5_mac_formu"]["maclar"]] == ["Belçika", "Fenerbahçe"]

@@ -150,10 +150,10 @@ def test_uluslar_ligi_turnuva_adi():
     assert pz.turnuva_adi(258) == "Uluslar Ligi"
 
 
-def test_uluslar_ligi_modeli_cagirmaz_piyasayi_kullanir_ligi_uluslar_ligi_yazar(akis, monkeypatch):
+def test_uluslar_ligi_piyasayi_kullanir_ligi_uluslar_ligi_yazar(akis, monkeypatch):
     monkeypatch.setattr(router.stf, "get_team_league", lambda t: {"league_id": 24, "league_name": "UEFA Nations League A"})
     router._generate_for_match(5, HOME, AWAY, "6. Hafta", "2026-11-15T22:45:00")
-    assert akis["model_cagri"] == 0
+    assert akis["md"]["model_tahmini"]["kaynak"] == "piyasa"      # milli model oran varken yalnız ikinci görüş; karar piyasanın
     assert akis["md"]["lig"] == "Uluslar Ligi"
     lig_yazilar = [p for s, p in akis["sql"] if "SET lig" in s]
     assert len(lig_yazilar) == 1 and lig_yazilar[0]["lig"] == "Uluslar Ligi"
@@ -163,11 +163,62 @@ MILLI_MODEL = {"p1": 0.60, "p0": 0.25, "p2": 0.15, "decision": {"tier": "tek", "
                "facts": {"model_version": "milli-1.0", "onerilen": "1", "ihtimaller": {"p1": 0.6, "p0": 0.25, "p2": 0.15}, "senaryolar": []}}
 
 
-def test_uluslar_ligi_oran_varsa_piyasa_oncelikli_milli_model_cagrilmaz(akis, monkeypatch):
+def test_uluslar_ligi_oran_varsa_karar_piyasadan_milli_model_ikinci_gorus(akis, monkeypatch):
     monkeypatch.setattr(router.stf, "get_team_league", lambda t: {"league_id": 24, "league_name": "UEFA Nations League A"})
     monkeypatch.setattr(router.stf, "fetch_model_prediction", lambda *a, **k: akis.__setitem__("model_cagri", akis["model_cagri"] + 1) or MILLI_MODEL)
     router._generate_for_match(5, HOME, AWAY, "6. Hafta", "2026-11-15T22:45:00")
-    assert akis["model_cagri"] == 0 and akis["md"]["model_tahmini"]["kaynak"] == "piyasa"
+    assert akis["model_cagri"] == 1
+    mt = akis["md"]["model_tahmini"]
+    assert mt["kaynak"] == "piyasa" and mt["model_version"] == "piyasa-iddaa"                      # karar ve ana gerçekler piyasadan
+    ig = mt["ikinci_gorus"]
+    assert ig["ihtimaller"] == {"p1": 0.6, "p0": 0.25, "p2": 0.15} and ig["onerilen"] == "1"
+    kayit = [p for s, p in akis["sql"] if "model_p1" in s and "NULL" not in s][0]
+    assert kayit["version"] == "piyasa-iddaa"                                                       # kayıtlı model/karar piyasanın
+
+
+def test_ikinci_gorus_milli_model_hata_verirse_yok(akis, monkeypatch):
+    monkeypatch.setattr(router.stf, "get_team_league", lambda t: {"league_id": 24, "league_name": "UEFA Nations League A"})
+    monkeypatch.setattr(router.stf, "fetch_model_prediction", lambda *a, **k: None)
+    router._generate_for_match(5, HOME, AWAY, "6. Hafta", "2026-11-15T22:45:00")
+    assert "ikinci_gorus" not in akis["md"]["model_tahmini"] and akis["md"]["model_tahmini"]["kaynak"] == "piyasa"
+
+
+def test_ikinci_gorus_eski_matchforge_kulup_modeli_kabul_edilmez(akis, monkeypatch):
+    monkeypatch.setattr(router.stf, "get_team_league", lambda t: {"league_id": 24, "league_name": "UEFA Nations League A"})
+    eski = {**MILLI_MODEL, "facts": {"model_version": "harman-v1-2026-11-m5", "onerilen": "1-0", "ihtimaller": {"p1": 0.4328, "p0": 0.2745, "p2": 0.2927}}}
+    monkeypatch.setattr(router.stf, "fetch_model_prediction", lambda *a, **k: eski)
+    router._generate_for_match(5, HOME, AWAY, "6. Hafta", "2026-11-15T22:45:00")
+    assert "ikinci_gorus" not in akis["md"]["model_tahmini"]
+
+
+def test_avrupa_kupasinda_ikinci_gorus_yok_model_cagrilmaz(akis):
+    router._generate_for_match(5, HOME, AWAY, "4. Hafta", "2026-11-04T20:45:00")
+    assert akis["model_cagri"] == 0 and "ikinci_gorus" not in akis["md"]["model_tahmini"]
+
+
+# ---- ikinci görüşün saf hesabı ----
+def _p(p1, p0, p2, onerilen="1"):
+    return {"p1": p1, "p0": p0, "p2": p2, "decision": {}, "facts": {"ihtimaller": {"p1": p1, "p0": p0, "p2": p2}, "onerilen": onerilen, "guc_farki": "net", "uyarilar": ["Ev için yeterli geçmiş veri yok (az maç)", "Kadro, sakatlık hesaba katılmadı"]}}
+
+
+def test_ikinci_gorus_ayni_yon_ayrisma_yok():
+    ig = pz.ikinci_gorus(_p(0.62, 0.22, 0.16), _p(0.66, 0.20, 0.14))
+    assert ig["ayni_yon"] is True and ig["ayrisma"] is False and ig["ayrisma_puani"] == 4
+
+
+def test_ikinci_gorus_ayrisma_esigi_ve_yon_aciklamasi():
+    ig = pz.ikinci_gorus(_p(0.60, 0.22, 0.18), _p(0.82, 0.14, 0.04))
+    assert ig["ayrisma"] is True and ig["ayrisma_puani"] == 22
+    assert "ev sahibinin kazanma" in ig["ayrisma_aciklama"] and "daha yüksek" in ig["ayrisma_aciklama"]
+    ig2 = pz.ikinci_gorus(_p(0.30, 0.28, 0.42, "0-2"), _p(0.28, 0.40, 0.32, "1-0-2"))
+    assert ig2["ayrisma"] is True and "beraberliği" in ig2["ayrisma_aciklama"]
+    assert ig2["ayni_yon"] is False
+
+
+def test_ikinci_gorus_yalniz_gecmis_uyarisi_tasinir_diger_uyarilar_degil():
+    ig = pz.ikinci_gorus(_p(0.5, 0.25, 0.25), _p(0.5, 0.25, 0.25))
+    assert ig["uyarilar"] == ["Ev için yeterli geçmiş veri yok (az maç)"]
+    assert ig["kaynak"].startswith("bizim istatistiksel hesabımız")
 
 
 def test_uluslar_ligi_oran_yoksa_milli_model_kullanilir(akis, monkeypatch):

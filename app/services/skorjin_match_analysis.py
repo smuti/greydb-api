@@ -84,7 +84,7 @@ def translate_team_name(name: Optional[str]) -> Optional[str]:
     return NATIONAL_TEAM_NAMES_TR.get(name.strip(), name)
 
 
-_TEAM_NAME_KEYS = {"team_name", "home_team_name", "away_team_name", "opponent"}
+_TEAM_NAME_KEYS = {"team_name", "home_team_name", "away_team_name", "opponent", "rakip"}
 
 
 def _translate_names_in_place(obj: Any) -> None:
