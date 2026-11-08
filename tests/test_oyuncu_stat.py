@@ -159,7 +159,7 @@ class K:
         return _i()
 
     def kaynaklar(self):
-        return o.Kaynaklar(maclar=lambda sonra, n, kadar=None: [m for m in self.maclar_ if m["id"] > sonra and (kadar is None or m["id"] <= kadar)][:n], mevcut=lambda mid: self.mevcut_.get(mid, []),
+        return o.Kaynaklar(maclar=lambda sonra, n, kadar=None, eksik=False: [m for m in self.maclar_ if m["id"] > sonra and (kadar is None or m["id"] <= kadar)][:n], mevcut=lambda mid: self.mevcut_.get(mid, []),
                            guncelle=lambda id_, v: self.guncel.append((id_, v)), ekle=lambda mid, tid, v: self.eklenen.append((mid, tid, v)), islem=self.islem)
 
 
@@ -210,7 +210,7 @@ def test_onarim_takim_eslemesi_ev_dep():
 def test_uc_cron_anahtari_ister_varsayilan_kuru(monkeypatch):
     monkeypatch.setenv("CRON_ANAHTARI", "cron")
     cagri = []
-    monkeypatch.setattr(o, "calistir", lambda sonra, n, dry_run, kadar=None: cagri.append((sonra, n, dry_run, kadar)) or {"bitti": True})
+    monkeypatch.setattr(o, "calistir", lambda sonra, n, dry_run, kadar=None, yalniz_eksik=False: cagri.append((sonra, n, dry_run, kadar)) or {"bitti": True})
     yol = "/api/skorjin/oyuncu-stat/geri-doldur"
     assert client.post(yol).status_code == 401
     assert client.post(yol, headers={"X-Cron-Anahtari": "cron"}).status_code == 200
@@ -275,3 +275,89 @@ def test_onarim_maci_hata_verirse_sayaclar_yarim_eklenmez():
     k = Patlayan([mac(10, oyuncu())], {10: [{"id": 1, "team_id": 1, "player_name": "Isco"}]})
     r = o.geri_doldur(0, 10, False, k.kaynaklar())
     assert r["guncellenen"] == 0 and len(r["hata"]) == 1
+
+
+# ---------------- teamId'siz oyuncular (kadrodan takım bulma) ----------------
+def kadrolu(*oyuncular, ev_oyuncular=(), dep_oyuncular=()):
+    """Oyuncuların teamId'si yok; takım kadro listesinden (ilk 11 + yedekler) bulunur."""
+    return {"content": {"playerStats": {str(p["id"]): {k: v for k, v in p.items() if k != "teamId"} for p in oyuncular},
+                        "lineup": {"homeTeam": {"id": 9, "starters": [{"id": i} for i in ev_oyuncular], "subs": []},
+                                   "awayTeam": {"id": 8, "starters": [], "subs": [{"id": i} for i in dep_oyuncular]}}}}
+
+
+def test_teamid_yoksa_takim_kadrodan_bulunur():
+    icerik = kadrolu(oyuncu(pid=1), oyuncu(ad="Dep", pid=2), oyuncu(ad="Kimsesiz", pid=3), ev_oyuncular=(1,), dep_oyuncular=(2,))["content"]
+    esle = o.takim_eslemesi(icerik, 11, 22)
+    assert o.oyuncu_takimi({"id": 1, "name": "A"}, icerik, esle) == 11          # ilk 11
+    assert o.oyuncu_takimi({"id": 2, "name": "B"}, icerik, esle) == 22          # yedek
+    assert o.oyuncu_takimi({"id": 3, "name": "C"}, icerik, esle) is None        # kadroda yok: atlanır
+    assert o.oyuncu_takimi({"id": 4, "name": "D", "teamId": 9}, icerik, esle) == 11   # teamId varsa o kullanılır
+
+
+def test_onarim_teamidsiz_maci_kadrodan_esler_ve_sayar():
+    m = {"id": 10, "home_team_id": 11, "away_team_id": 22, "raw": kadrolu(oyuncu(pid=1), oyuncu(ad="Dep", pid=2), oyuncu(ad="Kimsesiz", pid=3), ev_oyuncular=(1,), dep_oyuncular=(2,))}
+    k = K([m], {})
+    r = o.geri_doldur(0, 10, False, k.kaynaklar())
+    assert r["eklenen"] == 2 and r["takimsiz"] == 1
+    assert {(e[2]["player_name"], e[1]) for e in k.eklenen} == {("Isco", 11), ("Dep", 22)}
+
+
+def test_mac_kaydi_teamidsiz_oyuncuyu_da_yazar(monkeypatch):
+    from app.services import match_saver as ms
+    yazilan = []
+    monkeypatch.setattr(ms, "execute_query", lambda sql, params=None: [{"cnt": 0}])
+    monkeypatch.setattr(ms, "execute_insert", lambda sql, params=None: yazilan.append(params))
+    monkeypatch.setattr(o, "sutunlari_hazirla", lambda: None)
+    ms.save_match_player_stats(77, kadrolu(oyuncu(pid=1), oyuncu(ad="Dep", pid=2), ev_oyuncular=(1,), dep_oyuncular=(2,)), 1, 2)
+    assert sorted((p["player_name"], p["team_id"]) for p in yazilan if p) == [("Dep", 2), ("Isco", 1)]
+
+
+def test_yalniz_eksik_mod_ayniyla_aktarilir(monkeypatch):
+    k = K([mac(10, oyuncu()), mac(11, oyuncu())], {})
+    gorulen = []
+    def maclar(sonra, n, kadar=None, eksik=False):
+        gorulen.append(eksik)
+        return k.maclar_[:n]
+    kay = o.Kaynaklar(maclar=maclar, mevcut=k.kaynaklar().mevcut, guncelle=k.kaynaklar().guncelle, ekle=k.kaynaklar().ekle, islem=k.islem)
+    o.geri_doldur(0, 10, True, kay, yalniz_eksik=True)
+    o.geri_doldur(0, 10, True, kay)
+    assert gorulen == [True, False]
+
+
+def test_uc_yalniz_eksik_parametresi(monkeypatch):
+    monkeypatch.setenv("CRON_ANAHTARI", "cron")
+    cagri = []
+    monkeypatch.setattr(o, "calistir", lambda sonra, n, dry_run, kadar=None, yalniz_eksik=False: cagri.append((dry_run, yalniz_eksik)) or {"bitti": True})
+    client.post("/api/skorjin/oyuncu-stat/geri-doldur?yalniz_eksik=true", headers={"X-Cron-Anahtari": "cron"})
+    client.post("/api/skorjin/oyuncu-stat/geri-doldur", headers={"X-Cron-Anahtari": "cron"})
+    assert cagri == [(True, True), (True, False)]
+
+
+def test_betik_yalniz_eksik_ve_yeniden_deneme():
+    import importlib.util, pathlib, urllib.error
+    yol = pathlib.Path(__file__).resolve().parents[1] / "scripts" / "oyuncu_stat_onar.py"
+    spec = importlib.util.spec_from_file_location("oyuncu_stat_onar2", yol)
+    b = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(b)
+    url_ler = []
+    b.onar(False, 0, 50, "k", "https://x", post=lambda url, a: url_ler.append(url) or dict(sonraki=0, bitti=True), yaz_cikti=lambda *_: None, yalniz_eksik=True)
+    assert "yalniz_eksik=true" in url_ler[0]
+    # bağlantı kopunca yeniden dener, 3. denemede başarır; bekleme süreleri artar
+    cagri, beklemeler = [], []
+    class Y:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def read(self): return b'{"bitti": true}'
+    def acik(r, timeout=0):
+        cagri.append(1)
+        if len(cagri) < 3:
+            raise urllib.error.URLError(ConnectionResetError("koptu"))
+        return Y()
+    import urllib.request
+    orijinal = urllib.request.urlopen
+    urllib.request.urlopen = acik
+    try:
+        assert b.istek("https://x", "k", bekle=beklemeler.append) == {"bitti": True}
+    finally:
+        urllib.request.urlopen = orijinal
+    assert len(cagri) == 3 and beklemeler == [10, 20]
