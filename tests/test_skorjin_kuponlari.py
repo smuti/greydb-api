@@ -51,6 +51,8 @@ def db(monkeypatch):
     monkeypatch.setattr("app.routers.kuponlar._anahtar", lambda: "gizli")
     for ad, f in {"db_ekle": s.ekle, "db_getir": s.getir, "db_liste": s.liste, "db_guncelle": s.guncelle, "db_sil": s.sil}.items():
         monkeypatch.setattr(r, ad, f)
+    monkeypatch.setattr(r, "takim_kimlikleri", lambda q, b: (None, None))      # gerçek veritabanına gitmesin
+    r._TAKIM_ONBELLEK.clear()
     return s
 
 
@@ -163,3 +165,19 @@ def test_satir_one_cikan_alanini_tasir():
     s = {"id": 3, "baslik": "x", "seviye": "acik", "durum": "yayinda", "yorum": None, "bacaklar": "[]", "olusturan_email": "a@b.c", "one_cikan": True,
          "yayin_zamani": None, "olusturma": datetime(2026, 11, 7), "guncelleme": datetime(2026, 11, 7)}
     assert r._satir(s)["one_cikan"] is True
+
+
+def test_takim_ekle_bulunan_bacaga_kimlik_koyar_bulunamayana_koymaz(monkeypatch):
+    r._TAKIM_ONBELLEK.clear()
+    monkeypatch.setattr(r, "takim_kimlikleri", lambda q, b: (10228, 10235) if b["ev"] == "SC Heerenveen" else (None, None))
+    k = [{"bacaklar": [{**BACAK, "ev": "SC Heerenveen", "dep": "Feyenoord"}, {**BACAK, "ev": "Yok", "dep": "Yok2"}]}]
+    b = r.takim_ekle(k)[0]["bacaklar"]
+    assert (b[0]["evTakimId"], b[0]["depTakimId"]) == (10228, 10235)
+    assert "evTakimId" not in b[1]
+
+
+def test_takim_ekle_hata_kuponu_bozmaz(monkeypatch):
+    r._TAKIM_ONBELLEK.clear()
+    def boz(q, b): raise RuntimeError("db")
+    monkeypatch.setattr(r, "takim_kimlikleri", boz)
+    assert "evTakimId" not in r.takim_ekle([{"bacaklar": [dict(BACAK)]}])[0]["bacaklar"][0]
