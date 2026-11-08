@@ -30,6 +30,26 @@ def milli_mac_mi(ev_lig_id: Optional[int], dep_lig_id: Optional[int]) -> bool:
     return ev_lig_id in ULUSLAR_LIGI_IDLERI or dep_lig_id in ULUSLAR_LIGI_IDLERI
 
 
+AYRISMA_ESIGI = 10      # puan: piyasa ile bizim hesabımız bir sonuçta bu kadar ya da daha fazla ayrışırsa "ayrışıyor" denir
+_YON = {"p1": "ev sahibinin kazanmasını", "p0": "beraberliği", "p2": "deplasmanın kazanmasını"}
+
+
+def ikinci_gorus(piyasa: Dict[str, Any], model: Dict[str, Any]) -> Dict[str, Any]:
+    """Milli maçta karar piyasadan gelir; bizim istatistiksel hesabımız (milli-1.0) yazıda ikinci görüş olarak yer alır. İkisi arasındaki ayrışma açıkça işaretlenir.
+    Kasıtlı olarak harmanlanmaz: harman ağırlığını doğrulayacak oran geçmişimiz yok. Çıktıdaki sayılar yüzde doğrulamasında desteklenmiş sayılır (match_data içinde)."""
+    pi, mi = piyasa["facts"]["ihtimaller"], model["facts"]["ihtimaller"]
+    fark = {k: (mi[k] - pi[k]) * 100 for k in ("p1", "p0", "p2")}
+    k = max(fark, key=lambda x: abs(fark[x]))
+    puan = round(abs(fark[k]))
+    f = model["facts"]
+    return dict(
+        kaynak="bizim istatistiksel hesabımız (milli takım, yalnız maç sonucu)",
+        ihtimaller={x: round(mi[x], 3) for x in ("p1", "p0", "p2")}, onerilen=f.get("onerilen"), guc_farki=f.get("guc_farki"),
+        ayni_yon=max(pi, key=pi.get) == max(mi, key=mi.get), ayrisma=abs(fark[k]) >= AYRISMA_ESIGI, ayrisma_puani=puan,
+        ayrisma_aciklama=f"Hesabımız {_YON[k]} piyasadan {puan} puan {'daha yüksek' if fark[k] > 0 else 'daha düşük'} görüyor.",
+        uyarilar=[u for u in f.get("uyarilar", []) if "yeterli geçmiş veri yok" in u])
+
+
 def farkli_lig_mi(ev_lig_id: Optional[int], dep_lig_id: Optional[int]) -> bool:
     if ev_lig_id in AVRUPA_KUPA_LIG_IDLERI or dep_lig_id in AVRUPA_KUPA_LIG_IDLERI or milli_mac_mi(ev_lig_id, dep_lig_id):
         return True

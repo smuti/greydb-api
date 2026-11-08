@@ -177,11 +177,15 @@ def _generate_for_match(match_id: int, home: dict, away: dict, lig_haftasi: Opti
         milli = stf.milli_mac_mi(home_league.get("league_id"), away_league.get("league_id"))
         turnuva = stf.ULUSLAR_LIGI if milli else stf.GENEL_TURNUVA
         match_data["lig"] = turnuva
-        if milli and not model:
-            # Milli maç, iddaa oranı henüz açık değil (maçtan ~3 gün önce açılır): matchforge milli modeli (milli-1.0, yalnız 1-0-2; geri test doğruluğu ~%61)
-            model = stf.fetch_model_prediction(home, away, mac_tarihi, home_league.get("league_id") or away_league.get("league_id"))
-            if model and not str((model.get("facts") or {}).get("model_version", "")).startswith("milli"):
-                model = None      # eski matchforge (milli yönlendirme yok): kulüp modeli geçmişsiz takımlara hep %43/%27/%29 döndürür; kabul edilmez
+        if milli:
+            # Milli maç: karar piyasadan (varsa); bizim milli modelimiz (milli-1.0, yalnız 1-0-2) oran yokken asıl model, oran varken yazıda ikinci görüş.
+            milli_model = stf.fetch_model_prediction(home, away, mac_tarihi, home_league.get("league_id") or away_league.get("league_id"))
+            if milli_model and not str((milli_model.get("facts") or {}).get("model_version", "")).startswith("milli"):
+                milli_model = None      # eski matchforge (milli yönlendirme yok): kulüp modeli geçmişsiz takımlara hep %43/%27/%29 döndürür; kabul edilmez
+            if not model:
+                model = milli_model
+            elif milli_model:
+                model = {**model, "facts": {**model["facts"], "ikinci_gorus": stf.ikinci_gorus(model, milli_model)}}
     else:
         model = stf.fetch_model_prediction(home, away, mac_tarihi, home_league.get("league_id") or away_league.get("league_id"))
     if model:

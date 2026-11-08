@@ -18,7 +18,7 @@ import httpx
 import pandas as pd
 
 from app.services.db import query_to_df, execute_insert
-from app.services.spor_toto_piyasa import GENEL_TURNUVA, ULUSLAR_LIGI, ULUSLAR_LIGI_IDLERI, farkli_lig_mi, milli_mac_mi, turnuva_adi  # noqa: F401 (router tarafından stf üzerinden kullanılır)
+from app.services.spor_toto_piyasa import GENEL_TURNUVA, ULUSLAR_LIGI, ULUSLAR_LIGI_IDLERI, farkli_lig_mi, ikinci_gorus, milli_mac_mi, turnuva_adi  # noqa: F401 (router tarafından stf üzerinden kullanılır)
 from app.services.skorjin_match_analysis import (
     MATCHFORGE_BASE,
     _get as _mf_get,
