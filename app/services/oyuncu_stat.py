@@ -5,7 +5,8 @@ Ham veri `matches.raw_match_details.content.playerStats`: her oyuncunun `stats` 
 Aynı ayıklayıcı hem yeni biten maç kaydında (`match_saver.save_match_player_stats`) hem geçmiş maçların ham veriden onarımında kullanılır.
 """
 import logging
-from dataclasses import dataclass
+from contextlib import nullcontext
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 log = logging.getLogger("oyuncu-stat")
@@ -123,17 +124,18 @@ def takim_eslemesi(icerik: Dict[str, Any], ev_id: int, dep_id: int) -> Dict[Any,
 # ---------------- geçmiş onarımı ----------------
 @dataclass(frozen=True)
 class Kaynaklar:
-    maclar: Callable[[int, int], List[Dict[str, Any]]]                       # (imleç, adet) -> {id, home_team_id, away_team_id, raw} (id > imleç, id sıralı)
+    maclar: Callable[[int, int, Optional[int]], List[Dict[str, Any]]]        # (imleç, adet, üst sınır) -> {id, home_team_id, away_team_id, raw} (imleç < id <= üst sınır, id sıralı)
     mevcut: Callable[[int], List[Dict[str, Any]]]                            # maç -> tablodaki {id, team_id, player_name}
     guncelle: Callable[[int, Dict[str, Any]], None]
     ekle: Callable[[int, int, Dict[str, Any]], None]
+    islem: Callable[[], Any] = field(default=nullcontext)                    # bir maçın bütün yazmalarını tek işlemde toplar (satır başına ayrı işlem çok yavaş)
 
 
-def geri_doldur(sonra: int, adet: int, dry_run: bool, k: Kaynaklar) -> Dict[str, Any]:
+def geri_doldur(sonra: int, adet: int, dry_run: bool, k: Kaynaklar, kadar: Optional[int] = None) -> Dict[str, Any]:
     """Bir sonraki `adet` bitmiş maçın oyuncu satırlarını ham veriden onarır: varsa günceller, yoksa ekler.
     Aynı takımda aynı adlı birden çok satır varsa o oyuncu atlanır (belirsiz). `sonraki`: bir sonraki çağrının imleci."""
     rapor: Dict[str, Any] = dict(dry_run=dry_run, islenen_mac=0, guncellenen=0, eklenen=0, belirsiz=0, oyuncusuz_mac=0, hata=[], sonraki=sonra, bitti=False)
-    maclar = k.maclar(sonra, adet)
+    maclar = k.maclar(sonra, adet, kadar)
     for m in maclar:
         rapor["islenen_mac"] += 1
         rapor["sonraki"] = m["id"]
@@ -147,23 +149,27 @@ def geri_doldur(sonra: int, adet: int, dry_run: bool, k: Kaynaklar) -> Dict[str,
             mevcut: Dict[Any, List[int]] = {}
             for s in k.mevcut(m["id"]):
                 mevcut.setdefault((s["team_id"], s["player_name"]), []).append(s["id"])
-            for p in oyuncular.values():
-                takim = esle.get(p.get("teamId"))
-                if takim is None or not p.get("name"):
-                    continue
-                satirlar = mevcut.get((takim, p["name"]), [])
-                if len(satirlar) > 1:
-                    rapor["belirsiz"] += 1
-                    continue
-                degerler = ayikla(p)
-                if satirlar:
-                    rapor["guncellenen"] += 1
-                    if not dry_run:
-                        k.guncelle(satirlar[0], degerler)
-                else:
-                    rapor["eklenen"] += 1
-                    if not dry_run:
-                        k.ekle(m["id"], takim, {"player_name": p["name"], **degerler})
+            sayac = dict(guncellenen=0, eklenen=0, belirsiz=0)
+            with (nullcontext() if dry_run else k.islem()):
+                for p in oyuncular.values():
+                    takim = esle.get(p.get("teamId"))
+                    if takim is None or not p.get("name"):
+                        continue
+                    satirlar = mevcut.get((takim, p["name"]), [])
+                    if len(satirlar) > 1:
+                        sayac["belirsiz"] += 1
+                        continue
+                    degerler = ayikla(p)
+                    if satirlar:
+                        sayac["guncellenen"] += 1
+                        if not dry_run:
+                            k.guncelle(satirlar[0], degerler)
+                    else:
+                        sayac["eklenen"] += 1
+                        if not dry_run:
+                            k.ekle(m["id"], takim, {"player_name": p["name"], **degerler})
+            for ad, n in sayac.items():          # sayaçlar maç işlemi başarıyla bitince eklenir (hata olursa yarım sayılmaz)
+                rapor[ad] += n
         except Exception as e:  # noqa: BLE001 — bir maç hata verse de diğerleri onarılır
             log.warning("oyuncu onarımı: maç %s: %s", m.get("id"), e)
             rapor["hata"].append(f"{m.get('id')}: {str(e)[:150]}")
@@ -171,10 +177,11 @@ def geri_doldur(sonra: int, adet: int, dry_run: bool, k: Kaynaklar) -> Dict[str,
     return rapor
 
 
-def _maclar(sonra: int, adet: int) -> List[Dict[str, Any]]:
+def _maclar(sonra: int, adet: int, kadar: Optional[int] = None) -> List[Dict[str, Any]]:
     from app.services.db import execute_query
     return execute_query("SELECT id, home_team_id, away_team_id, raw_match_details AS raw FROM public.matches WHERE finished AND NOT COALESCE(cancelled, false) "
-                         "AND raw_match_details IS NOT NULL AND id > :sonra ORDER BY id LIMIT :adet", {"sonra": sonra, "adet": adet})
+                         "AND raw_match_details IS NOT NULL AND id > :sonra AND (CAST(:kadar AS INTEGER) IS NULL OR id <= :kadar) ORDER BY id LIMIT :adet",
+                         {"sonra": sonra, "adet": adet, "kadar": kadar})
 
 
 def _mevcut(mac_id: int) -> List[Dict[str, Any]]:
@@ -193,11 +200,12 @@ def _ekle(mac_id: int, takim_id: int, degerler: Dict[str, Any]) -> None:
 
 
 def gercek_kaynaklar() -> Kaynaklar:
-    return Kaynaklar(maclar=_maclar, mevcut=_mevcut, guncelle=_guncelle, ekle=_ekle)
+    from app.services.db import transaction
+    return Kaynaklar(maclar=_maclar, mevcut=_mevcut, guncelle=_guncelle, ekle=_ekle, islem=transaction)
 
 
-def calistir(sonra: int = 0, adet: int = 100, dry_run: bool = True) -> Dict[str, Any]:
+def calistir(sonra: int = 0, adet: int = 100, dry_run: bool = True, kadar: Optional[int] = None) -> Dict[str, Any]:
     """Uç buradan çağırır. Kuru çalışmada tablo değişmez (sütun eklenmez, satır yazılmaz); gerçek çalışmada önce yeni sütunlar hazırlanır."""
     if not dry_run:
         sutunlari_hazirla()
-    return geri_doldur(sonra, adet, dry_run, gercek_kaynaklar())
+    return geri_doldur(sonra, adet, dry_run, gercek_kaynaklar(), kadar)
