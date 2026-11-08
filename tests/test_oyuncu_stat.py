@@ -146,10 +146,21 @@ def test_mac_kaydi_kayit_varsa_atlar(monkeypatch):
 class K:
     def __init__(self, maclar, mevcut):
         self.maclar_, self.mevcut_, self.guncel, self.eklenen, self.hazir = maclar, mevcut, [], [], 0
+        self.islemler = []
+
+    def islem(self):
+        from contextlib import contextmanager
+
+        @contextmanager
+        def _i():
+            self.islemler.append("ac")
+            yield
+            self.islemler.append("kapat")
+        return _i()
 
     def kaynaklar(self):
-        return o.Kaynaklar(maclar=lambda sonra, n: [m for m in self.maclar_ if m["id"] > sonra][:n], mevcut=lambda mid: self.mevcut_.get(mid, []),
-                           guncelle=lambda id_, v: self.guncel.append((id_, v)), ekle=lambda mid, tid, v: self.eklenen.append((mid, tid, v)))
+        return o.Kaynaklar(maclar=lambda sonra, n, kadar=None: [m for m in self.maclar_ if m["id"] > sonra and (kadar is None or m["id"] <= kadar)][:n], mevcut=lambda mid: self.mevcut_.get(mid, []),
+                           guncelle=lambda id_, v: self.guncel.append((id_, v)), ekle=lambda mid, tid, v: self.eklenen.append((mid, tid, v)), islem=self.islem)
 
 
 def mac(id_, *oyuncular, ev=1, dep=2):
@@ -199,12 +210,14 @@ def test_onarim_takim_eslemesi_ev_dep():
 def test_uc_cron_anahtari_ister_varsayilan_kuru(monkeypatch):
     monkeypatch.setenv("CRON_ANAHTARI", "cron")
     cagri = []
-    monkeypatch.setattr(o, "calistir", lambda sonra, n, dry_run: cagri.append((sonra, n, dry_run)) or {"bitti": True})
+    monkeypatch.setattr(o, "calistir", lambda sonra, n, dry_run, kadar=None: cagri.append((sonra, n, dry_run, kadar)) or {"bitti": True})
     yol = "/api/skorjin/oyuncu-stat/geri-doldur"
     assert client.post(yol).status_code == 401
     assert client.post(yol, headers={"X-Cron-Anahtari": "cron"}).status_code == 200
     client.post(yol + "?dry_run=false&sonra=500&limit=50", headers={"X-Cron-Anahtari": "cron"})
-    assert cagri == [(0, 100, True), (500, 50, False)]
+    assert cagri == [(0, 100, True, None), (500, 50, False, None)]
+    client.post(yol + "?kadar=900", headers={"X-Cron-Anahtari": "cron"})
+    assert cagri[-1] == (0, 100, True, 900)
     assert client.post(yol + "?limit=0", headers={"X-Cron-Anahtari": "cron"}).status_code == 422
 
 
@@ -235,3 +248,30 @@ def test_onarim_betigi_varsayilan_kuru_ve_anahtarsiz_cikis(monkeypatch):
     assert "dry_run=true" in url_ler[0] and "sonra=5" in url_ler[0]
     monkeypatch.delenv("CRON_ANAHTARI", raising=False)
     assert b.main([]) == 2
+
+
+def test_onarim_her_macin_yazmalari_tek_islemde_kuru_calismada_islem_acilmaz():
+    k = K([mac(10, oyuncu(), oyuncu(ad="B", pid=2)), mac(11, oyuncu())], {10: [{"id": 1, "team_id": 1, "player_name": "Isco"}, {"id": 2, "team_id": 1, "player_name": "B"}]})
+    o.geri_doldur(0, 10, False, k.kaynaklar())
+    assert k.islemler == ["ac", "kapat", "ac", "kapat"]
+    k2 = K([mac(10, oyuncu())], {})
+    o.geri_doldur(0, 10, True, k2.kaynaklar())
+    assert k2.islemler == []
+
+
+def test_onarim_ust_sinir_kadar():
+    k = K([mac(i, oyuncu()) for i in (10, 11, 12, 13)], {})
+    r = o.geri_doldur(10, 10, True, k.kaynaklar(), kadar=12)
+    assert (r["islenen_mac"], r["sonraki"], r["bitti"]) == (2, 12, True)
+
+
+def test_onarim_maci_hata_verirse_sayaclar_yarim_eklenmez():
+    class Patlayan(K):
+        def kaynaklar(self):
+            k = super().kaynaklar()
+            def guncelle(id_, v):
+                raise RuntimeError("yazma hatası")
+            return o.Kaynaklar(maclar=k.maclar, mevcut=k.mevcut, guncelle=guncelle, ekle=k.ekle, islem=k.islem)
+    k = Patlayan([mac(10, oyuncu())], {10: [{"id": 1, "team_id": 1, "player_name": "Isco"}]})
+    r = o.geri_doldur(0, 10, False, k.kaynaklar())
+    assert r["guncellenen"] == 0 and len(r["hata"]) == 1
