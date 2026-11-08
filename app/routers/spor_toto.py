@@ -174,8 +174,14 @@ def _generate_for_match(match_id: int, home: dict, away: dict, lig_haftasi: Opti
     if farkli_lig:
         # Avrupa kupası: model yalnızca iç ligleri görür, iki ligin gücü aynı ölçekte değil -> piyasa oranı (yoksa model yok)
         model = stf.fetch_piyasa_tahmini(home, away)
-        turnuva = stf.ULUSLAR_LIGI if stf.milli_mac_mi(home_league.get("league_id"), away_league.get("league_id")) else stf.GENEL_TURNUVA
+        milli = stf.milli_mac_mi(home_league.get("league_id"), away_league.get("league_id"))
+        turnuva = stf.ULUSLAR_LIGI if milli else stf.GENEL_TURNUVA
         match_data["lig"] = turnuva
+        if milli and not model:
+            # Milli maç, iddaa oranı henüz açık değil (maçtan ~3 gün önce açılır): matchforge milli modeli (milli-1.0, yalnız 1-0-2; geri test doğruluğu ~%61)
+            model = stf.fetch_model_prediction(home, away, mac_tarihi, home_league.get("league_id") or away_league.get("league_id"))
+            if model and not str((model.get("facts") or {}).get("model_version", "")).startswith("milli"):
+                model = None      # eski matchforge (milli yönlendirme yok): kulüp modeli geçmişsiz takımlara hep %43/%27/%29 döndürür; kabul edilmez
     else:
         model = stf.fetch_model_prediction(home, away, mac_tarihi, home_league.get("league_id") or away_league.get("league_id"))
     if model:

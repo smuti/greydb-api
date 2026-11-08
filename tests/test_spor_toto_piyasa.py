@@ -159,8 +159,53 @@ def test_uluslar_ligi_modeli_cagirmaz_piyasayi_kullanir_ligi_uluslar_ligi_yazar(
     assert len(lig_yazilar) == 1 and lig_yazilar[0]["lig"] == "Uluslar Ligi"
 
 
-def test_uluslar_ligi_oran_yoksa_model_yok(akis, monkeypatch):
+MILLI_MODEL = {"p1": 0.60, "p0": 0.25, "p2": 0.15, "decision": {"tier": "tek", "senaryo": "1", "secimler": ["1"], "kolon": 1, "banko": True},
+               "facts": {"model_version": "milli-1.0", "onerilen": "1", "ihtimaller": {"p1": 0.6, "p0": 0.25, "p2": 0.15}, "senaryolar": []}}
+
+
+def test_uluslar_ligi_oran_varsa_piyasa_oncelikli_milli_model_cagrilmaz(akis, monkeypatch):
+    monkeypatch.setattr(router.stf, "get_team_league", lambda t: {"league_id": 24, "league_name": "UEFA Nations League A"})
+    monkeypatch.setattr(router.stf, "fetch_model_prediction", lambda *a, **k: akis.__setitem__("model_cagri", akis["model_cagri"] + 1) or MILLI_MODEL)
+    router._generate_for_match(5, HOME, AWAY, "6. Hafta", "2026-11-15T22:45:00")
+    assert akis["model_cagri"] == 0 and akis["md"]["model_tahmini"]["kaynak"] == "piyasa"
+
+
+def test_uluslar_ligi_oran_yoksa_milli_model_kullanilir(akis, monkeypatch):
     monkeypatch.setattr(router.stf, "get_team_league", lambda t: {"league_id": 24, "league_name": "UEFA Nations League A"})
     monkeypatch.setattr(router.stf, "fetch_piyasa_tahmini", lambda h, a: None)
+    cagrilar = []
+    monkeypatch.setattr(router.stf, "fetch_model_prediction", lambda home, away, tarih, lig=None: cagrilar.append((tarih, lig)) or MILLI_MODEL)
     router._generate_for_match(5, HOME, AWAY, "6. Hafta", "2026-11-15T22:45:00")
+    assert cagrilar == [("2026-11-15T22:45:00", 24)]                                   # lig kimliği iletilir: matchforge milli modele yönlendirir
+    assert akis["md"]["lig"] == "Uluslar Ligi" and akis["md"]["model_tahmini"]["model_version"] == "milli-1.0"
+    ent = [p for s, p in akis["sql"] if "INSERT INTO greydb.spor_toto_entries" in s]
+    assert [e["senaryo"] for e in ent if e["onerilen"]] == ["1"]                       # milli model kararı kaydedildi
+    kayit = [p for s, p in akis["sql"] if "model_p1" in s and "NULL" not in s][0]
+    assert kayit["version"] == "milli-1.0" and kayit["p1"] == pytest.approx(0.60)
+
+
+def test_uluslar_ligi_oran_ve_model_yoksa_model_yok(akis, monkeypatch):
+    monkeypatch.setattr(router.stf, "get_team_league", lambda t: {"league_id": 24, "league_name": "UEFA Nations League A"})
+    monkeypatch.setattr(router.stf, "fetch_piyasa_tahmini", lambda h, a: None)
+    monkeypatch.setattr(router.stf, "fetch_model_prediction", lambda *a, **k: None)
+    router._generate_for_match(5, HOME, AWAY, "6. Hafta", "2026-11-15T22:45:00")
+    assert "model_tahmini" not in akis["md"]
+    ent = [p for s, p in akis["sql"] if "INSERT INTO greydb.spor_toto_entries" in s]
+    assert [e["senaryo"] for e in ent if e["onerilen"]] == ["1-0-2"]
+
+
+def test_avrupa_kupasi_oran_yoksa_milli_model_cagrilmaz(akis, monkeypatch):
+    # Kulüp kupası: oran yoksa model yok (kulüp modeli iki farklı ülke ligini karşılaştıramaz); milli model yalnız milli maçlarda
+    monkeypatch.setattr(router.stf, "fetch_piyasa_tahmini", lambda h, a: None)
+    router._generate_for_match(5, HOME, AWAY, "4. Hafta", "2026-11-04T20:45:00")
     assert akis["model_cagri"] == 0 and "model_tahmini" not in akis["md"]
+
+
+def test_uluslar_ligi_eski_matchforge_kulup_modeli_kabul_edilmez(akis, monkeypatch):
+    # Dağıtım sırası güvencesi: matchforge milli yönlendirmesi henüz yayında değilse kulüp modeli sahte %43/%27/%29 döner; milli maçta yalnız milli-* sürümü kabul
+    monkeypatch.setattr(router.stf, "get_team_league", lambda t: {"league_id": 24, "league_name": "UEFA Nations League A"})
+    monkeypatch.setattr(router.stf, "fetch_piyasa_tahmini", lambda h, a: None)
+    eski = {**MILLI_MODEL, "p1": 0.4328, "p0": 0.2745, "p2": 0.2927, "facts": {"model_version": "harman-v1-2026-11-m5", "onerilen": "1-0"}}
+    monkeypatch.setattr(router.stf, "fetch_model_prediction", lambda *a, **k: eski)
+    router._generate_for_match(5, HOME, AWAY, "6. Hafta", "2026-11-15T22:45:00")
+    assert "model_tahmini" not in akis["md"]
