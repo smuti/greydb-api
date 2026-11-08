@@ -134,9 +134,9 @@ def test_hafta_listesi_bos_hucreyle_json_uretir(monkeypatch):
     assert json.loads(json.dumps(out))["weeks"][0]["ekstra"] is None
 
 
-@pytest.mark.parametrize("ev,dep,beklenen", [(4, 5, True), (4, 4, False), (1, 1, True), (2, 2, True), (39, 39, True), (4, 1, True), (None, None, False)])
+@pytest.mark.parametrize("ev,dep,beklenen", [(4, 5, True), (4, 4, False), (10, 10, True), (11, 11, True), (34, 34, True), (4, 10, True), (4, 34, True), (1, 1, False), (None, None, False)])
 def test_farkli_lig_mi_avrupa_kupa_kimligi_ayni_olsa_da_farkli_sayilir(ev, dep, beklenen):
-    """Shakhtar–Sporting: iki takımın 'ligi' de Champions League (1) görünür ama iç ligleri yok; model uygun değil."""
+    """Shakhtar–Sporting: iki takımın 'ligi' de kupa ligi (public.leagues: 10 Şampiyonlar, 11 Avrupa, 34 Konferans) görünür ama iç ligleri yok; model uygun değil. Eski sabit {1,2,39} veritabanında olmayan kimliklerdi."""
     assert pz.farkli_lig_mi(ev, dep) is beklenen
 
 

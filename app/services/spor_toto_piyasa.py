@@ -18,9 +18,9 @@ GENEL_TURNUVA = "Avrupa Kupası"
 ULUSLAR_LIGI = "Uluslar Ligi"
 
 
-# public.leagues: 1 Champions League, 2 Europa League, 39 Conference League. Bu "lige" kayıtlı takımın iç ligi yoktur (Shakhtar, Sporting...):
+# public.leagues (üretim DB): 10 Champions League, 11 Europa League, 34 Conference League (2026-11-08'de geçmiş doldurmayla açıldı; eski sabit {1, 2, 39} veritabanında olmayan kimliklerdi). Bu "lige" kayıtlı takımın iç ligi yoktur (Shakhtar, Sporting...):
 # iki takım da aynı kupa kimliğinde görünse bile maç farklı ülke liglerindendir, model uygun değil.
-AVRUPA_KUPA_LIG_IDLERI = {1, 2, 39}
+AVRUPA_KUPA_LIG_IDLERI = {10, 11, 34}
 # public.leagues: 24-27 UEFA Uluslar Ligi A-D. Milli takımların veritabanında geçmişi yok (2-6 maç); ms_model hepsine aynı varsayılan olasılığı döndürür
 # (Bulgaristan-İzlanda ve Lihtenştayn-Azerbaycan canlıda birebir %43/%27/%29 kaydedildi), bu yüzden model değil piyasa oranı kullanılır.
 ULUSLAR_LIGI_IDLERI = {24, 25, 26, 27}
