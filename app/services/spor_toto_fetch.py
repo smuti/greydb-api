@@ -23,6 +23,7 @@ from app.services.skorjin_match_analysis import (
     MATCHFORGE_BASE,
     _get as _mf_get,
     _pick,
+    NATIONAL_TEAM_NAMES_TR,
     translate_team_name,
     _translate_names_in_place,
 )
@@ -46,6 +47,22 @@ def _normalize(name: str) -> str:
 # Spor Toto'nun (Türkçe medya) kullandığı ad ile veritabanındaki ad farklıysa: normalize edilmiş Spor Toto adı -> normalize edilmiş veritabanı adı.
 # Yalnız canlıda doğrulanmış olanlar yazılır ("Athletic Bilbao" = "Athletic Club", "Bayern Münih" = "Bayern München"); yeni eşleşmeyen takım çıkarsa buraya eklenir.
 TAKIM_ADI_ESLEMELERI = {"athletic bilbao": "athletic club", "bayern munih": "bayern munchen"}
+
+# Milli takımlar (Uluslar Ligi vb.): Spor Toto Türkçe yazar ("Fransa"), veritabanı İngilizce ("France"). Ters sözlük, ekranda İngilizce -> Türkçe çeviren
+# NATIONAL_TEAM_NAMES_TR'den kurulur; aynı Türkçe ada giden iki ad varsa (Republic of Ireland / Ireland) veritabanındaki ad seçilir.
+# 15. Oyun Programı'ndaki 30 takım adı canlı API'den doğrulandı; yalnız "Kuzey Makedonya Cumhuriyeti" sözlükteki adla ("Kuzey Makedonya") farklıydı.
+_MILLI_EK = {"İrlanda": "Ireland", "Kuzey Makedonya Cumhuriyeti": "North Macedonia"}
+
+
+def _milli_esleme() -> Dict[str, str]:
+    ters: Dict[str, str] = {}
+    for en, tr in NATIONAL_TEAM_NAMES_TR.items():
+        ters.setdefault(_normalize(tr), _normalize(en))
+    ters.update({_normalize(tr): _normalize(en) for tr, en in _MILLI_EK.items()})
+    return ters
+
+
+TAKIM_ADI_ESLEMELERI.update(_milli_esleme())
 
 
 class SporTotoFetchError(Exception):
