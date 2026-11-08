@@ -121,21 +121,35 @@ def takim_eslemesi(icerik: Dict[str, Any], ev_id: int, dep_id: int) -> Dict[Any,
     return {k: v for k, v in ((ev, ev_id), (dep, dep_id)) if k is not None}
 
 
+def oyuncu_takimi(p: Dict[str, Any], icerik: Dict[str, Any], esle: Dict[Any, int]) -> Optional[int]:
+    """Oyuncunun iç takım kimliği. Ham veride teamId varsa onunla; teamId boşsa (bazı maçlarda tüm oyuncularda boş) oyuncu kadro listesinde
+    (ilk 11 + yedekler) aranır. Hiçbirinde yoksa None: o oyuncu atlanır."""
+    tid = p.get("teamId")
+    if tid is not None:
+        return esle.get(tid)
+    kadro = (icerik or {}).get("lineup") or {}
+    for taraf in ("homeTeam", "awayTeam"):
+        t = kadro.get(taraf) or {}
+        if any(isinstance(x, dict) and x.get("id") == p.get("id") for x in (t.get("starters") or []) + (t.get("subs") or [])):
+            return esle.get(t.get("id"))
+    return None
+
+
 # ---------------- geçmiş onarımı ----------------
 @dataclass(frozen=True)
 class Kaynaklar:
-    maclar: Callable[[int, int, Optional[int]], List[Dict[str, Any]]]        # (imleç, adet, üst sınır) -> {id, home_team_id, away_team_id, raw} (imleç < id <= üst sınır, id sıralı)
+    maclar: Callable[[int, int, Optional[int], bool], List[Dict[str, Any]]]  # (imleç, adet, üst sınır, yalnız satırı olmayanlar) -> {id, home_team_id, away_team_id, raw} (imleç < id <= üst sınır, id sıralı)
     mevcut: Callable[[int], List[Dict[str, Any]]]                            # maç -> tablodaki {id, team_id, player_name}
     guncelle: Callable[[int, Dict[str, Any]], None]
     ekle: Callable[[int, int, Dict[str, Any]], None]
     islem: Callable[[], Any] = field(default=nullcontext)                    # bir maçın bütün yazmalarını tek işlemde toplar (satır başına ayrı işlem çok yavaş)
 
 
-def geri_doldur(sonra: int, adet: int, dry_run: bool, k: Kaynaklar, kadar: Optional[int] = None) -> Dict[str, Any]:
+def geri_doldur(sonra: int, adet: int, dry_run: bool, k: Kaynaklar, kadar: Optional[int] = None, yalniz_eksik: bool = False) -> Dict[str, Any]:
     """Bir sonraki `adet` bitmiş maçın oyuncu satırlarını ham veriden onarır: varsa günceller, yoksa ekler.
     Aynı takımda aynı adlı birden çok satır varsa o oyuncu atlanır (belirsiz). `sonraki`: bir sonraki çağrının imleci."""
-    rapor: Dict[str, Any] = dict(dry_run=dry_run, islenen_mac=0, guncellenen=0, eklenen=0, belirsiz=0, oyuncusuz_mac=0, hata=[], sonraki=sonra, bitti=False)
-    maclar = k.maclar(sonra, adet, kadar)
+    rapor: Dict[str, Any] = dict(dry_run=dry_run, islenen_mac=0, guncellenen=0, eklenen=0, belirsiz=0, takimsiz=0, oyuncusuz_mac=0, hata=[], sonraki=sonra, bitti=False)
+    maclar = k.maclar(sonra, adet, kadar, yalniz_eksik)
     for m in maclar:
         rapor["islenen_mac"] += 1
         rapor["sonraki"] = m["id"]
@@ -149,11 +163,14 @@ def geri_doldur(sonra: int, adet: int, dry_run: bool, k: Kaynaklar, kadar: Optio
             mevcut: Dict[Any, List[int]] = {}
             for s in k.mevcut(m["id"]):
                 mevcut.setdefault((s["team_id"], s["player_name"]), []).append(s["id"])
-            sayac = dict(guncellenen=0, eklenen=0, belirsiz=0)
+            sayac = dict(guncellenen=0, eklenen=0, belirsiz=0, takimsiz=0)
             with (nullcontext() if dry_run else k.islem()):
                 for p in oyuncular.values():
-                    takim = esle.get(p.get("teamId"))
-                    if takim is None or not p.get("name"):
+                    takim = oyuncu_takimi(p, icerik, esle)
+                    if takim is None:
+                        sayac["takimsiz"] += 1
+                        continue
+                    if not p.get("name"):
                         continue
                     satirlar = mevcut.get((takim, p["name"]), [])
                     if len(satirlar) > 1:
@@ -177,11 +194,12 @@ def geri_doldur(sonra: int, adet: int, dry_run: bool, k: Kaynaklar, kadar: Optio
     return rapor
 
 
-def _maclar(sonra: int, adet: int, kadar: Optional[int] = None) -> List[Dict[str, Any]]:
+def _maclar(sonra: int, adet: int, kadar: Optional[int] = None, yalniz_eksik: bool = False) -> List[Dict[str, Any]]:
     from app.services.db import execute_query
-    return execute_query("SELECT id, home_team_id, away_team_id, raw_match_details AS raw FROM public.matches WHERE finished AND NOT COALESCE(cancelled, false) "
-                         "AND raw_match_details IS NOT NULL AND id > :sonra AND (CAST(:kadar AS INTEGER) IS NULL OR id <= :kadar) ORDER BY id LIMIT :adet",
-                         {"sonra": sonra, "adet": adet, "kadar": kadar})
+    return execute_query("SELECT m.id, m.home_team_id, m.away_team_id, m.raw_match_details AS raw FROM public.matches m WHERE m.finished AND NOT COALESCE(m.cancelled, false) "
+                         "AND m.raw_match_details IS NOT NULL AND m.id > :sonra AND (CAST(:kadar AS INTEGER) IS NULL OR m.id <= :kadar) "
+                         "AND (NOT CAST(:eksik AS BOOLEAN) OR NOT EXISTS (SELECT 1 FROM public.match_player_stats p WHERE p.match_id = m.id)) ORDER BY m.id LIMIT :adet",
+                         {"sonra": sonra, "adet": adet, "kadar": kadar, "eksik": yalniz_eksik})
 
 
 def _mevcut(mac_id: int) -> List[Dict[str, Any]]:
@@ -204,8 +222,8 @@ def gercek_kaynaklar() -> Kaynaklar:
     return Kaynaklar(maclar=_maclar, mevcut=_mevcut, guncelle=_guncelle, ekle=_ekle, islem=transaction)
 
 
-def calistir(sonra: int = 0, adet: int = 100, dry_run: bool = True, kadar: Optional[int] = None) -> Dict[str, Any]:
+def calistir(sonra: int = 0, adet: int = 100, dry_run: bool = True, kadar: Optional[int] = None, yalniz_eksik: bool = False) -> Dict[str, Any]:
     """Uç buradan çağırır. Kuru çalışmada tablo değişmez (sütun eklenmez, satır yazılmaz); gerçek çalışmada önce yeni sütunlar hazırlanır."""
     if not dry_run:
         sutunlari_hazirla()
-    return geri_doldur(sonra, adet, dry_run, gercek_kaynaklar(), kadar)
+    return geri_doldur(sonra, adet, dry_run, gercek_kaynaklar(), kadar, yalniz_eksik)

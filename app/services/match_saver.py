@@ -895,7 +895,7 @@ def save_match_player_stats(match_id: int, match_data: dict, home_team_id: int, 
     esle = oyuncu_stat.takim_eslemesi(content, home_team_id, away_team_id)
     oyuncu_stat.sutunlari_hazirla()
     for player_data in player_stats_data.values():
-        team_id = esle.get(player_data.get('teamId'))
+        team_id = oyuncu_stat.oyuncu_takimi(player_data, content, esle)
         if team_id is None:
             continue
         execute_insert(oyuncu_stat.EKLE_SQL, {"match_id": match_id, "team_id": team_id, "player_name": player_data.get('name', ''), **oyuncu_stat.ayikla(player_data)})
