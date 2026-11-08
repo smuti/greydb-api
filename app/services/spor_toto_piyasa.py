@@ -13,17 +13,25 @@ DOUBLE_MIN = 0.43   # >= favori + beraberlik, altı üçlü
 KAYNAK = "piyasa-iddaa"
 
 # Spor Toto turnuva kimliği -> ad. Haritada olmayan kimlikte ad UYDURULMAZ (çağıran genel ad kullanır).
-TURNUVALAR = {218: "Şampiyonlar Ligi", 237: "Avrupa Ligi", 236: "Konferans Ligi"}
+TURNUVALAR = {218: "Şampiyonlar Ligi", 237: "Avrupa Ligi", 236: "Konferans Ligi", 258: "Uluslar Ligi"}   # 258: 15. Oyun Programı canlı API'sinden (30 takım, hepsi 258)
 GENEL_TURNUVA = "Avrupa Kupası"
+ULUSLAR_LIGI = "Uluslar Ligi"
 
 
 # public.leagues: 1 Champions League, 2 Europa League, 39 Conference League. Bu "lige" kayıtlı takımın iç ligi yoktur (Shakhtar, Sporting...):
 # iki takım da aynı kupa kimliğinde görünse bile maç farklı ülke liglerindendir, model uygun değil.
 AVRUPA_KUPA_LIG_IDLERI = {1, 2, 39}
+# public.leagues: 24-27 UEFA Uluslar Ligi A-D. Milli takımların veritabanında geçmişi yok (2-6 maç); ms_model hepsine aynı varsayılan olasılığı döndürür
+# (Bulgaristan-İzlanda ve Lihtenştayn-Azerbaycan canlıda birebir %43/%27/%29 kaydedildi), bu yüzden model değil piyasa oranı kullanılır.
+ULUSLAR_LIGI_IDLERI = {24, 25, 26, 27}
+
+
+def milli_mac_mi(ev_lig_id: Optional[int], dep_lig_id: Optional[int]) -> bool:
+    return ev_lig_id in ULUSLAR_LIGI_IDLERI or dep_lig_id in ULUSLAR_LIGI_IDLERI
 
 
 def farkli_lig_mi(ev_lig_id: Optional[int], dep_lig_id: Optional[int]) -> bool:
-    if ev_lig_id in AVRUPA_KUPA_LIG_IDLERI or dep_lig_id in AVRUPA_KUPA_LIG_IDLERI:
+    if ev_lig_id in AVRUPA_KUPA_LIG_IDLERI or dep_lig_id in AVRUPA_KUPA_LIG_IDLERI or milli_mac_mi(ev_lig_id, dep_lig_id):
         return True
     return ev_lig_id != dep_lig_id
 

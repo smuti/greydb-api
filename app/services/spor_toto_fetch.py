@@ -18,7 +18,7 @@ import httpx
 import pandas as pd
 
 from app.services.db import query_to_df, execute_insert
-from app.services.spor_toto_piyasa import GENEL_TURNUVA, farkli_lig_mi, turnuva_adi  # noqa: F401 (router tarafından stf üzerinden kullanılır)
+from app.services.spor_toto_piyasa import GENEL_TURNUVA, ULUSLAR_LIGI, ULUSLAR_LIGI_IDLERI, farkli_lig_mi, milli_mac_mi, turnuva_adi  # noqa: F401 (router tarafından stf üzerinden kullanılır)
 from app.services.skorjin_match_analysis import (
     MATCHFORGE_BASE,
     _get as _mf_get,
@@ -137,16 +137,17 @@ def resolve_team(sportoto_team_id: int, sportoto_team_name: str) -> Optional[Dic
             return {"team_id": int(team_id)}
         # Eşleşmemiş kayıt kalıcı "yok" sayılmaz: eşleştirme kuralları iyileşmiş olabilir, yeniden denenir (elle bağlama ise doludur ve korunur)
 
-    all_teams = query_to_df("SELECT id, fotmob_team_id, name FROM public.teams")
+    all_teams = query_to_df("SELECT id, fotmob_team_id, name, league_id FROM public.teams")
     normalized_target = _normalize(sportoto_team_name)
     normalized_target = TAKIM_ADI_ESLEMELERI.get(normalized_target, normalized_target)
 
     match = None
-    # 1. geçiş: tam eşleşme
-    for _, row in all_teams.iterrows():
-        if _normalize(row["name"]) == normalized_target:
-            match = {"team_id": int(row["id"]), "fotmob_team_id": row["fotmob_team_id"], "name": row["name"]}
-            break
+    # 1. geçiş: tam eşleşme. Aynı ülkenin iki kaydı varsa (Fransa: 2024 Olimpiyat takımı ve Uluslar Ligi takımı) Uluslar Ligi'ndeki seçilir; yoksa ilk bulunan.
+    adaylar = [row for _, row in all_teams.iterrows() if _normalize(row["name"]) == normalized_target]
+    adaylar.sort(key=lambda r: 0 if r.get("league_id") in ULUSLAR_LIGI_IDLERI else 1)      # kararlı sıralama: eşitlikte tablo sırası korunur
+    if adaylar:
+        row = adaylar[0]
+        match = {"team_id": int(row["id"]), "fotmob_team_id": row["fotmob_team_id"], "name": row["name"]}
 
     # 2. geçiş: sponsor önekli isimlerde DB'deki temiz ad, Sportoto adının
     # içinde geçer ("Arca Çorum FK" içinde "Çorum FK") — en uzun eşleşen

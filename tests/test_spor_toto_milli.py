@@ -45,3 +45,27 @@ def test_kulup_adlari_etkilenmez(monkeypatch):
     monkeypatch.setattr(stf, "execute_insert", lambda sql, p=None: None)
     assert stf.resolve_team(112, "Athletic Bilbao")["team_id"] == 76
     assert stf.resolve_team(9, "Fenerbahçe")["team_id"] == 12
+
+
+# ---------------- aynı ülkenin iki kaydı: Uluslar Ligi takımı Olimpiyat takımına tercih edilir ----------------
+def test_yinelenen_milli_takimda_uluslar_ligi_kaydi_secilir(monkeypatch):
+    # public.teams'te Fransa iki kez: 223 (2024 Olimpiyat, lig 19) ve 373 (Uluslar Ligi A, lig 24). Eski sıralama ilk bulunanı (223) alıyordu.
+    takimlar = pd.DataFrame([
+        {"id": 223, "fotmob_team_id": 6723, "name": "France", "league_id": 19},
+        {"id": 373, "fotmob_team_id": 6723, "name": "France", "league_id": 24},
+        {"id": 207, "fotmob_team_id": 6720, "name": "Spain", "league_id": 19},
+        {"id": 377, "fotmob_team_id": 6720, "name": "Spain", "league_id": 24},
+        {"id": 12, "fotmob_team_id": 1, "name": "Fenerbahçe", "league_id": 4},
+    ])
+    monkeypatch.setattr(stf, "query_to_df", lambda sql, params=None: pd.DataFrame([{"matchforge_team_id": None}]) if "spor_toto_team_map" in sql else takimlar)
+    monkeypatch.setattr(stf, "execute_insert", lambda sql, p=None: None)
+    assert stf.resolve_team(320, "Fransa")["team_id"] == 373
+    assert stf.resolve_team(326, "İspanya")["team_id"] == 377
+    assert stf.resolve_team(9, "Fenerbahçe")["team_id"] == 12
+
+
+def test_kulup_yinelenen_adinda_eski_davranis_ilk_kayit(monkeypatch):
+    takimlar = pd.DataFrame([{"id": 5, "fotmob_team_id": 1, "name": "Arsenal", "league_id": 5}, {"id": 6, "fotmob_team_id": 2, "name": "Arsenal", "league_id": 13}])
+    monkeypatch.setattr(stf, "query_to_df", lambda sql, params=None: pd.DataFrame([{"matchforge_team_id": None}]) if "spor_toto_team_map" in sql else takimlar)
+    monkeypatch.setattr(stf, "execute_insert", lambda sql, p=None: None)
+    assert stf.resolve_team(1, "Arsenal")["team_id"] == 5
