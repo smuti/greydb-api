@@ -138,3 +138,29 @@ def test_hafta_listesi_bos_hucreyle_json_uretir(monkeypatch):
 def test_farkli_lig_mi_avrupa_kupa_kimligi_ayni_olsa_da_farkli_sayilir(ev, dep, beklenen):
     """Shakhtar–Sporting: iki takımın 'ligi' de Champions League (1) görünür ama iç ligleri yok; model uygun değil."""
     assert pz.farkli_lig_mi(ev, dep) is beklenen
+
+
+# ---------------- Uluslar Ligi: milli takımların modeli yok (geçmiş yok), iki takım aynı ligde olsa da piyasa yolu ----------------
+@pytest.mark.parametrize("ev,dep,beklenen", [(24, 24, True), (25, 25, True), (26, 27, True), (24, 4, True), (4, 4, False), (5, 6, True)])
+def test_uluslar_ligi_maci_piyasa_yoluna_girer(ev, dep, beklenen):
+    assert pz.farkli_lig_mi(ev, dep) is beklenen
+
+
+def test_uluslar_ligi_turnuva_adi():
+    assert pz.turnuva_adi(258) == "Uluslar Ligi"
+
+
+def test_uluslar_ligi_modeli_cagirmaz_piyasayi_kullanir_ligi_uluslar_ligi_yazar(akis, monkeypatch):
+    monkeypatch.setattr(router.stf, "get_team_league", lambda t: {"league_id": 24, "league_name": "UEFA Nations League A"})
+    router._generate_for_match(5, HOME, AWAY, "6. Hafta", "2026-11-15T22:45:00")
+    assert akis["model_cagri"] == 0
+    assert akis["md"]["lig"] == "Uluslar Ligi"
+    lig_yazilar = [p for s, p in akis["sql"] if "SET lig" in s]
+    assert len(lig_yazilar) == 1 and lig_yazilar[0]["lig"] == "Uluslar Ligi"
+
+
+def test_uluslar_ligi_oran_yoksa_model_yok(akis, monkeypatch):
+    monkeypatch.setattr(router.stf, "get_team_league", lambda t: {"league_id": 24, "league_name": "UEFA Nations League A"})
+    monkeypatch.setattr(router.stf, "fetch_piyasa_tahmini", lambda h, a: None)
+    router._generate_for_match(5, HOME, AWAY, "6. Hafta", "2026-11-15T22:45:00")
+    assert akis["model_cagri"] == 0 and "model_tahmini" not in akis["md"]

@@ -174,7 +174,8 @@ def _generate_for_match(match_id: int, home: dict, away: dict, lig_haftasi: Opti
     if farkli_lig:
         # Avrupa kupası: model yalnızca iç ligleri görür, iki ligin gücü aynı ölçekte değil -> piyasa oranı (yoksa model yok)
         model = stf.fetch_piyasa_tahmini(home, away)
-        match_data["lig"] = stf.GENEL_TURNUVA
+        turnuva = stf.ULUSLAR_LIGI if stf.milli_mac_mi(home_league.get("league_id"), away_league.get("league_id")) else stf.GENEL_TURNUVA
+        match_data["lig"] = turnuva
     else:
         model = stf.fetch_model_prediction(home, away, mac_tarihi, home_league.get("league_id") or away_league.get("league_id"))
     if model:
@@ -187,7 +188,7 @@ def _generate_for_match(match_id: int, home: dict, away: dict, lig_haftasi: Opti
         # Turnuva adı hafta çekilirken yazıldı; yazılmadıysa ya da eski üretimden ev sahibinin iç ligi kaldıysa genel ad
         execute_insert(
             "UPDATE greydb.spor_toto_matches SET lig = :lig WHERE id = :id AND (lig IS NULL OR lig IN (:h, :a))",
-            {"lig": stf.GENEL_TURNUVA, "id": match_id, "h": home_league.get("league_name") or "", "a": away_league.get("league_name") or ""},
+            {"lig": turnuva, "id": match_id, "h": home_league.get("league_name") or "", "a": away_league.get("league_name") or ""},
         )
     elif real_lig:
         execute_insert(
