@@ -6,7 +6,7 @@ bizim olasılığımız (bizimP) bulunur: üyeye ham yüzde GİTMEZ, sinyal/risk
 Tablo ilk kullanımda kendiliğinden oluşur (dağıtım ile migration sırası önemli olmasın).
 """
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, HTTPException, Request
@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from app.routers.kuponlar import admin_gerek, kimlik
 from app.services.db import execute_insert, execute_query
+from app.services.kupon_takim import takim_kimlikleri
 
 router = APIRouter(tags=["skorjin-kuponlari"])
 
@@ -183,6 +184,38 @@ def db_sil(kid: int) -> bool:
     return execute_insert("DELETE FROM greydb.skorjin_kuponlari WHERE id = :id RETURNING id", {"id": kid}) is not None
 
 
+# ---------------- Takım logosu ----------------
+_TAKIM_ONBELLEK: Dict[Any, Any] = {}
+
+
+def _bacak_takimi(b: Dict[str, Any]):
+    """Bacağın FotMob takım kimlikleri (logo). Kuponda tutulmaz; maç tablosundan ad + tarihle bulunur, bulunamazsa (None, None). Yalnız bulunanlar önbelleğe girer."""
+    anahtar = (b.get("ev"), b.get("dep"), b.get("macZamani"))
+    if anahtar in _TAKIM_ONBELLEK:
+        return _TAKIM_ONBELLEK[anahtar]
+    try:
+        zaman = datetime.fromisoformat(str(b["macZamani"]).replace("Z", "+00:00"))
+        zaman = zaman.replace(tzinfo=None) if zaman.tzinfo is None else zaman.astimezone(timezone.utc).replace(tzinfo=None)
+        sonuc = takim_kimlikleri(execute_query, {"ev": b["ev"], "dep": b["dep"], "mac_zamani": zaman})
+    except Exception:
+        return None, None
+    if sonuc != (None, None):
+        _TAKIM_ONBELLEK[anahtar] = sonuc
+    return sonuc
+
+
+def takim_ekle(kuponlar: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Her bacağa evTakimId/depTakimId ekler (varsa). Hata ya da bulunamama kuponu bozmaz: alan hiç konmaz, web baş harfe düşer."""
+    for k in kuponlar:
+        for b in k.get("bacaklar") or []:
+            if b.get("evTakimId") and b.get("depTakimId"):
+                continue
+            e, d = _bacak_takimi(b)
+            if e is not None and d is not None:
+                b["evTakimId"], b["depTakimId"] = e, d
+    return kuponlar
+
+
 # ---------------- Uçlar ----------------
 def _email(request: Request) -> str:
     e = (request.headers.get("x-kullanici-email") or "").strip()
@@ -196,7 +229,7 @@ def yayindakiler(request: Request):
     """Yayındaki kuponlar (ham): yalnız güvenilir ağ geçidi. Üyeye gidecek hâle (kilit, etiket) web sunucusu çevirir."""
     if not kimlik(request).ag_gecidi:
         raise HTTPException(status_code=401, detail="Geçersiz ya da eksik sunucu anahtarı")
-    return {"kuponlar": db_liste(True)}
+    return {"kuponlar": takim_ekle(db_liste(True))}
 
 
 @router.get("/skorjin-kuponlari")
