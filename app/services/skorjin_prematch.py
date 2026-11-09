@@ -112,14 +112,17 @@ MILLI_MODEL_SURUMU = "milli-1.0"     # matchforge ms_model/milli.py MODEL_VERSIO
 
 def model_verisi(sonuc: Optional[Dict[str, Any]], model_surumu: str, milli: bool = False) -> Optional[Dict[str, Any]]:
     """matchforge /api/ms/predict sonucu (include_matrix) -> skor matrisi + harman 1-X-2. Matris yoksa None.
-    Milli takım maçı (milli=True): milli model yalnız 1-0-2 üretir; matris None, blend dolu satır yazılır (skor/gol blokları bu maçta boş kalır, 'sence' okuması çalışır).
+    Milli takım maçı (milli=True): 1-0-2 (blend) her zaman; skor matrisi matchforge include_matrix ile geldiyse yazılır (milli ortalamaya çekilmiş Dixon-Coles, 1-0-2'ye hizalı), gelmediyse None (skor/gol blokları boş kalır, 'sence' okuması çalışır).
     Takımlardan birinin geçmişi yetersizse ('yeterli geçmiş veri yok' uyarısı) model kullanılmaz: varsayılan olasılık model gibi sunulmaz."""
     if milli:
         if not sonuc or any(k not in sonuc for k in ("p1", "p0", "p2")):
             return None
         if any("yeterli geçmiş veri yok" in u for u in (sonuc.get("facts") or {}).get("uyarilar", [])):
             return None
-        return {"matrix": None, "blend": {"home": sonuc["p1"], "draw": sonuc["p0"], "away": sonuc["p2"]}, "model_version": MILLI_MODEL_SURUMU}
+        v = {"matrix": sonuc.get("score_matrix") or None, "blend": {"home": sonuc["p1"], "draw": sonuc["p0"], "away": sonuc["p2"]}, "model_version": MILLI_MODEL_SURUMU}
+        if v["matrix"]:
+            v["gol_dagilimi"] = sonuc.get("gol_dagilimi") or "milli-ortalamasi"          # matris milli ortalamaya çekilmiş (gol çizgileri ortalama okuması)
+        return v
     if not sonuc or not sonuc.get("score_matrix"):
         return None
     return {"matrix": sonuc["score_matrix"], "blend": {"home": sonuc["p1"], "draw": sonuc["p0"], "away": sonuc["p2"]},

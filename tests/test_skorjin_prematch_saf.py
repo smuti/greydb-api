@@ -143,3 +143,11 @@ def test_model_liglerine_yeni_ligler_eklendi():
     from app.services.skorjin_prematch import MILLI_LIGLERI, MODEL_LIGLERI
     assert {28, 34} <= MODEL_LIGLERI and 36 not in MODEL_LIGLERI           # Championship: matchforge geri testinde sinyal yok (#42)
     assert {24, 25, 26, 27, 29, 30, 31, 32, 33} <= MILLI_LIGLERI and not (MILLI_LIGLERI & MODEL_LIGLERI)
+
+
+def test_milli_model_verisi_matris_varsa_yazilir_yoksa_none():
+    """matchforge milli matrisi (include_matrix) gelirse snapshot'a yazılır: senaryolar/gol/KG milli maçta da cevaplanır. Gelmezse (eski matchforge) yalnız 1-0-2."""
+    sonuc = {"p1": 0.5, "p0": 0.3, "p2": 0.2, "facts": {"uyarilar": []}, "score_matrix": [[0.5, 0.2], [0.2, 0.1]], "gol_dagilimi": "milli-ortalamasi"}
+    v = model_verisi(sonuc, "harman", milli=True)
+    assert v["matrix"] == [[0.5, 0.2], [0.2, 0.1]] and v["blend"] == {"home": 0.5, "draw": 0.3, "away": 0.2} and v["gol_dagilimi"] == "milli-ortalamasi"
+    assert model_verisi({k: sonuc[k] for k in ("p1", "p0", "p2", "facts")}, "harman", milli=True)["matrix"] is None
