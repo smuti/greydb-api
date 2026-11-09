@@ -24,10 +24,29 @@ _TAKMA_AD = (("racing santander", "santander"), ("a coruna", "la coruna"))
 _ISARET = {"u15", "u16", "u17", "u18", "u19", "u20", "u21", "u23", "k", "w", "women", "ii", "b", "reserves", "youth"}
 
 
-def normalize_takim(ad: str) -> str:
+def _ham(ad: str) -> str:
     s = unicodedata.normalize("NFKD", (ad or "").translate(_HARF)).encode("ascii", "ignore").decode().lower()
     s = re.sub(r"[^a-z0-9 ]", " ", s.replace("-", " "))
-    s = " ".join(s.split())
+    return " ".join(s.split())
+
+
+_ULKE_TR_EN: Dict[str, str] = {}
+
+
+def _ulke_eslemesi() -> Dict[str, str]:
+    """Milli takım adı: iddaa Türkçe ("Ermenistan", "Kıbrıs"), kaydımız İngilizce ("Armenia", "Cyprus"). Ters sözlük: normalleştirilmiş Türkçe ad -> normalleştirilmiş İngilizce ad.
+    Tam ad eşleşmesidir (kulüp adlarına dokunmaz). Tembel kurulur: sözlük skorjin_match_analysis'te."""
+    if not _ULKE_TR_EN:
+        from app.services.skorjin_match_analysis import NATIONAL_TEAM_NAMES_TR
+        for en, tr in NATIONAL_TEAM_NAMES_TR.items():
+            _ULKE_TR_EN.setdefault(_ham(tr), _ham(en))
+        _ULKE_TR_EN.setdefault("turkiye", "turkiye")
+    return _ULKE_TR_EN
+
+
+def normalize_takim(ad: str) -> str:
+    s = _ham(ad)
+    s = _ulke_eslemesi().get(s, s)
     for kaynak, hedef in _TAKMA_AD:
         s = re.sub(rf"\b{kaynak}\b", hedef, s)
     jetonlar = [_ESLEME.get(t, t) for t in s.split() if t not in _DOLGU and not t.isdigit()]
