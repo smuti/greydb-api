@@ -186,7 +186,7 @@ def eksik_oyuncular(detay: Optional[Dict[str, Any]], ev_ad: str, dep_ad: str) ->
 
 # ---------------------------------------------------------------- orkestrasyon (kaynaklar enjekte edilir)
 KAPSAMLAR = ("gunluk", "oran")
-MODEL_LIGLERI = {4, 5, 6, 7, 8, 9, 12, 20, 21, 10, 11, 28, 34}     # matchforge ms_model kapsamı (SCOPE + EXTRA ligler + kupalar 10/11/34; 28 TFF 1. Lig; kupa gol dağılımı kupa ortalamasına çekilir). 36 Championship: geri testte sinyal yok, dışarıda
+MODEL_LIGLERI = {4, 5, 6, 7, 8, 9, 12, 20, 21, 10, 11, 28, 34, 36}     # matchforge ms_model kapsamı (SCOPE + EXTRA ligler + kupalar 10/11/34; 28 TFF 1. Lig, 36 Championship (matchforge m7); kupa gol dağılımı kupa ortalamasına çekilir)
 MILLI_LIGLERI = {24, 25, 26, 27, 29, 30, 31, 32, 33}      # matchforge ms_model/milli.py MILLI_LIGLER: yalnız 1-0-2, skor matrisi yok
 
 

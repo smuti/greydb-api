@@ -141,7 +141,7 @@ def test_kulup_maci_matrissiz_yine_none():
 
 def test_model_liglerine_yeni_ligler_eklendi():
     from app.services.skorjin_prematch import MILLI_LIGLERI, MODEL_LIGLERI
-    assert {28, 34} <= MODEL_LIGLERI and 36 not in MODEL_LIGLERI           # Championship: matchforge geri testinde sinyal yok (#42)
+    assert {28, 34, 36} <= MODEL_LIGLERI           # 36 Championship: xG yedekli geri testte -0,020 ± 0,009 (matchforge #44)
     assert {24, 25, 26, 27, 29, 30, 31, 32, 33} <= MILLI_LIGLERI and not (MILLI_LIGLERI & MODEL_LIGLERI)
 
 
