@@ -107,8 +107,19 @@ def iddaa_kalabalik(olay: Optional[Dict[str, Any]], yuzdeler: Dict[str, Dict[str
     return {k: round(v / toplam, 4) for k, v in ham.items()}
 
 
-def model_verisi(sonuc: Optional[Dict[str, Any]], model_surumu: str) -> Optional[Dict[str, Any]]:
-    """matchforge /api/ms/predict sonucu (include_matrix) -> skor matrisi + harman 1-X-2. Matris yoksa None."""
+MILLI_MODEL_SURUMU = "milli-1.0"     # matchforge ms_model/milli.py MODEL_VERSION
+
+
+def model_verisi(sonuc: Optional[Dict[str, Any]], model_surumu: str, milli: bool = False) -> Optional[Dict[str, Any]]:
+    """matchforge /api/ms/predict sonucu (include_matrix) -> skor matrisi + harman 1-X-2. Matris yoksa None.
+    Milli takım maçı (milli=True): milli model yalnız 1-0-2 üretir; matris None, blend dolu satır yazılır (skor/gol blokları bu maçta boş kalır, 'sence' okuması çalışır).
+    Takımlardan birinin geçmişi yetersizse ('yeterli geçmiş veri yok' uyarısı) model kullanılmaz: varsayılan olasılık model gibi sunulmaz."""
+    if milli:
+        if not sonuc or any(k not in sonuc for k in ("p1", "p0", "p2")):
+            return None
+        if any("yeterli geçmiş veri yok" in u for u in (sonuc.get("facts") or {}).get("uyarilar", [])):
+            return None
+        return {"matrix": None, "blend": {"home": sonuc["p1"], "draw": sonuc["p0"], "away": sonuc["p2"]}, "model_version": MILLI_MODEL_SURUMU}
     if not sonuc or not sonuc.get("score_matrix"):
         return None
     return {"matrix": sonuc["score_matrix"], "blend": {"home": sonuc["p1"], "draw": sonuc["p0"], "away": sonuc["p2"]},
@@ -172,7 +183,8 @@ def eksik_oyuncular(detay: Optional[Dict[str, Any]], ev_ad: str, dep_ad: str) ->
 
 # ---------------------------------------------------------------- orkestrasyon (kaynaklar enjekte edilir)
 KAPSAMLAR = ("gunluk", "oran")
-MODEL_LIGLERI = {4, 5, 6, 7, 8, 9, 12, 20, 21, 10, 11}     # matchforge ms_model kapsamı (SCOPE + EXTRA ligler + kupalar 10/11; kupa gol dağılımı kupa ortalamasına çekilir)
+MODEL_LIGLERI = {4, 5, 6, 7, 8, 9, 12, 20, 21, 10, 11, 28, 34}     # matchforge ms_model kapsamı (SCOPE + EXTRA ligler + kupalar 10/11/34; 28 TFF 1. Lig; kupa gol dağılımı kupa ortalamasına çekilir). 36 Championship: geri testte sinyal yok, dışarıda
+MILLI_LIGLERI = {24, 25, 26, 27, 29, 30, 31, 32, 33}      # matchforge ms_model/milli.py MILLI_LIGLER: yalnız 1-0-2, skor matrisi yok
 
 
 @dataclass(frozen=True)
@@ -202,7 +214,7 @@ def _ad(m: Dict[str, Any]) -> str:
 
 def _model_yok_nedeni(m: Dict[str, Any], sonuc: Optional[Dict[str, Any]]) -> str:
     """Matris neden yok: lig model kapsamı dışı / takım modelde yeni / matchforge matris vermedi."""
-    if m["league_id"] not in MODEL_LIGLERI:
+    if m["league_id"] not in MODEL_LIGLERI and m["league_id"] not in MILLI_LIGLERI:
         return "kapsam_disi"
     if sonuc and (sonuc.get("new_team_home") or sonuc.get("new_team_away")):
         return "yeni_takim"
@@ -287,7 +299,7 @@ def hazirla(kapsam: str, dry_run: bool, k: Kaynaklar, simdi: datetime, model_sur
 
     modeller: Dict[int, Dict[str, Any]] = {}
     if kapsam == "gunluk":
-        kapsamdakiler = [m for m in maclar if m["league_id"] in MODEL_LIGLERI]
+        kapsamdakiler = [m for m in maclar if m["league_id"] in MODEL_LIGLERI or m["league_id"] in MILLI_LIGLERI]
         if kapsamdakiler:
             try:
                 modeller = k.model(kapsamdakiler)
@@ -411,7 +423,7 @@ def _gunluk_satir(m, k, sonuc, simdi, model_surumu, rapor, dry_run=True) -> Dict
     form = {"home": takim_maclari(k.form(ev, tarih), ev), "away": takim_maclari(k.form(dep, tarih), dep)}
     form = form if (form["home"] or form["away"]) else None
     h2h = h2h_listesi(k.h2h(ev, dep, tarih)) or None
-    scoreline = model_verisi(sonuc, model_surumu) if _model_kullanilabilir(m, sonuc) else None
+    scoreline = model_verisi(sonuc, model_surumu, milli=m["league_id"] in MILLI_LIGLERI) if _model_kullanilabilir(m, sonuc) else None
     if scoreline is None:
         rapor["model_yok"] += 1
         rapor["model_yok_ayrinti"][_model_yok_nedeni(m, sonuc)] += 1
@@ -565,7 +577,7 @@ def _model(maclar: List[Dict[str, Any]]) -> Dict[int, Dict[str, Any]]:
     yanit = httpx.post(f"{MATCHFORGE_BASE}/api/ms/predict", json=yuk, timeout=120.0)
     yanit.raise_for_status()
     govde = yanit.json()
-    return {m["fotmob_match_id"]: {**r, "model_version": govde.get("model_version")} for m, r in zip(maclar, govde.get("results", []))}
+    return {m["fotmob_match_id"]: {"model_version": govde.get("model_version"), **r} for m, r in zip(maclar, govde.get("results", []))}
 
 
 def _iddaa(event_id: int):

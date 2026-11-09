@@ -120,3 +120,26 @@ def test_eksik_veri_sifirlari_istatistik_sayilmaz():
 def test_sari_kart_sifir_olabilir_gecerli_veri():
     r = istatistikli(datetime(2026, 9, 17), 1, 7, 2, 0, sari=(0, 0))
     assert takim_maclari([r], 1)[0]["st"]["yellow"] == [0, 0]
+
+
+# ---------------------------------------------------------------- milli takım maçı: yalnız 1-0-2 (skor matrisi yok)
+def test_milli_model_verisi_yalniz_sonuc_matris_yok():
+    from app.services.skorjin_prematch import MILLI_MODEL_SURUMU
+    sonuc = {"p1": 0.5, "p0": 0.3, "p2": 0.2, "facts": {"uyarilar": []}}
+    v = model_verisi(sonuc, "harman", milli=True)
+    assert v == {"matrix": None, "blend": {"home": 0.5, "draw": 0.3, "away": 0.2}, "model_version": MILLI_MODEL_SURUMU} and MILLI_MODEL_SURUMU.startswith("milli")
+
+
+def test_milli_model_yeterli_gecmis_yoksa_kullanilmaz():
+    sonuc = {"p1": 0.43, "p0": 0.27, "p2": 0.29, "facts": {"uyarilar": ["Takımlardan birinin yeterli geçmiş veri yok: sonuç tahmini düşük güvenli."]}}
+    assert model_verisi(sonuc, "harman", milli=True) is None
+
+
+def test_kulup_maci_matrissiz_yine_none():
+    assert model_verisi({"p1": 0.5, "p0": 0.3, "p2": 0.2}, "v1", milli=False) is None
+
+
+def test_model_liglerine_yeni_ligler_eklendi():
+    from app.services.skorjin_prematch import MILLI_LIGLERI, MODEL_LIGLERI
+    assert {28, 34} <= MODEL_LIGLERI and 36 not in MODEL_LIGLERI           # Championship: matchforge geri testinde sinyal yok (#42)
+    assert {24, 25, 26, 27, 29, 30, 31, 32, 33} <= MILLI_LIGLERI and not (MILLI_LIGLERI & MODEL_LIGLERI)
