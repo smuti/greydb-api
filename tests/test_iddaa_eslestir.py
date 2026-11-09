@@ -225,3 +225,29 @@ def test_takma_adlar_baska_takimlari_karistirmaz():
     assert not takim_benzer("Racing Santander", "Racing Genk")
     assert not takim_benzer("Deportivo A Coruña", "Deportivo Alaves")
     assert not takim_benzer("Santander", "Santos")
+
+
+# ---------------------------------------------------------------- milli takım adları: iddaa Türkçe, bizde İngilizce
+def test_milli_takim_adi_turkce_ingilizce_ayni_kabul_edilir():
+    """iddaa 'Ermenistan - Kıbrıs', biz 'Armenia - Cyprus'. Adlardan hiçbiri benzemediği için eşleşme yalnız saatle olamaz; ülke adı eşlemesi gerekir (canlı kuru çalıştırmada 3 maç kaçıyordu)."""
+    for ing, tr in (("Armenia", "Ermenistan"), ("Cyprus", "Kıbrıs"), ("Czechia", "Çekya"), ("Spain", "İspanya"), ("England", "İngiltere"), ("Croatia", "Hırvatistan"),
+                    ("Turkiye", "Türkiye"), ("Belgium", "Belçika"), ("Bosnia and Herzegovina", "Bosna Hersek"), ("Faroe Islands", "Faroe Adaları")):
+        assert takim_benzer(ing, tr), (ing, tr)
+        assert takim_benzer(tr, ing), (tr, ing)
+
+
+def test_milli_esleme_yanlis_ulkeyi_birlestirmez():
+    assert not takim_benzer("Armenia", "Kıbrıs")
+    assert not takim_benzer("Spain", "Çekya")
+    assert not takim_benzer("Czechia", "İngiltere")
+
+
+def test_milli_esleme_kulup_adlarina_dokunmaz():
+    assert takim_benzer("Arsenal", "Arsenal") and not takim_benzer("Arsenal", "Arsenal Tula")
+    assert takim_benzer("B. Dortmund", "Borussia Dortmund")
+
+
+def test_milli_maci_iddaa_ile_eslesir():
+    iddaa = [dict(i=3288999, hn="Ermenistan", an="Kıbrıs", d=1794502800)]
+    maclar = [dict(fotmob_match_id=5181929, home="Armenia", away="Cyprus", kickoff_ts=1794502800)]
+    assert eslestir(iddaa, maclar)["eslesen"] == {5181929: 3288999}
