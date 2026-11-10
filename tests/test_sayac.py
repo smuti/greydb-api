@@ -13,6 +13,7 @@ client = TestClient(app)
 ADMIN = {"X-Sunucu-Anahtari": "gizli", "X-Yetki": "admin", "X-Kullanici-Email": "editor@greysports.tv"}
 GW = {"X-Sunucu-Anahtari": "gizli"}
 ISCI = {"X-Isci-Anahtari": "isci-gizli"}
+FUAT = {"X-Sunucu-Anahtari": "gizli", "X-Yetki": "admin", "X-Kullanici-Email": "fuat@greysports.tv"}
 
 
 def png(w=400, h=600, seffaf=True) -> bytes:
@@ -31,6 +32,7 @@ class Sahte:
         self.oyuncular, self.isler, self.isciler, self.sayac, self.isayac, self.gorseller = {}, {}, {}, 0, 0, {}
         self.onizlemeler = {}
         self.renkler = {}
+        self.ayarlar = {}
 
     def oyuncu_ekle(self, o):
         for x in self.oyuncular.values():
@@ -98,10 +100,17 @@ class Sahte:
     def kuyruga_geri_al(self):
         self.geri_alindi = True
 
+    def ayar_getir(self, email):
+        return self.ayarlar.get(email)
+
+    def ayar_yaz(self, email, isci):
+        if isci is None: self.ayarlar.pop(email, None)
+        else: self.ayarlar[email] = isci
+
     def is_al(self, isci):
         for d in ("onizleme_bekliyor", "bekliyor"):
             for j in sorted(self.isler.values(), key=lambda x: x["id"]):
-                if j["durum"] == d:
+                if j["durum"] == d and j.get("hedef_isci") in (None, isci):   # SQL ile aynı kural: hedefsiz iş herkese, hedefli iş yalnız o Mac'e
                     j.update({"durum": "onizleme_calisiyor" if d == "onizleme_bekliyor" else "calisiyor", "isci": isci, "deneme": j["deneme"] + 1})
                     return {**j, "onizleme_asamasi": d == "onizleme_bekliyor"}
         return None
@@ -144,7 +153,7 @@ def sahte(monkeypatch):
     monkeypatch.setenv("SUNUCU_ANAHTARI", "gizli")
     monkeypatch.setenv("SAYAC_ISCI_ANAHTARI", "isci-gizli")
     for ad in ("oyuncu_ekle", "oyuncular_listele", "oyuncu_getir", "oyuncu_gorseli", "takim_yildizi", "oyuncu_guncelle", "takim_renkleri", "is_ekle", "isler_listele",
-               "is_getir", "onizleme_yaz", "onizleme_getir", "is_onayla", "is_iptal_et", "isciler_listele", "isci_gor", "kuyruga_geri_al", "is_al", "kalp_yaz", "bitti_yaz", "hata_yaz"):
+               "is_getir", "onizleme_yaz", "onizleme_getir", "is_onayla", "is_iptal_et", "isciler_listele", "isci_gor", "kuyruga_geri_al", "is_al", "ayar_getir", "ayar_yaz", "kalp_yaz", "bitti_yaz", "hata_yaz"):
         monkeypatch.setattr(r, ad, getattr(s, ad))
     return s
 
@@ -334,3 +343,61 @@ def test_liste_ve_isci_gorsel(sahte):
     assert client.get(f"/api/sayac/oyuncular/{a}/gorsel", headers=ISCI).status_code == 200      # işçi görseli indirebilir
     assert client.get(f"/api/sayac/oyuncular/{a}/gorsel", headers=ADMIN).headers["content-type"] == "image/png"
     assert client.get(f"/api/sayac/oyuncular/{a}/gorsel").status_code == 401
+
+
+# ---- "Benim Mac'im" ayarı: işi açanın seçtiği Mac'e gider
+def mac_hazirla(sahte, *adlar):
+    for a in adlar:
+        sahte.isci_gor(a, "1")
+
+
+def mac_sec(baslik, isci):
+    return client.put("/api/sayac/ayar", json={"isci": isci}, headers=baslik)
+
+
+def test_ayar_bilinmeyen_mac_reddedilir_bilinen_kaydedilir(sahte):
+    mac_hazirla(sahte, "mac-sabri", "mac-fuat")
+    assert client.get("/api/sayac/ayar", headers=ADMIN).json() == {"isci": None, "isciler": ["mac-fuat", "mac-sabri"]}
+    assert mac_sec(ADMIN, "mac-yok").status_code == 422
+    assert mac_sec(ADMIN, "mac-sabri").status_code == 200
+    assert client.get("/api/sayac/ayar", headers=ADMIN).json()["isci"] == "mac-sabri"
+    assert client.get("/api/sayac/ayar", headers=FUAT).json()["isci"] is None          # ayar kişiye özel
+    assert mac_sec(ADMIN, None).status_code == 200                                      # seçimi kaldır
+    assert client.get("/api/sayac/ayar", headers=ADMIN).json()["isci"] is None
+
+
+def test_ayar_yetkisiz_istek_reddedilir(sahte):
+    assert client.get("/api/sayac/ayar").status_code in (401, 403)
+    assert client.put("/api/sayac/ayar", json={"isci": None}).status_code in (401, 403)
+
+
+def test_is_acanin_macine_gider_baskasinin_isini_almaz(sahte):
+    hazirla(sahte)
+    mac_hazirla(sahte, "mac-sabri", "mac-fuat")
+    mac_sec(ADMIN, "mac-sabri"); mac_sec(FUAT, "mac-fuat")
+    benim = client.post("/api/sayac/isler", json=MAC, headers=ADMIN).json()["id"]
+    onayla(sahte, benim, "mac-sabri")
+    assert sahte.isler[benim]["hedef_isci"] == "mac-sabri"
+    assert client.post("/api/sayac/isci/al", json={"isci": "mac-fuat"}, headers=ISCI).json()["is"] is None       # Fuat'ın Mac'i benim işimi almaz
+    assert client.post("/api/sayac/isci/al", json={"isci": "mac-sabri"}, headers=ISCI).json()["is"]["id"] == benim
+
+
+def test_iki_kisi_ayni_anda_farkli_isler_her_biri_kendi_macinde(sahte):
+    hazirla(sahte)
+    mac_hazirla(sahte, "mac-sabri", "mac-fuat")
+    mac_sec(ADMIN, "mac-sabri"); mac_sec(FUAT, "mac-fuat")
+    benim = client.post("/api/sayac/isler", json=MAC, headers=ADMIN).json()["id"]
+    onun = client.post("/api/sayac/isler", json={**MAC, "fotmob_match_id": 4712}, headers=FUAT).json()["id"]
+    onayla(sahte, benim, "mac-sabri"); onayla(sahte, onun, "mac-fuat")
+    fuat = client.post("/api/sayac/isci/al", json={"isci": "mac-fuat"}, headers=ISCI).json()["is"]
+    sabri = client.post("/api/sayac/isci/al", json={"isci": "mac-sabri"}, headers=ISCI).json()["is"]
+    assert (fuat["id"], sabri["id"]) == (onun, benim)
+
+
+def test_ayari_olmayan_kisinin_isi_herhangi_bir_maca_duser(sahte):
+    hazirla(sahte)
+    mac_hazirla(sahte, "mac-fuat")
+    iid = client.post("/api/sayac/isler", json=MAC, headers=ADMIN).json()["id"]          # ADMIN'in ayarı yok
+    onayla(sahte, iid, "mac-fuat")
+    assert sahte.isler[iid]["hedef_isci"] is None
+    assert client.post("/api/sayac/isci/al", json={"isci": "mac-fuat"}, headers=ISCI).json()["is"]["id"] == iid

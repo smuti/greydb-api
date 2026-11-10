@@ -139,8 +139,8 @@ def is_ekle(j: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     from sqlalchemy.exc import IntegrityError
     try:
         return execute_insert(
-            """INSERT INTO greydb.sayac_isleri (fotmob_match_id, ev_team_id, dep_team_id, ev_ad, dep_ad, ev_oyuncu_id, dep_oyuncu_id, girdi, olusturan)
-               VALUES (:fotmob_match_id, :ev_team_id, :dep_team_id, :ev_ad, :dep_ad, :ev_oyuncu_id, :dep_oyuncu_id, CAST(:girdi AS jsonb), :olusturan)
+            """INSERT INTO greydb.sayac_isleri (fotmob_match_id, ev_team_id, dep_team_id, ev_ad, dep_ad, ev_oyuncu_id, dep_oyuncu_id, girdi, olusturan, hedef_isci)
+               VALUES (:fotmob_match_id, :ev_team_id, :dep_team_id, :ev_ad, :dep_ad, :ev_oyuncu_id, :dep_oyuncu_id, CAST(:girdi AS jsonb), :olusturan, :hedef_isci)
                RETURNING id""", {**j, "girdi": json.dumps(j["girdi"], ensure_ascii=False)})
     except IntegrityError:
         return None
@@ -148,7 +148,7 @@ def is_ekle(j: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 def isler_listele(limit: int = 50) -> List[Dict[str, Any]]:
     return execute_query(
-        """SELECT id, fotmob_match_id, ev_ad, dep_ad, ev_oyuncu_id, dep_oyuncu_id, girdi, durum, isci, dosya_yolu, deneme, hata, olusturan, olusturma, baslama, bitis
+        """SELECT id, fotmob_match_id, ev_ad, dep_ad, ev_oyuncu_id, dep_oyuncu_id, girdi, durum, isci, dosya_yolu, deneme, hata, olusturan, hedef_isci, olusturma, baslama, bitis
            , (onizleme IS NOT NULL) AS onizleme_var FROM greydb.sayac_isleri ORDER BY id DESC LIMIT :l""", {"l": limit})
 
 
@@ -163,6 +163,21 @@ def is_iptal_et(iid: int) -> bool:
 
 def isciler_listele() -> List[Dict[str, Any]]:
     return execute_query("SELECT ad, son_gorulme, surum FROM greydb.sayac_isciler ORDER BY ad")
+
+
+def ayar_getir(email: str) -> Optional[str]:
+    """Kişinin "benim Mac'im" seçimi (yoksa None: işleri herhangi bir Mac alır)."""
+    r = execute_query("SELECT isci FROM greydb.sayac_kullanici_ayar WHERE email = :e", {"e": email})
+    return r[0]["isci"] if r else None
+
+
+def ayar_yaz(email: str, isci: Optional[str]) -> None:
+    if isci is None:
+        execute_insert("DELETE FROM greydb.sayac_kullanici_ayar WHERE email = :e RETURNING email", {"e": email})
+        return
+    execute_insert(
+        f"""INSERT INTO greydb.sayac_kullanici_ayar (email, isci, guncelleme) VALUES (:e, :i, {_UTC_SIMDI})
+            ON CONFLICT (email) DO UPDATE SET isci = EXCLUDED.isci, guncelleme = {_UTC_SIMDI} RETURNING email""", {"e": email, "i": isci})
 
 
 def isci_gor(ad: str, surum: Optional[str]) -> None:
@@ -188,7 +203,7 @@ def is_al(isci: str) -> Optional[Dict[str, Any]]:
         f"""UPDATE greydb.sayac_isleri SET
               durum = CASE WHEN durum = 'onizleme_bekliyor' THEN 'onizleme_calisiyor' ELSE 'calisiyor' END,
               isci = :i, baslama = {_UTC_SIMDI}, kalp_atisi = {_UTC_SIMDI}, deneme = deneme + 1
-            WHERE id = (SELECT id FROM greydb.sayac_isleri WHERE durum IN ('onizleme_bekliyor','bekliyor')
+            WHERE id = (SELECT id FROM greydb.sayac_isleri WHERE durum IN ('onizleme_bekliyor','bekliyor') AND (hedef_isci IS NULL OR hedef_isci = :i)
                         ORDER BY (durum = 'onizleme_bekliyor') DESC, id FOR UPDATE SKIP LOCKED LIMIT 1)
             RETURNING *, (durum = 'onizleme_calisiyor') AS onizleme_asamasi""", {"i": isci})
 
@@ -256,6 +271,11 @@ class IsAc(BaseModel):
     mac_zamani: datetime                    # UTC (FotMob matchTimeUTCDate)
     ev_oyuncu_id: Optional[int] = None      # boşsa takımın yıldızı
     dep_oyuncu_id: Optional[int] = None
+
+
+class Ayar(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    isci: Optional[str] = Field(None, min_length=1, max_length=40)       # None = seçimi kaldır
 
 
 class IsciIstek(BaseModel):
@@ -338,6 +358,22 @@ def _oyuncu_sec(takim_id: int, secilen: Optional[int], taraf: str) -> Dict[str, 
     return o
 
 
+@router.get("/sayac/ayar")
+def ayar_oku(request: Request):
+    k = admin_gerek(request)
+    return {"isci": ayar_getir(k.email), "isciler": sorted(x["ad"] for x in isciler_listele())}
+
+
+@router.put("/sayac/ayar")
+def ayar_kaydet(g: Ayar, request: Request):
+    """"Benim Mac'im": bundan sonra bu kişinin açtığı işleri yalnız seçilen Mac alır. Yalnız daha önce bağlanmış Mac'ler seçilebilir."""
+    k = admin_gerek(request)
+    if g.isci is not None and g.isci not in {x["ad"] for x in isciler_listele()}:
+        raise HTTPException(status_code=422, detail="Bu adla bağlanmış bir Mac yok")
+    ayar_yaz(k.email, g.isci)
+    return {"isci": g.isci}
+
+
 @router.post("/sayac/isler", status_code=201)
 def is_ac(g: IsAc, request: Request):
     k = admin_gerek(request)
@@ -350,7 +386,7 @@ def is_ac(g: IsAc, request: Request):
     girdi = {**kunye(z, g.lig), **tohumlar(g.fotmob_match_id),
              "evGlow": parilti(renkler.get(g.ev_team_id), VARSAYILAN_PARILTI[0]), "depGlow": parilti(renkler.get(g.dep_team_id), VARSAYILAN_PARILTI[1])}
     r = is_ekle({"fotmob_match_id": g.fotmob_match_id, "ev_team_id": g.ev_team_id, "dep_team_id": g.dep_team_id, "ev_ad": g.ev_ad, "dep_ad": g.dep_ad,
-                 "ev_oyuncu_id": ev["id"], "dep_oyuncu_id": dep["id"], "girdi": girdi, "olusturan": k.email})
+                 "ev_oyuncu_id": ev["id"], "dep_oyuncu_id": dep["id"], "girdi": girdi, "olusturan": k.email, "hedef_isci": ayar_getir(k.email)})
     if not r:
         raise HTTPException(status_code=409, detail="Bu maç için bekleyen ya da çalışan bir iş zaten var")
     return {"id": r["id"], "girdi": girdi}
