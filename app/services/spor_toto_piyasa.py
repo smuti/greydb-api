@@ -105,7 +105,7 @@ def karar(p1: float, p0: float, p2: float) -> Dict[str, Any]:
     return dict(tier="cift", senaryo="1-0" if top == 0 else "0-2", secimler=[kod[top], "0"], kolon=2, banko=False)
 
 
-_PARCALAR = {"1": ("1",), "0": ("0",), "2": ("2",), "1-0": ("1", "0"), "0-2": ("0", "2"), "1-0-2": ("1", "0", "2")}
+_PARCALAR = {"1": ("1",), "0": ("0",), "2": ("2",), "1-0": ("1", "0"), "1-2": ("1", "2"), "0-2": ("0", "2"), "1-0-2": ("1", "0", "2")}   # 1-2: beraberlik dışarıda; yalnız Fuat seçimi için, karar kuralı (karar) bunu seçmez
 
 
 def piyasa_tahmini(olaylar: List[Dict[str, Any]], ev_adi: str, dep_adi: str) -> Optional[Dict[str, Any]]:

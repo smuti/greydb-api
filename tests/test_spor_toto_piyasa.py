@@ -34,6 +34,14 @@ def test_fenerbahce_liverpool_deplasman_favori_banko():
     assert [s["senaryo"] for s in t["facts"]["senaryolar"] if s["onerilen"]] == ["2"]
 
 
+def test_piyasa_senaryolarinda_1_2_var_ve_ihtimali_p1_arti_p2_karar_degismez():
+    t = pz.piyasa_tahmini([olay("Fenerbahçe", "Liverpool")], "Fenerbahçe", "Liverpool")
+    sc = {s["senaryo"]: s for s in t["facts"]["senaryolar"]}
+    assert set(sc) == {"1", "0", "2", "1-0", "1-2", "0-2", "1-0-2"}
+    assert sc["1-2"]["ihtimal"] == pytest.approx(t["p1"] + t["p2"])
+    assert sc["1-2"]["onerilen"] is False and t["decision"]["senaryo"] == "2"     # 1-2 yalnız Fuat seçimi için; karar kuralı aynı
+
+
 def test_belirsiz_ya_da_yok_maci_baglamaz():
     assert pz.piyasa_tahmini([olay("Barcelona", "Aston Villa")], "Fenerbahçe", "Liverpool") is None
     assert pz.piyasa_tahmini([], "Fenerbahçe", "Liverpool") is None

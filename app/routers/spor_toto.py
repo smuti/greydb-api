@@ -1,5 +1,5 @@
 """
-Spor Toto Router - haftalık 15 maç için Fuat-tarzı 6 senaryo üretimi ve onayı
+Spor Toto Router - haftalık 15 maç için Fuat-tarzı 7 senaryo üretimi ve onayı
 """
 import json
 from datetime import datetime
@@ -267,7 +267,7 @@ async def fetch_week(request: FetchWeekRequest):
 
 @router.post("/spor-toto/matches/{match_id}/generate")
 async def generate_match(match_id: int, bastan: bool = False):
-    """Tek bir maç için 6 senaryoyu üretir — /weeks/fetch'in eşleştirdiği her maç
+    """Tek bir maç için 7 senaryoyu üretir — /weeks/fetch'in eşleştirdiği her maç
     için admin ekranı bunu sırayla çağırır, her cevap geldikçe o maçın kartı güncellenir.
 
     Varsayılan: onaylı maça dokunulmaz (409). `bastan=true` (yeniden üretim): onaylı ya da taslağı hazır maç da BAŞTAN üretilir;
