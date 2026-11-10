@@ -9,7 +9,7 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app.services.db import query_to_df, execute_insert
+from app.services.db import query_to_df, execute_insert, transaction
 from app.services import spor_toto_fetch as stf
 
 router = APIRouter(tags=["spor-toto"])
@@ -130,12 +130,14 @@ def _onayi_sifirla(match_id: int) -> None:
 
 
 def _save_entries(match_id: int, scenarios: list[dict]) -> None:
-    execute_insert("DELETE FROM greydb.spor_toto_entries WHERE match_id = :match_id", {"match_id": match_id})
-    for s in scenarios:
-        execute_insert(
-            "INSERT INTO greydb.spor_toto_entries (match_id, senaryo, metin, onerilen) VALUES (:match_id, :senaryo, :metin, :onerilen)",
-            {"match_id": match_id, "senaryo": s["senaryo"], "metin": s["metin"], "onerilen": bool(s["onerilen"])},
-        )
+    """Silme + tüm eklemeler TEK işlemde: ortada hata olursa (ör. kısıt ihlali) geri alınır, eski taslaklar kaybolmaz ve yarım liste kalmaz."""
+    with transaction():
+        execute_insert("DELETE FROM greydb.spor_toto_entries WHERE match_id = :match_id", {"match_id": match_id})
+        for s in scenarios:
+            execute_insert(
+                "INSERT INTO greydb.spor_toto_entries (match_id, senaryo, metin, onerilen) VALUES (:match_id, :senaryo, :metin, :onerilen)",
+                {"match_id": match_id, "senaryo": s["senaryo"], "metin": s["metin"], "onerilen": bool(s["onerilen"])},
+            )
 
 
 def _save_model(match_id: int, model: Optional[dict]) -> None:
