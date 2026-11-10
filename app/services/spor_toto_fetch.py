@@ -7,7 +7,7 @@ isim eslestirmesiyle baglanir (sonuc greydb.spor_toto_team_map'te kalici
 olarak saklanir, bir dahaki hafta tekrar denenmez) -> iki katmanli veri
 toplanir (teamAnalyzer'in 17 ligi icin zengin HTTP verisi, disinda kalan
 ligler icin ayni Postgres'teki ham public.* tablolarindan basit agregatlar)
--> Skorjin'in yeni /api/v1/spor-toto-scenarios ucuna gonderilip 6 senaryo
+-> Skorjin'in yeni /api/v1/spor-toto-scenarios ucuna gonderilip 7 senaryo
 uretilir.
 """
 import difflib
