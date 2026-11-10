@@ -212,7 +212,7 @@ def _generate_for_match(match_id: int, home: dict, away: dict, lig_haftasi: Opti
 # ==================== Endpoint'ler ====================
 
 @router.get("/spor-toto/available-rounds")
-async def available_rounds(year: str = "2026/2027"):
+def available_rounds(year: str = "2026/2027"):
     try:
         rounds = stf.list_available_rounds(year)
     except Exception as e:
@@ -221,7 +221,7 @@ async def available_rounds(year: str = "2026/2027"):
 
 
 @router.post("/spor-toto/weeks/fetch")
-async def fetch_week(request: FetchWeekRequest):
+def fetch_week(request: FetchWeekRequest):
     """Sadece HIZLI kısmı yapar: Sportoto'dan 15 maçı çeker, hafta/maç satırlarını
     oluşturur, takımları eşleştirir (cache'den okuduğu için hızlı, LLM çağrısı yok).
     Senaryo üretimi YOK — admin ekranı bu cevapla maç listesini hemen gösterip,
@@ -268,7 +268,7 @@ async def fetch_week(request: FetchWeekRequest):
 
 
 @router.post("/spor-toto/matches/{match_id}/generate")
-async def generate_match(match_id: int, bastan: bool = False):
+def generate_match(match_id: int, bastan: bool = False):
     """Tek bir maç için 7 senaryoyu üretir — /weeks/fetch'in eşleştirdiği her maç
     için admin ekranı bunu sırayla çağırır, her cevap geldikçe o maçın kartı güncellenir.
 
@@ -301,14 +301,14 @@ async def generate_match(match_id: int, bastan: bool = False):
 
 
 @router.get("/spor-toto/weeks")
-async def list_weeks():
+def list_weeks():
     df = query_to_df("SELECT * FROM greydb.spor_toto_weeks ORDER BY hafta_no DESC")
     # Boş (NaN/NaT) hücre JSON'a çevrilemez ve tüm listeyi 500'e düşürür (ekran "Henüz hiç hafta getirilmedi" gösterirdi): None yap
     return {"weeks": df.astype(object).where(df.notna(), None).to_dict(orient="records")}
 
 
 @router.get("/spor-toto/weeks/{hafta_no}")
-async def get_week(hafta_no: int):
+def get_week(hafta_no: int):
     week_df = query_to_df("SELECT * FROM greydb.spor_toto_weeks WHERE hafta_no = %s", (hafta_no,))
     if week_df.empty:
         raise HTTPException(status_code=404, detail="Hafta bulunamadı")
@@ -337,14 +337,14 @@ async def get_week(hafta_no: int):
 
 
 @router.get("/spor-toto/team-search")
-async def team_search(q: str):
+def team_search(q: str):
     if not q or len(q) < 2:
         raise HTTPException(status_code=400, detail="En az 2 karakter girin")
     return {"teams": stf.search_teams(q)}
 
 
 @router.post("/spor-toto/matches/{match_id}/manual-team-link")
-async def manual_team_link(match_id: int, request: ManualTeamLinkRequest):
+def manual_team_link(match_id: int, request: ManualTeamLinkRequest):
     if request.side not in ("home", "away"):
         raise HTTPException(status_code=400, detail="side 'home' veya 'away' olmalı")
 
@@ -396,7 +396,7 @@ async def manual_team_link(match_id: int, request: ManualTeamLinkRequest):
 
 
 @router.put("/spor-toto/matches/{match_id}/selection")
-async def update_selection(match_id: int, update: SelectionUpdate):
+def update_selection(match_id: int, update: SelectionUpdate):
     row = execute_insert(
         """
         UPDATE greydb.spor_toto_matches
@@ -416,7 +416,7 @@ async def update_selection(match_id: int, update: SelectionUpdate):
 
 
 @router.put("/spor-toto/matches/{match_id}/video")
-async def update_video_link(match_id: int, update: VideoLinkUpdate):
+def update_video_link(match_id: int, update: VideoLinkUpdate):
     row = execute_insert(
         """
         UPDATE greydb.spor_toto_matches
