@@ -69,8 +69,17 @@ DDL = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_sayac_isleri_durum ON greydb.sayac_isleri (durum, id)",
+    # "Benim Mac'im": işi açanın seçtiği işçi; NULL = herhangi bir Mac alabilir
+    "ALTER TABLE greydb.sayac_isleri ADD COLUMN IF NOT EXISTS hedef_isci TEXT",
     # aynı maç için aynı anda tek aktif iş (çift tıklama koruması)
     "CREATE UNIQUE INDEX IF NOT EXISTS uq_sayac_isleri_aktif ON greydb.sayac_isleri (fotmob_match_id) WHERE durum IN ('onizleme_bekliyor','onizleme_calisiyor','onizleme_hazir','bekliyor','calisiyor')",
+    """
+    CREATE TABLE IF NOT EXISTS greydb.sayac_kullanici_ayar (
+        email TEXT PRIMARY KEY,
+        isci TEXT NOT NULL,
+        guncelleme TIMESTAMP NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+    )
+    """,
     """
     CREATE TABLE IF NOT EXISTS greydb.sayac_isciler (
         ad TEXT PRIMARY KEY,
