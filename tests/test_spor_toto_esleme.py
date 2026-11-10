@@ -82,6 +82,6 @@ def test_elle_baglama_kalici_haritaya_yazilir(monkeypatch):
     monkeypatch.setattr(st, "query_to_df", lambda sql, params=None: next(maclar))
     monkeypatch.setattr(st, "execute_insert", lambda sql, p=None: olaylar.append((" ".join(sql.split()), p)))
     monkeypatch.setattr(st, "_generate_for_match", lambda *a, **k: None)
-    asyncio.run(st.manual_team_link(7, st.ManualTeamLinkRequest(side="home", matchforge_team_id=76)))
+    st.manual_team_link(7, st.ManualTeamLinkRequest(side="home", matchforge_team_id=76))
     harita = [o for o in olaylar if "spor_toto_team_map" in o[0]]
     assert harita and harita[0][1] == {"tid": 76, "ad": "Athletic Bilbao"}

@@ -1,5 +1,4 @@
 """Spor Toto baştan üretim: onaylı maç varsayılan 409; bastan=true ile yeniden üretilir, onay yeni taslak yazıldıktan SONRA silinir; üretim patlarsa onay korunur."""
-import asyncio
 
 import pandas as pd
 import pytest
@@ -28,13 +27,13 @@ def _kur(monkeypatch, onayli, uretim_patlar=False):
 def test_onayli_maca_varsayilan_dokunulmaz(monkeypatch):
     olaylar = _kur(monkeypatch, onayli=True)
     with pytest.raises(HTTPException) as e:
-        asyncio.run(st.generate_match(7))
+        st.generate_match(7)
     assert e.value.status_code == 409 and olaylar == []
 
 
 def test_bastan_onayli_maci_yeniden_uretir_ve_onayi_sonra_siler(monkeypatch):
     olaylar = _kur(monkeypatch, onayli=True)
-    r = asyncio.run(st.generate_match(7, bastan=True))
+    r = st.generate_match(7, bastan=True)
     assert r["message"] == "Baştan üretildi"
     assert olaylar[0] == ("uretildi",) and olaylar[1][0] == "sql"          # önce üretim, sonra onay silme
     sql = olaylar[1][1]
@@ -44,11 +43,11 @@ def test_bastan_onayli_maci_yeniden_uretir_ve_onayi_sonra_siler(monkeypatch):
 def test_bastan_uretim_patlarsa_onay_korunur(monkeypatch):
     olaylar = _kur(monkeypatch, onayli=True, uretim_patlar=True)
     with pytest.raises(HTTPException) as e:
-        asyncio.run(st.generate_match(7, bastan=True))
+        st.generate_match(7, bastan=True)
     assert e.value.status_code == 502 and not any(o[0] == "sql" for o in olaylar)
 
 
 def test_taslagi_hazir_mac_normal_akis_degismez(monkeypatch):
     olaylar = _kur(monkeypatch, onayli=False)
-    r = asyncio.run(st.generate_match(7))
+    r = st.generate_match(7)
     assert r["message"] == "Üretildi" and olaylar == [("uretildi",)]

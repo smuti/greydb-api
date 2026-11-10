@@ -138,7 +138,7 @@ def test_hafta_listesi_bos_hucreyle_json_uretir(monkeypatch):
         {"id": 1, "hafta_no": 1540, "hafta_etiketi": "13. Oyun Programı", "ekstra": float("nan")},
         {"id": 2, "hafta_no": 1539, "hafta_etiketi": "12. Hafta", "ekstra": 3.0},
     ]))
-    out = asyncio.run(router.list_weeks())
+    out = router.list_weeks()
     assert json.loads(json.dumps(out))["weeks"][0]["ekstra"] is None
 
 
