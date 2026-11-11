@@ -49,6 +49,22 @@ def _oyuncu_json_mat() -> None:
         log.exception("oyuncu_json_mat yenileme hata verdi")
 
 
+def _st_arsiv() -> None:
+    from app.routers import spor_toto_arsiv as r
+    try:
+        log.info("spor toto arşiv senkronu: %s", r.senkron_isi())
+    except Exception:  # noqa: BLE001 — resmî API erişilemezse ya da hata verirse zamanlayıcı ve diğer işler durmasın
+        log.exception("spor toto arşiv senkronu hata verdi")
+
+
+def _st_oynanma() -> None:
+    from app.routers import spor_toto_arsiv as r
+    try:
+        log.info("spor toto oynanma kaydı: %s satır", r.oynanma_isi())
+    except Exception:  # noqa: BLE001 — iddaa erişilemezse ya da hata verirse zamanlayıcı ve diğer işler durmasın
+        log.exception("spor toto oynanma kaydı hata verdi")
+
+
 def isler() -> List[Tuple[str, dict, Callable[[], None]]]:
     """(kimlik, cron alanları, iş). GitHub iş akışlarının eski planıyla aynı saatler."""
     return [
@@ -59,6 +75,8 @@ def isler() -> List[Tuple[str, dict, Callable[[], None]]]:
         ("tercih-sonuc", dict(hour="*/2", minute="50"), _tercih("sonuc")),
         ("oyuncu-json-mat", dict(hour="2", minute="30"), _oyuncu_json_mat),
         ("canli-korner-sonuc", dict(hour="*/2", minute="55"), _canli_korner_sonuc),
+        ("spor-toto-arsiv", dict(hour="6", minute="15"), _st_arsiv),
+        ("spor-toto-oynanma", dict(hour="*/6", minute="5"), _st_oynanma),
     ]
 
 
