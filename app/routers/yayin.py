@@ -195,8 +195,11 @@ def toto_maclari(hafta_no: int) -> List[Dict[str, Any]]:
                       ) q
                       WHERE q.fotmob_match_id IS NOT NULL AND m.mac_tarihi IS NOT NULL AND abs(extract(epoch FROM (q.match_date - m.mac_tarihi))) < 3 * 86400
                       ORDER BY abs(extract(epoch FROM (q.match_date - m.mac_tarihi))) LIMIT 1
-                  )) AS fotmob_match_id
-           FROM greydb.spor_toto_matches m JOIN greydb.spor_toto_weeks w ON w.id = m.week_id WHERE w.hafta_no = :h ORDER BY m.mac_no""", {"h": hafta_no})
+                  )) AS fotmob_match_id,
+                  th.fotmob_team_id AS ev_fotmob_id, ta.fotmob_team_id AS dep_fotmob_id
+           FROM greydb.spor_toto_matches m JOIN greydb.spor_toto_weeks w ON w.id = m.week_id
+           LEFT JOIN public.teams th ON th.id = m.home_team_id LEFT JOIN public.teams ta ON ta.id = m.away_team_id
+           WHERE w.hafta_no = :h ORDER BY m.mac_no""", {"h": hafta_no})
 
 
 def toto_etiketi(hafta_no: int) -> str:

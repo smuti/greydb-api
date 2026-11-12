@@ -99,12 +99,13 @@ def test_ayni_donem_tekrar_yuklenince_gunceller():
 
 
 def test_hafta_eslemesi_herkese_acik_yalniz_sira_takim_ve_fotmob_kimligi(monkeypatch):
-    satirlar = [{"mac_no": i, "ev_takim": f"A{i}", "deplasman_takim": f"B{i}", "fotmob_match_id": 5000 + i if i != 3 else None,
+    satirlar = [{"mac_no": i, "ev_takim": f"A{i}", "deplasman_takim": f"B{i}", "fotmob_match_id": 5000 + i if i != 3 else None, "ev_fotmob_id": 100 + i, "dep_fotmob_id": 200 + i if i != 5 else None,
                  "final_metin": "gizli yorum", "model_p1": 0.7, "secilen_senaryo": "x"} for i in range(1, 16)]
     monkeypatch.setattr(r, "mac_kimlikleri", lambda hafta_no: satirlar if hafta_no == 1542 else [])
     j = client.get("/api/spor-toto/hafta-eslemesi", params={"hafta_no": 1542}).json()
     assert j["hafta_no"] == 1542 and len(j["maclar"]) == 15
-    assert j["maclar"][0] == {"sira": 1, "ev": "A1", "dep": "B1", "fotmob_id": 5001}
+    assert j["maclar"][0] == {"sira": 1, "ev": "A1", "dep": "B1", "fotmob_id": 5001, "ev_id": 101, "dep_id": 201}
+    assert j["maclar"][4]["dep_id"] is None and j["maclar"][4]["ev_id"] == 105
     assert j["maclar"][2]["fotmob_id"] is None
     assert j["eslesen"] == 14
     ham = str(j).lower()

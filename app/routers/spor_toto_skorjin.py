@@ -108,9 +108,10 @@ def paketi_oku(donem_no: Optional[int] = Query(None, ge=1)):
 
 @router.get("/spor-toto/hafta-eslemesi")
 def hafta_eslemesi(hafta_no: int = Query(..., ge=1)):
-    """Resmî hafta (oyun programı) numarasıyla haftanın 15 maçı: sıra, takımlar, FotMob maç kimliği (bulunamayan None). Tercih/yorum/model alanı hiç dönmez."""
+    """Resmî hafta (oyun programı) numarasıyla haftanın 15 maçı: sıra, takımlar, FotMob maç kimliği ve takımların FotMob kimliği (logo için; bulunamayan None). Tercih/yorum/model alanı hiç dönmez."""
     satirlar = mac_kimlikleri(hafta_no)
     if not satirlar:
         raise HTTPException(status_code=404, detail="Hafta yok")
-    maclar = [{"sira": m["mac_no"], "ev": m["ev_takim"], "dep": m["deplasman_takim"], "fotmob_id": m["fotmob_match_id"]} for m in satirlar]
+    maclar = [{"sira": m["mac_no"], "ev": m["ev_takim"], "dep": m["deplasman_takim"], "fotmob_id": m["fotmob_match_id"],
+               "ev_id": m.get("ev_fotmob_id"), "dep_id": m.get("dep_fotmob_id")} for m in satirlar]
     return {"hafta_no": hafta_no, "maclar": maclar, "eslesen": sum(1 for m in maclar if m["fotmob_id"])}
