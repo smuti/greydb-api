@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import gol_karne, form, h2h, predictions, coupons, match_comments, feedback, skorjin, leagues, tracked_leagues, analysis_matches, standings, match_detail, match_context, match_data, spor_toto, spor_toto_yayin, spor_toto_arsiv, odds_snapshots, player_stats, iddaa, kuponlar, kupon_sonuclari, veri_ozeti, yayin, sayac, altyazi, over15_algorithm, skorjin_prematch, tercih_izleme, stat_yenile, skorjin_kuponlari, canli_korner, oyuncu_stat
+from app.routers import gol_karne, form, h2h, predictions, coupons, match_comments, feedback, skorjin, leagues, tracked_leagues, analysis_matches, standings, match_detail, match_context, match_data, spor_toto, spor_toto_yayin, spor_toto_arsiv, spor_toto_skorjin, odds_snapshots, player_stats, iddaa, kuponlar, kupon_sonuclari, veri_ozeti, yayin, sayac, altyazi, over15_algorithm, skorjin_prematch, tercih_izleme, stat_yenile, skorjin_kuponlari, canli_korner, oyuncu_stat
 
 settings = get_settings()
 
@@ -63,6 +63,7 @@ app.include_router(veri_ozeti.router, prefix="/api")
 app.include_router(spor_toto.router, prefix="/api")
 app.include_router(spor_toto_yayin.router, prefix="/api")
 app.include_router(spor_toto_arsiv.router, prefix="/api")
+app.include_router(spor_toto_skorjin.router, prefix="/api")
 app.include_router(odds_snapshots.router, prefix="/api")
 app.include_router(iddaa.router, prefix="/api")
 app.include_router(kupon_sonuclari.router, prefix="/api")   # /kuponlar/{id}'den önce
