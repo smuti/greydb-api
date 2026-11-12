@@ -96,3 +96,18 @@ def test_ayni_donem_tekrar_yuklenince_gunceller():
     p["dagilim"] = {"banko": 8, "cift": 3, "uclu": 4}
     client.put("/api/spor-toto/skorjin-paketi", json=p, headers=ADMIN)
     assert len(DEPO) == 1 and client.get("/api/spor-toto/skorjin-paketi").json()["paket"]["dagilim"]["banko"] == 8
+
+
+def test_hafta_eslemesi_herkese_acik_yalniz_sira_takim_ve_fotmob_kimligi(monkeypatch):
+    satirlar = [{"mac_no": i, "ev_takim": f"A{i}", "deplasman_takim": f"B{i}", "fotmob_match_id": 5000 + i if i != 3 else None,
+                 "final_metin": "gizli yorum", "model_p1": 0.7, "secilen_senaryo": "x"} for i in range(1, 16)]
+    monkeypatch.setattr(r, "mac_kimlikleri", lambda hafta_no: satirlar if hafta_no == 1542 else [])
+    j = client.get("/api/spor-toto/hafta-eslemesi", params={"hafta_no": 1542}).json()
+    assert j["hafta_no"] == 1542 and len(j["maclar"]) == 15
+    assert j["maclar"][0] == {"sira": 1, "ev": "A1", "dep": "B1", "fotmob_id": 5001}
+    assert j["maclar"][2]["fotmob_id"] is None
+    assert j["eslesen"] == 14
+    ham = str(j).lower()
+    assert "gizli" not in ham and "model" not in ham and "senaryo" not in ham
+    assert client.get("/api/spor-toto/hafta-eslemesi", params={"hafta_no": 1}).status_code == 404
+    assert client.get("/api/spor-toto/hafta-eslemesi").status_code == 422
