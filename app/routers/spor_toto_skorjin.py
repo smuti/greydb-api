@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Body, HTTPException, Query, Request
 
 from app.routers.kuponlar import admin_gerek
+from app.routers.yayin import toto_maclari as _toto_maclari
 from app.services.db import execute_insert, execute_query
 
 router = APIRouter(tags=["spor-toto-skorjin"])
@@ -33,6 +34,11 @@ def paket_oku(donem_no: Optional[int] = None) -> Optional[Dict[str, Any]]:
     else:
         satirlar = execute_query("SELECT donem_no, kapanis, paket, guncellendi FROM greydb.spor_toto_skorjin_paketleri WHERE donem_no = :d", {"d": donem_no})
     return satirlar[0] if satirlar else None
+
+
+def mac_kimlikleri(hafta_no: int):
+    """Haftanın maçları ve eşlenmiş FotMob maç kimliği (yayın kartlarının kullandığı çözümleme: takım kimlikleri + tarih, upcoming_matches/matches)."""
+    return _toto_maclari(hafta_no)
 
 
 # ---------------- doğrulama ----------------
@@ -98,3 +104,13 @@ def paketi_oku(donem_no: Optional[int] = Query(None, ge=1)):
     paket = s["paket"] if isinstance(s["paket"], dict) else json.loads(s["paket"])
     return {"donem_no": s["donem_no"], "kapanis": kapanis.isoformat() if hasattr(kapanis, "isoformat") else kapanis,
             "aktif": bool(kapanis and kapanis > simdi), "guncellendi": s["guncellendi"].isoformat() if hasattr(s["guncellendi"], "isoformat") else s["guncellendi"], "paket": paket}
+
+
+@router.get("/spor-toto/hafta-eslemesi")
+def hafta_eslemesi(hafta_no: int = Query(..., ge=1)):
+    """Resmî hafta (oyun programı) numarasıyla haftanın 15 maçı: sıra, takımlar, FotMob maç kimliği (bulunamayan None). Tercih/yorum/model alanı hiç dönmez."""
+    satirlar = mac_kimlikleri(hafta_no)
+    if not satirlar:
+        raise HTTPException(status_code=404, detail="Hafta yok")
+    maclar = [{"sira": m["mac_no"], "ev": m["ev_takim"], "dep": m["deplasman_takim"], "fotmob_id": m["fotmob_match_id"]} for m in satirlar]
+    return {"hafta_no": hafta_no, "maclar": maclar, "eslesen": sum(1 for m in maclar if m["fotmob_id"])}
