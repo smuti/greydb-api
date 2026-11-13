@@ -1,5 +1,6 @@
 """/api/spor-toto/skorjin-paketi: hafta paketi yükleme (admin) ve herkese açık okuma. Veritabanı sahte."""
 import copy
+import json
 from datetime import datetime, timedelta
 
 import pytest
@@ -86,7 +87,7 @@ def test_gecersiz_paketler():
                   {**paket(), "hafta": {"no": 367, "kapanis": "yarın"}}):
         assert client.put("/api/spor-toto/skorjin-paketi", json=bozuk, headers=ADMIN).status_code == 422
     dev = copy.deepcopy(paket())
-    dev["toto_genel"] = {"x": "a" * 600_000}
+    dev["toto_genel"] = {"x": "a" * 2_100_000}
     assert client.put("/api/spor-toto/skorjin-paketi", json=dev, headers=ADMIN).status_code == 413
 
 
@@ -112,3 +113,13 @@ def test_hafta_eslemesi_herkese_acik_yalniz_sira_takim_ve_fotmob_kimligi(monkeyp
     assert "gizli" not in ham and "model" not in ham and "senaryo" not in ham
     assert client.get("/api/spor-toto/hafta-eslemesi", params={"hafta_no": 1}).status_code == 404
     assert client.get("/api/spor-toto/hafta-eslemesi").status_code == 422
+
+
+def test_zengin_paket_dayanaklarla_yuklenir_ve_okunur():
+    zengin = copy.deepcopy(paket())
+    for m in zengin["maclar"]:
+        m["dayanaklar"] = [{"id": f"d{i}", "baslik": "b", "ozet": "o" * 200, "yon": "destek", "guc": 0.5, "notlar": ["n" * 100],
+                            "kartlar": [{"type": "table", "alt": "t", "columns": ["a", "b"], "rows": [["x" * 40, "y" * 40]] * 12}]} for i in range(24)]
+    assert 450_000 < len(json.dumps(zengin, ensure_ascii=False)) < 1_500_000
+    assert client.put("/api/spor-toto/skorjin-paketi", json=zengin, headers=ADMIN).status_code in (200, 201)
+    assert len(client.get("/api/spor-toto/skorjin-paketi").json()["paket"]["maclar"][0]["dayanaklar"]) == 24

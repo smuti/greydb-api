@@ -16,7 +16,7 @@ from app.services.db import execute_insert, execute_query
 
 router = APIRouter(tags=["spor-toto-skorjin"])
 
-EN_FAZLA_BAYT = 500_000
+EN_FAZLA_BAYT = 2_000_000          # 15 maçın dayanakları (kartlarıyla birlikte) ~0,5 MB tutar; sınır bunun üstünde, kötüye kullanıma karşı yine de dar
 YASAK_PARCALAR = ("tercih", "yorum", "fuat", "kullanici_secim")   # anahtar adında geçemez (küçük harfe çevrilmiş)
 
 
