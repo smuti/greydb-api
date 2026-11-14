@@ -42,6 +42,8 @@ class Bacak(BaseModel):
     secim: str
     oran: float
     bizimP: float
+    sonuc: Optional[Literal["won", "lost", "void"]] = None      # maç bitince sonuçlandırma işi yazar (kupon_hesap.bacak_sonucu); yoksa beklemede
+    sonucKaynak: Optional[str] = None                              # "otomatik"
 
     _metinler = field_validator("ev", "dep", "marketAd", "secim")(_bos_degil)
 
@@ -182,6 +184,12 @@ def db_guncelle(kid: int, k: Dict[str, Any], yayin: bool) -> Optional[Dict[str, 
 def db_sil(kid: int) -> bool:
     _hazirla()
     return execute_insert("DELETE FROM greydb.skorjin_kuponlari WHERE id = :id RETURNING id", {"id": kid}) is not None
+
+
+def db_bacaklar_yaz(kid: int, bacaklar: List[Dict[str, Any]]) -> None:
+    """Yalnız bacak listesini yazar (sonuç işi): başlık, durum, yayın zamanı ve güncelleme zamanı değişmez."""
+    _hazirla()
+    execute_insert("UPDATE greydb.skorjin_kuponlari SET bacaklar = CAST(:b AS JSONB) WHERE id = :id RETURNING id", {"b": json.dumps(bacaklar, ensure_ascii=False), "id": kid})
 
 
 # ---------------- Takım logosu ----------------
