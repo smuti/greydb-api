@@ -83,6 +83,18 @@ def otomatik_sonuclandir(dry_run: bool = True, x_cron_anahtari: str = Header(def
     return {"dry_run": dry_run, **rapor, "guncellemeler": [{"kupon_id": a, "bacak_id": b, "sonuc": s} for a, b, s in guncellemeler]}
 
 
+@router.post("/skorjin-kuponlari/sonuclandir")
+def skorjin_kuponlarini_sonuclandir(dry_run: bool = True, x_cron_anahtari: str = Header(default="")):
+    """Skorjin kuponlarının bitmiş maç bacaklarını sonuçlandırır (zamanlayıcı her 2 saatte çağırır; elle dry_run=true ile önce bakılır)."""
+    anahtar = _cron_anahtari()
+    if not anahtar:
+        raise HTTPException(status_code=503, detail="Uç kapalı: sunucuda CRON_ANAHTARI tanımlı değil")
+    if not hmac.compare_digest(x_cron_anahtari.encode(), anahtar.encode()):
+        raise HTTPException(status_code=401, detail="Geçersiz anahtar")
+    from app.services import skorjin_kupon_sonuc
+    return skorjin_kupon_sonuc.calistir(dry_run)
+
+
 _TAKIMSIZ = """
 SELECT id, ev, dep, mac_zamani, fotmob_match_id, iddaa_event_id FROM greydb.kupon_bacaklari
 WHERE ev_takim_id IS NULL OR dep_takim_id IS NULL ORDER BY mac_zamani DESC LIMIT 1000

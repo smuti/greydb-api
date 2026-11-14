@@ -65,6 +65,14 @@ def _st_oynanma() -> None:
         log.exception("spor toto oynanma kaydı hata verdi")
 
 
+def _skorjin_kupon_sonuc() -> None:
+    from app.services import skorjin_kupon_sonuc as k
+    try:
+        log.info("skorjin kupon sonuç: %s", k.calistir(dry_run=False))
+    except Exception:  # noqa: BLE001 — bir koşunun hatası zamanlayıcı iş parçacığını ya da diğer işleri durdurmasın
+        log.exception("skorjin kupon sonuç koşusu hata verdi")
+
+
 def isler() -> List[Tuple[str, dict, Callable[[], None]]]:
     """(kimlik, cron alanları, iş). GitHub iş akışlarının eski planıyla aynı saatler."""
     return [
@@ -77,6 +85,7 @@ def isler() -> List[Tuple[str, dict, Callable[[], None]]]:
         ("canli-korner-sonuc", dict(hour="*/2", minute="55"), _canli_korner_sonuc),
         ("spor-toto-arsiv", dict(hour="6", minute="15"), _st_arsiv),
         ("spor-toto-oynanma", dict(hour="*/6", minute="5"), _st_oynanma),
+        ("skorjin-kupon-sonuc", dict(hour="*/2", minute="35"), _skorjin_kupon_sonuc),
     ]
 
 
