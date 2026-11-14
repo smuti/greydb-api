@@ -2,7 +2,7 @@
 
 Yazan bir uç olduğu için X-Cron-Anahtari başlığıyla korunur; sunucuda CRON_ANAHTARI tanımlı değilse uç tamamen kapalıdır (503).
 Varsayılan KURU çalışmadır: yalnızca raporlar. Yazmak için ?dry_run=false. Aynı anda tek koşu (409).
-  kapsam=gunluk  form, H2H, skor matrisi (matchforge), oran, oynanma yüzdesi, sezon: yaklaşan 7 gün
+  kapsam=gunluk  form, H2H, skor matrisi (matchforge), oran, oynanma yüzdesi, sezon: yaklaşan 10 gün
   kapsam=oran    yalnız oran ve oynanma yüzdesi: satırı olan, iddaa kimlikli, 48 saat içindeki maçlar
 Günlük koşu Railway'in 5 dakikalık proxy sınırına dayandığı için ?arka_plan=true işi arka planda başlatıp hemen 202 döner;
 sonuç GET /skorjin/prematch-durum ile okunur (bellekte, son koşu; tek kopya varsayımı: yeniden başlatma durumu siler -> "yok").
