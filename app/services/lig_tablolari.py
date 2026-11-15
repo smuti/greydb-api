@@ -1,5 +1,14 @@
 """Lig tabloları: takım bazında sezon toplamları (gol, xG ve beklenen puan, şut, korner, kart, üst/alt çizgileri, KG).
 
+Kırılımlar (iddaa için en değerli ölçüler):
+- `golsuz`: gol atamadığı maç.
+- İç/dış saha: `ic_`/`dis_` + oynanan, kg_var, atilan, yenilen, ust15..ust45.
+- Son 5 maç: `son5_` + mac, kg_var, atilan, yenilen, ust15..ust45; kornerde `son5_korner_mac`/`son5_korner_toplam`, kartta `son5_kart_mac`/`son5_kart_toplam`
+  (iki takımın toplamı; o verinin bulunduğu son 5 maç).
+- Eşikler: `korner_ust95` (iki takımın korneri toplamı 9,5 üstü biten maç; payda korner_mac), `kart_mac` ve `kart_ust45`
+  (iki takımın sarı + kırmızısı 4,5 üstü; payda kart_mac).
+Son 5 için maçlar tarih sırasıyla verilmelidir (SQL `ORDER BY match_date`).
+
 Skorlar bitmiş maçlardan, istatistikler (match_stats) varsa o maçlardan gelir; istatistiği olmayan maç yalnız skor sayılarına girer.
 Yanıttaki `stat_mac` / `xg_mac` takımın kaç maçında o veri bulunduğunu söyler: ön yüz kapsamı düşük ölçüyü göstermez.
 Saf fonksiyonlar (veritabanı yok): hesapla() satır listesini alır.
@@ -28,7 +37,8 @@ _STAT = ("sut", "isabetli", "korner", "faul", "sari", "kirmizi", "top")
 
 
 def _bos(kimlik: Any, ad: str) -> Dict[str, Any]:
-    t: Dict[str, Any] = {"takim_id": kimlik, "takim": ad, "oynanan": 0, "puan": 0, "atilan": 0, "yenilen": 0, "temiz_sayfa": 0, "kg_var": 0,
+    t: Dict[str, Any] = {"takim_id": kimlik, "takim": ad, "oynanan": 0, "puan": 0, "atilan": 0, "yenilen": 0, "temiz_sayfa": 0, "kg_var": 0, "golsuz": 0,
+                         "korner_ust95": 0, "kart_mac": 0, "kart_ust45": 0,
                          "stat_mac": 0, "xg_mac": 0, "korner_mac": 0, "korner_puan": 0, "korner_g": 0, "korner_b": 0, "korner_m": 0, "xg_atilan": 0.0, "xg_yenilen": 0.0, "xp": 0.0}
     for c in CIZGILER:
         t[f"ust{c}5"] = 0
@@ -45,6 +55,7 @@ def _say(deger: Any) -> Optional[float]:
 def hesapla(maclar: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """maclar: ev_id, ev_ad, dep_id, dep_ad, ev_gol, dep_gol; isteğe bağlı ev_/dep_ xg, sut, isabetli, korner, faul, sari, kirmizi, top."""
     takimlar: Dict[Any, Dict[str, Any]] = {}
+    gecmis: Dict[Any, List[Dict[str, Any]]] = {}       # takım başına maç maç (tarih sırasıyla): iç/dış ve son 5 kırılımları buradan
     for m in maclar:
         if m.get("ev_gol") is None or m.get("dep_gol") is None:
             continue
@@ -62,8 +73,19 @@ def hesapla(maclar: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             t["puan"] += 3 if atilan > yenilen else 1 if atilan == yenilen else 0
             if yenilen == 0:
                 t["temiz_sayfa"] += 1
-            if atilan > 0 and yenilen > 0:
+            kg = atilan > 0 and yenilen > 0
+            if kg:
                 t["kg_var"] += 1
+            if atilan == 0:
+                t["golsuz"] += 1
+            kart = [_say(m.get(f"{y}_{k}")) for y in (taraf, rakip) for k in ("sari", "kirmizi")]
+            kart_toplam = sum(x or 0 for x in kart) if kart[0] is not None and kart[2] is not None else None
+            if kart_toplam is not None:
+                t["kart_mac"] += 1
+                if kart_toplam > 4.5:
+                    t["kart_ust45"] += 1
+            gecmis.setdefault(m[f"{taraf}_id"], []).append({"ic": taraf == "ev", "kg": kg, "atilan": atilan, "yenilen": yenilen, "toplam": toplam, "kart": kart_toplam,
+                                                           "korner": (_say(m.get(f"{taraf}_korner")) or 0) + (_say(m.get(f"{rakip}_korner")) or 0) if m.get(f"{taraf}_korner") is not None and m.get(f"{rakip}_korner") is not None else None})
             for c in CIZGILER:
                 if toplam > c:
                     t[f"ust{c}5"] += 1
@@ -75,6 +97,8 @@ def hesapla(maclar: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             ka, kr = _say(m.get(f"{taraf}_korner")), _say(m.get(f"{rakip}_korner"))
             if ka is not None and kr is not None:       # korner puanı: rakipten çok korner 3, eşit 1, az 0
                 t["korner_mac"] += 1
+                if ka + kr > 9.5:
+                    t["korner_ust95"] += 1
                 if ka > kr:
                     t["korner_g"] += 1; t["korner_puan"] += 3
                 elif ka == kr:
@@ -87,6 +111,18 @@ def hesapla(maclar: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 t["xg_yenilen"] += float(m[f"{rakip}_xg"])
                 t["xp"] += (3 * pw + pb) if taraf == "ev" else (3 * pl + pb)
     satirlar = list(takimlar.values())
+    for t in satirlar:
+        g = gecmis.get(t["takim_id"], [])
+        for on, liste in (("ic_", [x for x in g if x["ic"]]), ("dis_", [x for x in g if not x["ic"]]), ("son5_", g[-5:])):
+            t[f"{on}{'mac' if on == 'son5_' else 'oynanan'}"] = len(liste)
+            t[f"{on}kg_var"] = sum(1 for x in liste if x["kg"])
+            t[f"{on}atilan"] = sum(x["atilan"] for x in liste)
+            t[f"{on}yenilen"] = sum(x["yenilen"] for x in liste)
+            for c in CIZGILER:
+                t[f"{on}ust{c}5"] = sum(1 for x in liste if x["toplam"] > c)
+        for olcu in ("korner", "kart"):
+            son = [x[olcu] for x in g if x[olcu] is not None][-5:]
+            t[f"son5_{olcu}_mac"], t[f"son5_{olcu}_toplam"] = len(son), round(sum(son), 1)
     for t in satirlar:
         for k in ("xg_atilan", "xg_yenilen", "xp"):
             t[k] = round(t[k], 2)
