@@ -158,6 +158,13 @@ def _save_model(match_id: int, model: Optional[dict]) -> None:
     )
 
 
+def _paket_dayanaklari(match_id: int):
+    from app.routers import spor_toto_skorjin as sk
+    from app.services import spor_toto_dayanak as sd
+    from app.services.db import execute_query
+    return sd.getir(match_id, execute_query, sk.paket_oku)
+
+
 def _generate_for_match(match_id: int, home: dict, away: dict, lig_haftasi: Optional[str], mac_tarihi=None) -> None:
     # Takımlardan biri eşleşmemişse yalnız öbür takımın verisiyle yazı üretilir ve LLM eksik tarafı başka takımın olgularıyla doldurur
     # (canlıda "Athletic Bilbao" eşleşmediğinde Real Sociedad'ın maçları Athletic'e yazıldı): bu durumda ÜRETİLMEZ.
@@ -165,6 +172,9 @@ def _generate_for_match(match_id: int, home: dict, away: dict, lig_haftasi: Opti
         if not takim.get("team_id"):
             raise stf.SporTotoFetchError(f"{taraf} takımı ({takim.get('name')}) veritabanındaki bir takıma eşleşmedi; önce eşleştir")
     match_data = stf.build_match_data(home, away, lig_haftasi)
+    dayanaklar = _paket_dayanaklari(match_id)
+    if dayanaklar:      # haftanın Skorjin paketindeki "neden önemli" dayanakları: metin yalnız ham istatistik değil, oran/ihtiyaç/seri yorumunu da öğretir
+        match_data["dayanaklar"] = dayanaklar
     # Gercek lig adi (ör. "Süper Lig") sadece takim-lig eslesmesi basarili olduysa
     # yazilir - build_match_data'nin "lig" alani basarisiz eslesmede lig_haftasi'na
     # (Sportoto'nun per-mac round etiketine, ör. "8. Hafta") duser, onu DB'ye yazmiyoruz,
