@@ -79,4 +79,5 @@ def test_korner_ve_kart_esikleri_ve_son5():
               mac(1, 3, 2, 1)]                                                                                    # veri yok
     t = {x["takim_id"]: x for x in hesapla(maclar)}[1]
     assert (t["korner_mac"], t["korner_ust95"], t["kart_mac"], t["kart_ust45"]) == (2, 1, 2, 1)
+    assert (t["kart_ust25"], t["kart_ust35"]) == (2, 1)                          # kartlar 5 ve 3
     assert (t["son5_korner_mac"], t["son5_korner_toplam"], t["son5_kart_mac"], t["son5_kart_toplam"]) == (2, 18, 2, 8)

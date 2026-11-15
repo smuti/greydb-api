@@ -5,8 +5,8 @@ Kırılımlar (iddaa için en değerli ölçüler):
 - İç/dış saha: `ic_`/`dis_` + oynanan, kg_var, atilan, yenilen, ust15..ust45.
 - Son 5 maç: `son5_` + mac, kg_var, atilan, yenilen, ust15..ust45; kornerde `son5_korner_mac`/`son5_korner_toplam`, kartta `son5_kart_mac`/`son5_kart_toplam`
   (iki takımın toplamı; o verinin bulunduğu son 5 maç).
-- Eşikler: `korner_ust95` (iki takımın korneri toplamı 9,5 üstü biten maç; payda korner_mac), `kart_mac` ve `kart_ust45`
-  (iki takımın sarı + kırmızısı 4,5 üstü; payda kart_mac).
+- Eşikler: `korner_ust95` (iki takımın korneri toplamı 9,5 üstü biten maç; payda korner_mac), `kart_mac` ve `kart_ust25`/`kart_ust35`/`kart_ust45`
+  (iki takımın sarı + kırmızısı 2,5 / 3,5 / 4,5 üstü; payda kart_mac).
 Son 5 için maçlar tarih sırasıyla verilmelidir (SQL `ORDER BY match_date`).
 
 Skorlar bitmiş maçlardan, istatistikler (match_stats) varsa o maçlardan gelir; istatistiği olmayan maç yalnız skor sayılarına girer.
@@ -38,7 +38,7 @@ _STAT = ("sut", "isabetli", "korner", "faul", "sari", "kirmizi", "top")
 
 def _bos(kimlik: Any, ad: str) -> Dict[str, Any]:
     t: Dict[str, Any] = {"takim_id": kimlik, "takim": ad, "oynanan": 0, "puan": 0, "atilan": 0, "yenilen": 0, "temiz_sayfa": 0, "kg_var": 0, "golsuz": 0,
-                         "korner_ust95": 0, "kart_mac": 0, "kart_ust45": 0,
+                         "korner_ust95": 0, "kart_mac": 0, "kart_ust25": 0, "kart_ust35": 0, "kart_ust45": 0,
                          "stat_mac": 0, "xg_mac": 0, "korner_mac": 0, "korner_puan": 0, "korner_g": 0, "korner_b": 0, "korner_m": 0, "xg_atilan": 0.0, "xg_yenilen": 0.0, "xp": 0.0}
     for c in CIZGILER:
         t[f"ust{c}5"] = 0
@@ -82,8 +82,9 @@ def hesapla(maclar: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             kart_toplam = sum(x or 0 for x in kart) if kart[0] is not None and kart[2] is not None else None
             if kart_toplam is not None:
                 t["kart_mac"] += 1
-                if kart_toplam > 4.5:
-                    t["kart_ust45"] += 1
+                for esik in (2, 3, 4):
+                    if kart_toplam > esik + 0.5:
+                        t[f"kart_ust{esik}5"] += 1
             gecmis.setdefault(m[f"{taraf}_id"], []).append({"ic": taraf == "ev", "kg": kg, "atilan": atilan, "yenilen": yenilen, "toplam": toplam, "kart": kart_toplam,
                                                            "korner": (_say(m.get(f"{taraf}_korner")) or 0) + (_say(m.get(f"{rakip}_korner")) or 0) if m.get(f"{taraf}_korner") is not None and m.get(f"{rakip}_korner") is not None else None})
             for c in CIZGILER:
