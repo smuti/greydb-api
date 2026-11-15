@@ -174,7 +174,7 @@ def _generate_for_match(match_id: int, home: dict, away: dict, lig_haftasi: Opti
     match_data = stf.build_match_data(home, away, lig_haftasi)
     dayanaklar = _paket_dayanaklari(match_id)
     if dayanaklar:      # haftanın Skorjin paketindeki "neden önemli" dayanakları: metin yalnız ham istatistik değil, oran/ihtiyaç/seri yorumunu da öğretir
-        match_data["dayanaklar"] = dayanaklar
+        match_data["bizim_analizimiz"] = dayanaklar
     # Gercek lig adi (ör. "Süper Lig") sadece takim-lig eslesmesi basarili olduysa
     # yazilir - build_match_data'nin "lig" alani basarisiz eslesmede lig_haftasi'na
     # (Sportoto'nun per-mac round etiketine, ör. "8. Hafta") duser, onu DB'ye yazmiyoruz,
