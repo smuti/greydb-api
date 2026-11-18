@@ -290,10 +290,13 @@ def _oran_alanlari(m: Dict[str, Any], k: Kaynaklar, simdi: datetime, rapor: Dict
 
 # Günlük hazırlık penceresi: Spor Toto programı yayınlandığında 15 maçın hepsi (en geç ~9 gün ileride) tabloda olsun, Skorjin paketi beklemesin.
 UFUK_GUN = 10
+# Oran koşusunun penceresi: iddaa eşleştirmesiyle aynı (~4 gün). 48 saatte, iddaa'nın günlük koşudan sonra listelediği maçlar
+# (Spor Toto haftasının 3-4 gün ilerideki maçları) ertesi sabahki günlük koşuya kadar oransız kalıyordu.
+ORAN_UFKU_SAAT = 96
 
 
 def hazirla(kapsam: str, dry_run: bool, k: Kaynaklar, simdi: datetime, model_surumu: str,
-            ufuk_gun: int = UFUK_GUN, oran_ufku_saat: int = 48) -> Dict[str, Any]:
+            ufuk_gun: int = UFUK_GUN, oran_ufku_saat: int = ORAN_UFKU_SAAT) -> Dict[str, Any]:
     """Yaklaşan maçlar için greydb.match_prematch satırlarını hazırlar. `gunluk`: tüm alanlar, `oran`: yalnız oran/oynanma yüzdesi."""
     from datetime import timedelta
     if kapsam not in KAPSAMLAR:
