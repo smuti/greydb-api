@@ -41,6 +41,14 @@ def _canli_korner_sonuc() -> None:
         log.exception("canlı korner sonuç koşusu hata verdi")
 
 
+def _canli_sayim_sonuc() -> None:
+    from app.services import canli_sayim_izleme as c
+    try:
+        log.info("canlı sayım sonuç: %s", c.calistir(dry_run=False))
+    except Exception:  # noqa: BLE001 — bir koşunun hatası zamanlayıcı iş parçacığını ya da diğer işleri durdurmasın
+        log.exception("canlı sayım sonuç koşusu hata verdi")
+
+
 def _oyuncu_json_mat() -> None:
     from app.services import stat_yenile as s
     try:
@@ -83,6 +91,7 @@ def isler() -> List[Tuple[str, dict, Callable[[], None]]]:
         ("tercih-sonuc", dict(hour="*/2", minute="50"), _tercih("sonuc")),
         ("oyuncu-json-mat", dict(hour="2", minute="30"), _oyuncu_json_mat),
         ("canli-korner-sonuc", dict(hour="*/2", minute="55"), _canli_korner_sonuc),
+        ("canli-sayim-sonuc", dict(hour="*/2", minute="57"), _canli_sayim_sonuc),
         ("spor-toto-arsiv", dict(hour="6", minute="15"), _st_arsiv),
         ("spor-toto-oynanma", dict(hour="*/6", minute="5"), _st_oynanma),
         ("skorjin-kupon-sonuc", dict(hour="*/2", minute="35"), _skorjin_kupon_sonuc),

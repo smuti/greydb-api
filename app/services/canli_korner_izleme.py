@@ -50,10 +50,10 @@ def _tamsayi(v: Any, ad: str, alt: int = 0, ust: int = 1000) -> int:
     return v
 
 
-def _cift(v: Any, ad: str) -> Dict[str, int]:
+def _cift(v: Any, ad: str, ust: int = 50) -> Dict[str, int]:
     if not isinstance(v, dict):
         raise ValueError(f"{ad} nesne olmalı")
-    return {"ev": _tamsayi(v.get("ev"), f"{ad}.ev", 0, 50), "dep": _tamsayi(v.get("dep"), f"{ad}.dep", 0, 50)}
+    return {"ev": _tamsayi(v.get("ev"), f"{ad}.ev", 0, ust), "dep": _tamsayi(v.get("dep"), f"{ad}.dep", 0, ust)}
 
 
 def _sayi(v: Any, ad: str, alt: float, ust: float) -> float:
@@ -62,8 +62,9 @@ def _sayi(v: Any, ad: str, alt: float, ust: float) -> float:
     return float(v)
 
 
-def kayit_hazirla(g: Any) -> Dict[str, Any]:
-    """Web'den gelen kaydı doğrular ve sadeleştirir; geçersizse ValueError."""
+def kayit_hazirla(g: Any, alan: str = "korner", ust: int = 50) -> Dict[str, Any]:
+    """Web'den gelen kaydı doğrular ve sadeleştirir; geçersizse ValueError. alan/ust: sayım alanının adı ve takım başına üst sınırı
+    (canlı faul/kart/taç izlemesi aynı doğrulamayı "sayim" alanıyla kullanır)."""
     if not isinstance(g, dict):
         raise ValueError("gövde nesne olmalı")
     surum = g.get("model_surum")
@@ -96,7 +97,7 @@ def kayit_hazirla(g: Any) -> Dict[str, Any]:
     txt = lambda k: (str(g[k])[:80] if g.get(k) else None)
     return dict(fotmob_match_id=_tamsayi(g.get("fotmob_match_id"), "fotmob_match_id", 1, 10**12), lig_ad=txt("lig_ad"), ev=txt("ev"), dep=txt("dep"),
                 model_surum=surum.strip(), faz=g["faz"], dakika=dakika, kova=dakika // KOVA_DK,
-                skor=_cift(g.get("skor"), "skor"), korner=_cift(g.get("korner"), "korner"), kirmizi=_cift(g.get("kirmizi"), "kirmizi"), onceki=onceki, hedefler=hedefler)
+                skor=_cift(g.get("skor"), "skor"), **{alan: _cift(g.get(alan), alan, ust)}, kirmizi=_cift(g.get("kirmizi"), "kirmizi"), onceki=onceki, hedefler=hedefler)
 
 
 # ---------------- sonuçlandırma ----------------
