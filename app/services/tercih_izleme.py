@@ -371,3 +371,47 @@ def piyasa_onayi_ozet(satirlar: List[Dict[str, Any]]) -> Dict[str, Any]:
                            not_="Açılış = kickoff'a ~24 saat kala kayıt, kapanış = ~1 saat kala. onay: piyasa modelin yönüne gitti; ret: ters yöne; "
                                 "sabit: oynamadı; model_yakin: model açılış oranına yakın (yön yok)."),
                 etiket=etiket, hucreler=hucreler)
+
+
+# ---- maç bazında piyasa onayı (Günün Maçları paneli, deneysel): sonuç beklenmeden, eldeki ilk ve son pencereden ----
+MAC_SQL = """SELECT pencere, kategori, secim, olasilik, oran, kaydedildi, sonuc, kickoff
+FROM greydb.tercih_izleme WHERE fotmob_match_id = :id ORDER BY kaydedildi"""
+PENCERE_SIRASI = {"acilis": 0, "orta": 1, "kapanis": 2}
+
+
+def _gecerli_oran(x: Any) -> Optional[float]:
+    try:
+        v = float(x)
+    except (TypeError, ValueError):
+        return None
+    return v if math.isfinite(v) and v > 1.0 else None
+
+
+def mac_onaylari(satirlar: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Bir maçın tercihleri: (kategori, seçim) başına ilk ve son kayıt; ikisi farklı pencereyse ve oranlar geçerliyse etiket.
+    Tek kayıt varsa etiket "bekliyor" (ikinci pencere ~6 saat kala alınır). Model olasılığı ilk kayıttan (açılış) alınır."""
+    gruplar: Dict[Tuple[str, str], List[Dict[str, Any]]] = {}
+    for r in satirlar:
+        gruplar.setdefault((r["kategori"], r["secim"]), []).append(r)
+    secimler = []
+    for (kategori, secim), v in gruplar.items():
+        v = sorted(v, key=lambda r: PENCERE_SIRASI.get(r["pencere"], 9))
+        ilk, son = v[0], v[-1]
+        o_ilk, o_son = _gecerli_oran(ilk["oran"]), _gecerli_oran(son["oran"])
+        kayit = dict(kategori=kategori, secim=secim, grup=KATEGORI_GRUBU.get(kategori, "diğer"), olasilik=round(float(ilk["olasilik"]), 4),
+                     olasilik_son=round(float(son["olasilik"]), 4), pencere_ilk=ilk["pencere"], pencere_son=son["pencere"], oran_ilk=o_ilk, oran_son=o_son,
+                     sonuc=son.get("sonuc"))
+        if ilk["pencere"] != son["pencere"] and o_ilk is not None and o_son is not None:
+            kayit.update(piyasa_onayi(float(ilk["olasilik"]), o_ilk, o_son))
+        else:
+            kayit.update(etiket="oran_yok" if o_ilk is None or o_son is None else "bekliyor", model_yon=None, model_fark=None, hareket=None,
+                         ima_ac=None if o_ilk is None else round(ima(o_ilk), 4), ima_ka=None if o_son is None else round(ima(o_son), 4))
+        secimler.append(kayit)
+    secimler.sort(key=lambda k: (-float(k["olasilik"]), k["kategori"], k["secim"]))
+    pencereler = sorted({r["pencere"] for r in satirlar}, key=lambda p: PENCERE_SIRASI.get(p, 9))
+    return dict(pencereler=pencereler, secimler=secimler)
+
+
+def mac_getir(fotmob_match_id: int) -> Dict[str, Any]:
+    from app.services.db import execute_query
+    return {"fotmob_match_id": fotmob_match_id, **mac_onaylari(execute_query(MAC_SQL, {"id": fotmob_match_id}))}

@@ -158,3 +158,38 @@ def test_piyasa_onayi_sql_acilis_kapanis_esler_ve_sonuclanmis():
 
 def test_ozet_sql_nan_oran_para_hesabina_girmez():
     assert t.OZET_SQL.count("oran <> 'NaN'") == 4 and "oran = 'NaN'" in t.ORAN_KAPSAMI_SQL
+
+
+
+# ---- maç bazında piyasa onayı (Günün Maçları paneli) ----
+def mac_satiri(pencere, oran, olasilik=0.60, kategori="Toplam gol", secim="Gol Üst 2.5", sonuc=None):
+    return dict(pencere=pencere, kategori=kategori, secim=secim, olasilik=olasilik, oran=oran, kaydedildi=None, sonuc=sonuc, kickoff=None)
+
+
+def test_mac_onaylari_ilk_ve_son_pencere_etiket():
+    m = t.mac_onaylari([mac_satiri("acilis", 2.00), mac_satiri("orta", 1.80, olasilik=0.62), mac_satiri("kapanis", 1.75, olasilik=0.63)])
+    assert m["pencereler"] == ["acilis", "orta", "kapanis"]
+    s = m["secimler"][0]
+    assert (s["pencere_ilk"], s["pencere_son"], s["oran_ilk"], s["oran_son"]) == ("acilis", "kapanis", 2.0, 1.75)
+    assert s["etiket"] == "onay" and s["olasilik"] == 0.60 and s["olasilik_son"] == 0.63 and s["grup"] == "gol"
+
+
+def test_mac_onaylari_tek_kayit_bekliyor_nan_oran_yok():
+    m = t.mac_onaylari([mac_satiri("acilis", 2.00), mac_satiri("acilis", float("nan"), kategori="Toplam kart", secim="Kart Üst 3.5"),
+                        mac_satiri("orta", 1.9, kategori="Toplam kart", secim="Kart Üst 3.5")])
+    et = {s["kategori"]: s["etiket"] for s in m["secimler"]}
+    assert et == {"Toplam gol": "bekliyor", "Toplam kart": "oran_yok"}
+
+
+def test_mac_onaylari_siralama_olasilik_azalan_ve_bos():
+    m = t.mac_onaylari([mac_satiri("acilis", 2.0, olasilik=0.61, secim="A"), mac_satiri("acilis", 1.5, olasilik=0.80, secim="B")])
+    assert [s["secim"] for s in m["secimler"]] == ["B", "A"]
+    assert t.mac_onaylari([]) == {"pencereler": [], "secimler": []}
+
+
+def test_mac_ucu_korumali(monkeypatch):
+    monkeypatch.setattr(r, "_anahtar", lambda: "gizli")
+    monkeypatch.setattr(r.t, "mac_getir", lambda fid: {"fotmob_match_id": fid, "pencereler": [], "secimler": []})
+    assert client.get("/api/skorjin/tercih-izleme/mac/5").status_code == 401
+    assert client.get("/api/skorjin/tercih-izleme/mac/5", headers=ANAHTAR).json()["fotmob_match_id"] == 5
+    assert client.get("/api/skorjin/tercih-izleme/mac/0", headers=ANAHTAR).status_code == 400
