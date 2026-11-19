@@ -4,6 +4,7 @@ Kayıtlar eklemelidir (hiçbiri ezilmez): bir maç için kickoff'a ~24, ~6 ve ~1
 Yalnızca iç analiz içindir; site ve postlarda gösterilmez.
 """
 import logging
+import math
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -237,9 +238,9 @@ def calistir(is_adi: str, dry_run: bool = True) -> Dict[str, Any]:
 
 # ---- birikimli rapor: SQL gruplanmış satırları döndürür, toplamlar saf fonksiyonda ----
 BAHIS_TUTARI = 50.0         # varsayımsal eşit tutar (TL); rapor "her tercihe 50 TL olsaydı" hesabıdır
-OZET_SQL = """SELECT pencere, kategori, LEAST(floor(olasilik * 10)::int, 9) AS bant, COALESCE(olasilik * oran > 1, false) AS deger,
-    count(*) AS n, count(*) FILTER (WHERE sonuc) AS tuttu, count(*) FILTER (WHERE oran > 1.0) AS oranli,
-    count(*) FILTER (WHERE oran > 1.0 AND sonuc) AS oranli_tuttu, COALESCE(sum(oran) FILTER (WHERE oran > 1.0 AND sonuc), 0) AS getiri_oran_toplam,
+OZET_SQL = """SELECT pencere, kategori, LEAST(floor(olasilik * 10)::int, 9) AS bant, COALESCE(oran <> 'NaN' AND olasilik * oran > 1, false) AS deger,
+    count(*) AS n, count(*) FILTER (WHERE sonuc) AS tuttu, count(*) FILTER (WHERE oran > 1.0 AND oran <> 'NaN') AS oranli,
+    count(*) FILTER (WHERE oran > 1.0 AND oran <> 'NaN' AND sonuc) AS oranli_tuttu, COALESCE(sum(oran) FILTER (WHERE oran > 1.0 AND oran <> 'NaN' AND sonuc), 0) AS getiri_oran_toplam,
     sum(olasilik) AS olasilik_toplam
 FROM greydb.tercih_izleme
 WHERE sonuc IS NOT NULL AND kickoff >= :bas
@@ -280,12 +281,13 @@ def ozet_getir(gun: int = 30) -> Dict[str, Any]:
     bas = simdi - timedelta(days=gun)
     satirlar = execute_query(OZET_SQL, {"bas": bas})
     kapsam = oran_kapsami(execute_query(ORAN_KAPSAMI_SQL, {"bas": bas}))
-    return {"gun": gun, "oran_kapsami": kapsam, "uretildi": simdi.isoformat(timespec="seconds"), "bahis_tutari": BAHIS_TUTARI,
+    onay = piyasa_onayi_ozet(execute_query(ONAY_SQL, {"bas": bas}))
+    return {"gun": gun, "oran_kapsami": kapsam, "piyasa_onayi": onay, "uretildi": simdi.isoformat(timespec="seconds"), "bahis_tutari": BAHIS_TUTARI,
             "not": "Her tercihe eşit tutar yatırılmış varsayımıdır; oranı olmayan ya da 1,00 olan tercihler para hesabına girmez. Yalnızca iç analiz.", **ozet(satirlar)}
 
 
 # ---- oran kapsamı: oransız yazılan tercihler lig bazında (iddaa olayı eşleşmeyen ligler hemen görünsün) ----
-ORAN_KAPSAMI_SQL = """SELECT lig_ad, count(DISTINCT fotmob_match_id) AS mac, count(*) AS n, count(*) FILTER (WHERE oran IS NULL OR oran <= 1.0) AS oransiz
+ORAN_KAPSAMI_SQL = """SELECT lig_ad, count(DISTINCT fotmob_match_id) AS mac, count(*) AS n, count(*) FILTER (WHERE oran IS NULL OR oran <= 1.0 OR oran = 'NaN') AS oransiz
 FROM greydb.tercih_izleme
 WHERE kickoff >= :bas
 GROUP BY lig_ad"""
@@ -298,3 +300,74 @@ def oran_kapsami(satirlar: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         cikti.append(dict(lig=s["lig_ad"] or "bilinmiyor", mac=int(s["mac"]), tercih=n, oransiz=oransiz, oransiz_yuzde=round(100 * oransiz / n, 1) if n else 0.0,
                           oran_yok=bool(n) and oransiz == n))
     return sorted(cikti, key=lambda x: (-x["oransiz_yuzde"], x["lig"]))
+
+
+# ---- piyasa onayı: açılıştan kapanışa iddaa oranı modelin yönüne mi gitti? ----
+# Ölçüm (youtube-faceless analiz/IDDAA-ORAN-HAREKETI-2026-11-20.md, 200 maç): model ilk orandan ≥4 puan farklıyken gol marketlerinde piyasa
+# modele doğru giderse ("onay") sonuç son orandan da öte model yönünde ~8 puan saptı; taraf marketlerinde piyasa modelden uzaklaşırsa ("ret") yine model haklı çıktı.
+# Bu bölüm o sinyali ileriye dönük izler. Tabloda yalnız seçilen tercihin oranı var: marj tam ayıklanamaz, iki seçimli iddaa marketlerinin
+# ~%14-15 marjının yarısı kadar yaklaşık düzeltme yapılır (MARJ_YARI). Hareket yönü için düzeltme gerekmez (fark alınınca marj sadeleşir).
+MARJ_YARI = 0.07            # 1/oran ≈ adil olasılık × (1 + MARJ_YARI)
+MODEL_ESIK = 0.04           # model, açılış oranının ima ettiğinden en az bu kadar farklıysa yönü vardır
+HAREKET_ESIK = 0.01         # kapanışta ima edilen olasılık açılıştan en az bu kadar oynadıysa piyasa hareket etmiştir
+KATEGORI_GRUBU = {"Toplam gol": "gol", "Takım golü": "gol", "Karşılıklı gol": "gol", "Maç sonucu": "taraf", "Çifte şans": "taraf",
+                  "Toplam korner": "korner", "Takım korneri": "korner", "Korner handikap": "korner", "Korner: kim daha çok": "korner",
+                  "Toplam kart": "kart", "Kim daha çok kart": "kart"}
+ETIKETLER = ("onay", "ret", "sabit", "model_yakin")
+
+ONAY_SQL = """SELECT a.kategori, a.secim, a.olasilik AS olasilik_ac, a.oran AS oran_ac, k.oran AS oran_ka, k.sonuc
+FROM greydb.tercih_izleme a
+JOIN greydb.tercih_izleme k ON k.fotmob_match_id = a.fotmob_match_id AND k.kategori = a.kategori AND k.secim = a.secim AND k.pencere = 'kapanis'
+WHERE a.pencere = 'acilis' AND k.sonuc IS NOT NULL AND a.oran > 1.0 AND k.oran > 1.0 AND a.oran <> 'NaN' AND k.oran <> 'NaN' AND a.kickoff >= :bas"""
+
+
+def ima(oran: float) -> float:
+    """Tek seçimin oranından yaklaşık adil olasılık (marjın yarısı düşülür)."""
+    return 1.0 / (oran * (1.0 + MARJ_YARI))
+
+
+def piyasa_onayi(olasilik_ac: float, oran_ac: float, oran_ka: float) -> Dict[str, Any]:
+    """Etiket: "onay" (piyasa modele doğru gitti), "ret" (modelden uzaklaştı), "sabit" (kıpırdamadı), "model_yakin" (model açılışa yakın: yön yok).
+    model_fark ve hareket olasılık puanı (0-1) cinsindendir."""
+    p_ac, p_ka = ima(oran_ac), ima(oran_ka)
+    fark, hareket = olasilik_ac - p_ac, p_ka - p_ac
+    if abs(fark) < MODEL_ESIK:
+        etiket = "model_yakin"
+    elif abs(hareket) < HAREKET_ESIK:
+        etiket = "sabit"
+    else:
+        etiket = "onay" if fark * hareket > 0 else "ret"
+    return dict(etiket=etiket, model_yon="yukari" if fark >= MODEL_ESIK else "asagi" if fark <= -MODEL_ESIK else None,
+                model_fark=round(fark, 4), hareket=round(hareket, 4), ima_ac=round(p_ac, 4), ima_ka=round(p_ka, 4))
+
+
+def piyasa_onayi_ozet(satirlar: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Açılış ve kapanış penceresi olan sonuçlanmış tercihler: grup (gol, taraf, korner, kart, diğer) × etiket × model yönü.
+    Her hücrede tutma, ortalama model olasılığı (açılış), kapanış oranının ima ettiği olasılık ve kapanış oranından eşit tutarlı getiri.
+    "model_yonunde_fark": model yönünde (gerçek − kapanış ima) puan; artıysa model kapanış oranından daha haklı çıkmış."""
+    hucre: Dict[Tuple[str, str, Optional[str]], List[Dict[str, Any]]] = {}
+    for r in satirlar:
+        sayilar = [float(r[k]) for k in ("olasilik_ac", "oran_ac", "oran_ka")]
+        if not all(math.isfinite(x) for x in sayilar) or sayilar[1] <= 1.0 or sayilar[2] <= 1.0:
+            continue                                               # NaN/eksik oran: PostgreSQL NaN'ı her sayıdan büyük sayar, SQL süzgeci kaçırabilir
+        e = piyasa_onayi(*sayilar)
+        grup = KATEGORI_GRUBU.get(r["kategori"], "diğer")
+        hucre.setdefault((grup, e["etiket"], e["model_yon"]), []).append({**r, **e})
+
+    def ozetle(v: List[Dict[str, Any]]) -> Dict[str, Any]:
+        n = len(v)
+        tuttu = sum(1 for x in v if x["sonuc"])
+        yon = lambda x: 1.0 if x["model_yon"] == "yukari" else -1.0 if x["model_yon"] == "asagi" else 0.0
+        satir = dict(n=n, tuttu=tuttu, oranli=n, getiri_oran_toplam=sum(float(x["oran_ka"]) for x in v if x["sonuc"]),
+                     olasilik_toplam=sum(float(x["olasilik_ac"]) for x in v))
+        return {**_topla([satir]), "kapanis_ima_ort": round(100 * sum(x["ima_ka"] for x in v) / n, 1) if n else None,
+                "model_yonunde_fark": round(100 * sum(yon(x) * ((1.0 if x["sonuc"] else 0.0) - x["ima_ka"]) for x in v) / n, 1) if n else None}
+
+    sira = {e: i for i, e in enumerate(ETIKETLER)}
+    hucreler = [{"grup": g, "etiket": e, "model_yon": y, **ozetle(v)} for (g, e, y), v in hucre.items()]
+    hucreler.sort(key=lambda h: (h["grup"], sira[h["etiket"]], h["model_yon"] or ""))
+    etiket = {e: ozetle([x for (g, ee, y), v in hucre.items() if ee == e for x in v]) for e in ETIKETLER if any(k[1] == e for k in hucre)}
+    return dict(tanim=dict(marj_yari=MARJ_YARI, model_esik=MODEL_ESIK, hareket_esik=HAREKET_ESIK,
+                           not_="Açılış = kickoff'a ~24 saat kala kayıt, kapanış = ~1 saat kala. onay: piyasa modelin yönüne gitti; ret: ters yöne; "
+                                "sabit: oynamadı; model_yakin: model açılış oranına yakın (yön yok)."),
+                etiket=etiket, hucreler=hucreler)

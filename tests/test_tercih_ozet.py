@@ -101,7 +101,60 @@ def test_ozet_getir_oran_kapsamini_icerir(monkeypatch):
     cevaplar = {"OZET": [s()], "KAPSAM": [lig("LaLiga", 4, 400, 400)]}
 
     def sorgu(sql, params=None):
+        if "pencere = 'kapanis'" in sql:
+            return [onay_satiri()]
         return cevaplar["KAPSAM"] if "GROUP BY lig_ad" in sql else cevaplar["OZET"]
     monkeypatch.setattr("app.services.db.execute_query", sorgu)
     o = t.ozet_getir(7)
     assert o["oran_kapsami"][0]["lig"] == "LaLiga" and o["tum"]["tercih"] == 10
+    assert o["piyasa_onayi"]["etiket"]["onay"]["tercih"] == 1
+
+
+# ---- piyasa onayı: açılıştan kapanışa oran modelin yönüne mi gitti ----
+def onay_satiri(kategori="Toplam gol", secim="Gol Üst 2.5", olasilik_ac=0.60, oran_ac=2.00, oran_ka=1.80, sonuc=True):
+    return dict(kategori=kategori, secim=secim, olasilik_ac=olasilik_ac, oran_ac=oran_ac, oran_ka=oran_ka, sonuc=sonuc)
+
+
+def test_piyasa_onayi_ima_marjin_yarisini_duser():
+    assert t.ima(2.0) == 1 / (2.0 * (1 + t.MARJ_YARI))
+    assert t.ima(1.0) > t.ima(2.0)
+
+
+def test_piyasa_onayi_onay_ret_sabit_model_yakin():
+    # açılış 2,00 → ima ~%46,7; model %60 → model yukarıda
+    assert t.piyasa_onayi(0.60, 2.00, 1.80)["etiket"] == "onay"            # oran düştü: piyasa modele doğru
+    assert t.piyasa_onayi(0.60, 2.00, 2.30)["etiket"] == "ret"             # oran çıktı: modelden uzaklaştı
+    assert t.piyasa_onayi(0.60, 2.00, 2.02)["etiket"] == "sabit"           # ~0,5 puan: hareket sayılmaz
+    assert t.piyasa_onayi(0.48, 2.00, 1.50)["etiket"] == "model_yakin"     # model açılışa yakın: yön yok
+    # model aşağıda: oran çıkarsa onay
+    e = t.piyasa_onayi(0.30, 2.00, 2.40)
+    assert e["etiket"] == "onay" and e["model_yon"] == "asagi" and e["hareket"] < 0
+
+
+def test_piyasa_onayi_ozet_grup_etiket_ve_model_yonunde_fark():
+    satirlar = [onay_satiri(sonuc=True), onay_satiri(sonuc=False), onay_satiri(kategori="Maç sonucu", secim="1", oran_ka=2.40, sonuc=True),
+                onay_satiri(kategori="Toplam korner", secim="Korner Üst 8.5", olasilik_ac=0.47, oran_ka=1.90, sonuc=True)]
+    o = t.piyasa_onayi_ozet(satirlar)
+    h = {(x["grup"], x["etiket"], x["model_yon"]): x for x in o["hucreler"]}
+    gol = h[("gol", "onay", "yukari")]
+    assert (gol["tercih"], gol["tuttu"], gol["tutma_yuzde"]) == (2, 1, 50.0)
+    assert gol["kapanis_ima_ort"] == round(100 * t.ima(1.80), 1)
+    assert gol["model_yonunde_fark"] == round(100 * (0.5 - t.ima(1.80)), 1)
+    assert gol["yatirilan"] == 100.0 and gol["donen"] == 90.0                # kapanış oranından eşit tutar: 1,80 × 50
+    assert h[("taraf", "ret", "yukari")]["tuttu"] == 1
+    assert h[("korner", "model_yakin", None)]["model_yonunde_fark"] == 0.0
+    assert set(o["etiket"]) == {"onay", "ret", "model_yakin"} and o["etiket"]["onay"]["tercih"] == 2
+    assert t.piyasa_onayi_ozet([])["hucreler"] == []
+    assert t.piyasa_onayi_ozet([onay_satiri(oran_ac=float("nan")), onay_satiri(oran_ka=1.0)])["hucreler"] == []      # NaN ve kapalı oran sayılmaz
+
+
+def test_piyasa_onayi_sql_acilis_kapanis_esler_ve_sonuclanmis():
+    q = t.ONAY_SQL
+    assert "a.pencere = 'acilis'" in q and "k.pencere = 'kapanis'" in q and "k.sonuc IS NOT NULL" in q
+    assert "a.oran > 1.0" in q and "k.oran > 1.0" in q and "a.kickoff >= :bas" in q
+    assert "k.kategori = a.kategori AND k.secim = a.secim" in q
+    assert "a.oran <> 'NaN'" in q and "k.oran <> 'NaN'" in q
+
+
+def test_ozet_sql_nan_oran_para_hesabina_girmez():
+    assert t.OZET_SQL.count("oran <> 'NaN'") == 4 and "oran = 'NaN'" in t.ORAN_KAPSAMI_SQL
