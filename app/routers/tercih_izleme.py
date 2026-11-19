@@ -39,3 +39,12 @@ def tercih_izleme_ozet(gun: int = Query(30, ge=1, le=365), x_cron_anahtari: str 
     """Son `gun` günün sonuçlanmış tercihleri: tutma ve eşit tutarlı getiri; pencere (açılış/orta/kapanış), "olasılık × oran > 1" kuralı, olasılık bandı, kategori."""
     _dogrula(x_cron_anahtari)
     return t.ozet_getir(gun)
+
+
+@router.get("/skorjin/tercih-izleme/mac/{fotmob_match_id}")
+def tercih_izleme_mac(fotmob_match_id: int, x_cron_anahtari: str = Header(default="")):
+    """Bir maçın kayıtlı tercihleri ve piyasa onayı etiketi (deneysel): ilk ve son pencere arasında oran modelin yönüne mi gitti."""
+    _dogrula(x_cron_anahtari)
+    if fotmob_match_id < 1:
+        raise HTTPException(status_code=400, detail="geçersiz maç")
+    return t.mac_getir(fotmob_match_id)
