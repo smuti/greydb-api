@@ -16,14 +16,40 @@ _CUMLE = re.compile(r"(?<=[.!?])\s+")
 _YON_SIRASI = {"destek": 0, "risk": 1, "bilgi": 2}
 
 
+# NFKD'nin ayıramadığı harfler (ascii'ye düşürülürken silinirdi: "Bodø/Glimt" -> "bodglimt")
+_HARF = str.maketrans({"ø": "o", "æ": "ae", "ß": "ss", "đ": "d", "ł": "l", "œ": "oe", "þ": "th"})
+# Ortak kelime eşleşmesinde sayılmayan genel kelimeler (kısaltma/ek); "Paris St Germain" ile "Paris Saint-Germain" kalan kelimelerden eşleşir
+_GENEL = {"club", "city", "united", "real", "saint", "st", "fc", "cf", "sc", "ac", "as", "sk", "fk", "cp", "afc", "rc", "rb", "vfb", "bk"}
+
+
+def _ascii(ad: Optional[str]) -> str:
+    s = (ad or "").replace("İ", "i").replace("I", "ı").lower().replace("ı", "i").translate(_HARF)
+    return unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode()
+
+
 def _kok(ad: Optional[str]) -> str:
-    s = unicodedata.normalize("NFKD", (ad or "").replace("İ", "i").replace("I", "ı").lower().replace("ı", "i")).encode("ascii", "ignore").decode()
-    return "".join(c for c in s if c.isalnum())
+    return "".join(c for c in _ascii(ad) if c.isalnum())
+
+
+def _kelimeler(ad: Optional[str]) -> List[str]:
+    return [k for k in re.split(r"[^a-z0-9]+", _ascii(ad)) if len(k) >= 4 and k not in _GENEL]
+
+
+def _benzer_kelime(x: str, y: str) -> bool:
+    """Aynı kelime ya da tek harf farkı (Sofya/Sofia, Lizbon/Lisbon)."""
+    from difflib import SequenceMatcher
+    return x == y or SequenceMatcher(None, x, y).ratio() >= 0.8
 
 
 def _ayni(a: Optional[str], b: Optional[str]) -> bool:
+    """Spor Toto adı ile paketteki ad aynı takım mı. Eşleşme her zaman maç no + İKİ takımla birlikte yapılır, bu yüzden ayırt edici
+    bir ortak kelime yeter: "Sporting Lizbon"/"Sporting CP", "CSKA Sofya"/"CSKA Sofia", "Paris St Germain"/"Paris Saint-Germain"."""
     x, y = _kok(a), _kok(b)
-    return bool(x and y and (x == y or x in y or y in x))
+    if not (x and y):
+        return False
+    if x == y or x in y or y in x:
+        return True
+    return any(_benzer_kelime(k, l) for k in _kelimeler(a) for l in _kelimeler(b))
 
 
 def _temiz(metin: str) -> str:
