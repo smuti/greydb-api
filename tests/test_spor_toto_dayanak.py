@@ -24,6 +24,15 @@ def test_eslesme_no_ve_iki_takim_adiyla():
     assert D.mac_dayanaklari(None, 1, "a", "b") is None
 
 
+def test_farkli_yazilan_takim_adlari_eslesir():
+    # Hafta 1544 (22.11.2026): Spor Toto adı ile paket adı farklı yazıldığı için 4 maçta dayanak eklenmemişti
+    for toto, paket in (("Bodo Glimt", "Bodø/Glimt"), ("Paris St Germain", "Paris Saint-Germain"), ("Sporting Lizbon", "Sporting CP"),
+                        ("CSKA Sofya", "CSKA Sofia"), ("Vfb Stuttgart", "VfB Stuttgart"), ("Porto", "FC Porto")):
+        assert D._ayni(paket, toto), (toto, paket)
+    for a, b in (("Galatasaray", "Gençlerbirliği"), ("Manchester City", "Arsenal"), ("FC Porto", "FC Basel")):
+        assert not D._ayni(a, b), (a, b)
+
+
 def test_getir_hatada_none_doner():
     satir = [{"mac_no": 1, "ev_takim": "Gençlerbirliği", "deplasman_takim": "Gaziantep FK"}]
     assert D.getir(5, lambda q, p: satir, lambda: {"paket": PAKET})
