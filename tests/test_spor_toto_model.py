@@ -94,7 +94,7 @@ def test_apply_model_choice_without_model_unchanged():
 @pytest.fixture
 def pipeline(monkeypatch):
     log = {"sql": [], "match_data": None}
-    monkeypatch.setattr(router.stf, "build_match_data", lambda h, a, l: {"ev_sahibi": "Juventus", "deplasman": "Lazio", "lig": "Serie A"})
+    monkeypatch.setattr(router.stf, "build_match_data", lambda h, a, l, **k: {"ev_sahibi": "Juventus", "deplasman": "Lazio", "lig": "Serie A"})
     monkeypatch.setattr(router.stf, "get_team_league", lambda tid: {"league_id": 8, "league_name": "Serie A"})
     def gen(md): log["match_data"] = md; return scen("1-0-2")
     monkeypatch.setattr(router.stf, "generate_scenarios", gen)

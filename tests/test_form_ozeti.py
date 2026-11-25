@@ -73,7 +73,7 @@ from app.services import spor_toto_fetch as stf  # noqa: E402
 def wired(monkeypatch):
     monkeypatch.setattr(stf, "get_team_league", lambda tid: {"league_id": 99999, "league_name": "Test Ligi"})          # zengin katman dışı -> fallback
     monkeypatch.setattr(stf, "_fetch_fallback_team_data", lambda tid: {"son_5_mac_formu": {"maclar": CORUM if tid == 334 else RIZESPOR}})
-    monkeypatch.setattr(stf, "_fetch_rich_team_data", lambda tid, name: {})
+    monkeypatch.setattr(stf, "_fetch_rich_team_data", lambda tid, name, **k: {})
 
 
 def test_build_match_data_attaches_form_ozeti_for_both_teams(wired):

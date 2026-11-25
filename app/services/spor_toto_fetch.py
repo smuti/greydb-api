@@ -298,18 +298,21 @@ def summarize_form(maclar: Optional[List[Dict[str, Any]]], takim: Optional[str] 
 
 # ==================== 3. İki katmanlı veri toplama ====================
 
-def _fetch_rich_team_data(team_id: int, team_name: str) -> Dict[str, Any]:
+def _fetch_rich_team_data(team_id: int, team_name: str, comp_id: Optional[int] = None) -> Dict[str, Any]:
     """teamAnalyzer'ın 17 ligini kapsayan zengin veri. Fuat'ın GERÇEK konuşma tarzı
     soyut metriklerden (xG, possession) çok somut maç sonuçlarına dayanıyor
     ("son 5 maçta 3 galibiyet aldı", "4-0 kazandılar") — bu yüzden son_5_mac_formu
-    (W/D/L + rakip + skor) EN ÖNEMLİ alan, diğerleri destekleyici."""
+    (W/D/L + rakip + skor) EN ÖNEMLİ alan, diğerleri destekleyici.
+    comp_id: maçın oynandığı turnuva (mac_turnuvasi). Verilirse bütün veri yalnız o turnuvanın maçlarından gelir:
+    lig maçında lig, Avrupa kupası / Uluslar Ligi maçında o kupa. Verilmezse eski davranış (form/istatistik kendi ligi, korner/kart bütün turnuvalar)."""
     data: Dict[str, Any] = {}
+    c = f"&comp_id={int(comp_id)}" if comp_id else ""
     with httpx.Client() as client:
-        form = _mf_get(client, f"{MATCHFORGE_BASE}/api/teams/{team_id}/form?last_n=5")
-        stats = _mf_get(client, f"{MATCHFORGE_BASE}/api/leagues/teams/{team_id}/stats?last_n=5")
-        team_type = _mf_get(client, f"{MATCHFORGE_BASE}/api/leagues/teams/{team_id}/type?last_n=5")
-        corners = _mf_get(client, f"{MATCHFORGE_BASE}/api/matches/corners/team-profile/{team_name}?n_matches=10")
-        cards = _mf_get(client, f"{MATCHFORGE_BASE}/api/matches/cards/team-profile/{team_name}?n_matches=10")
+        form = _mf_get(client, f"{MATCHFORGE_BASE}/api/teams/{team_id}/form?last_n=5{c}")
+        stats = _mf_get(client, f"{MATCHFORGE_BASE}/api/leagues/teams/{team_id}/stats?last_n=5{c}")
+        team_type = _mf_get(client, f"{MATCHFORGE_BASE}/api/leagues/teams/{team_id}/type?last_n=5{c}")
+        corners = _mf_get(client, f"{MATCHFORGE_BASE}/api/matches/corners/team-profile/{team_name}?n_matches=10{c}")
+        cards = _mf_get(client, f"{MATCHFORGE_BASE}/api/matches/cards/team-profile/{team_name}?n_matches=10{c}")
     if form:
         data["son_5_mac_formu"] = {
             "maclar": [
@@ -408,9 +411,29 @@ def get_team_league(team_id: int) -> Dict[str, Any]:
     return {"league_id": int(df.iloc[0]["id"]), "league_name": df.iloc[0]["name"]}
 
 
-def build_match_data(home: Dict[str, Any], away: Dict[str, Any], sportoto_round_label: Optional[str]) -> Dict[str, Any]:
+def mac_turnuvasi(home_team_id: Optional[int], away_team_id: Optional[int], mac_tarihi: Any) -> Optional[int]:
+    """Spor Toto maçının oynandığı turnuva (public.leagues.id): fikstürde aynı ev/deplasman eşleşmesi, maç saatine en yakın kayıt (±3 gün).
+    Lig maçında lig, Avrupa kupasında kupa (ör. 10 Şampiyonlar Ligi), milli maçta Uluslar Ligi grubu. Bulunamazsa None (eski davranış)."""
+    if not home_team_id or not away_team_id or mac_tarihi is None or pd.isna(mac_tarihi):
+        return None
+    try:
+        df = query_to_df(
+            "SELECT league_id FROM public.matches WHERE home_team_id = %s AND away_team_id = %s "
+            "AND match_date BETWEEN CAST(%s AS timestamp) - interval '3 day' AND CAST(%s AS timestamp) + interval '3 day' "
+            "ORDER BY abs(extract(epoch FROM match_date - CAST(%s AS timestamp))) LIMIT 1",
+            (int(home_team_id), int(away_team_id), str(mac_tarihi), str(mac_tarihi), str(mac_tarihi)),
+        )
+    except Exception:
+        return None
+    if df.empty or pd.isna(df.iloc[0]["league_id"]):
+        return None
+    return int(df.iloc[0]["league_id"])
+
+
+def build_match_data(home: Dict[str, Any], away: Dict[str, Any], sportoto_round_label: Optional[str], comp_id: Optional[int] = None) -> Dict[str, Any]:
     """home/away: {"team_id", "name"} — resolve_team'den gelen sonuç.
-    sportoto_round_label sadece gerçek lig bulunamazsa yedek görüntüleme etiketi olarak kullanılır."""
+    sportoto_round_label sadece gerçek lig bulunamazsa yedek görüntüleme etiketi olarak kullanılır.
+    comp_id: maçın turnuvası (mac_turnuvasi); verilirse takım verisi yalnız o turnuvadan gelir."""
     home_league = get_team_league(home["team_id"]) if home.get("team_id") else {}
     away_league = get_team_league(away["team_id"]) if away.get("team_id") else {}
     league_id = home_league.get("league_id") or away_league.get("league_id")
@@ -422,7 +445,7 @@ def build_match_data(home: Dict[str, Any], away: Dict[str, Any], sportoto_round_
         "lig": league_name,
     }
 
-    use_rich = league_id in _RICH_TIER_LEAGUE_IDS
+    use_rich = bool(comp_id) or league_id in _RICH_TIER_LEAGUE_IDS     # turnuva biliniyorsa veri o turnuvadan; boş dönerse yedek veri
 
     for side, team in (("ev_sahibi_verisi", home), ("deplasman_verisi", away)):
         team_id = team.get("team_id")
@@ -431,7 +454,7 @@ def build_match_data(home: Dict[str, Any], away: Dict[str, Any], sportoto_round_
         team_data = {}
         if use_rich:
             try:
-                team_data = _fetch_rich_team_data(team_id, team.get("name", ""))
+                team_data = _fetch_rich_team_data(team_id, team.get("name", ""), comp_id=comp_id)
             except Exception:
                 team_data = {}
         if not team_data:

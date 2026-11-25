@@ -171,7 +171,9 @@ def _generate_for_match(match_id: int, home: dict, away: dict, lig_haftasi: Opti
     for taraf, takim in (("ev sahibi", home), ("deplasman", away)):
         if not takim.get("team_id"):
             raise stf.SporTotoFetchError(f"{taraf} takımı ({takim.get('name')}) veritabanındaki bir takıma eşleşmedi; önce eşleştir")
-    match_data = stf.build_match_data(home, away, lig_haftasi)
+    # Veri maçın oynandığı turnuvadan: lig maçında lig, Avrupa kupası / Uluslar Ligi maçında o turnuva (son 5 maç, istatistik, korner, kart)
+    comp_id = stf.mac_turnuvasi(home.get("team_id"), away.get("team_id"), mac_tarihi)
+    match_data = stf.build_match_data(home, away, lig_haftasi, comp_id=comp_id)
     dayanaklar = _paket_dayanaklari(match_id)
     if dayanaklar:      # haftanın Skorjin paketindeki "neden önemli" dayanakları: metin yalnız ham istatistik değil, oran/ihtiyaç/seri yorumunu da öğretir
         match_data["bizim_analizimiz"] = dayanaklar
