@@ -430,6 +430,16 @@ def mac_turnuvasi(home_team_id: Optional[int], away_team_id: Optional[int], mac_
     return int(df.iloc[0]["league_id"])
 
 
+def _takim_db_adi(team_id: int) -> Optional[str]:
+    """Takımın veritabanındaki adı (public.teams.name). matchforge'un korner/kart profil uçları takımı ADLA arar;
+    Spor Toto adı ("Çaykur Rizespor", "Başakşehir FK") orada bulunmaz ve profil boş döner."""
+    try:
+        df = query_to_df("SELECT name FROM public.teams WHERE id = %s", (int(team_id),))
+    except Exception:
+        return None
+    return None if df.empty or pd.isna(df.iloc[0]["name"]) else str(df.iloc[0]["name"])
+
+
 def build_match_data(home: Dict[str, Any], away: Dict[str, Any], sportoto_round_label: Optional[str], comp_id: Optional[int] = None) -> Dict[str, Any]:
     """home/away: {"team_id", "name"} — resolve_team'den gelen sonuç.
     sportoto_round_label sadece gerçek lig bulunamazsa yedek görüntüleme etiketi olarak kullanılır.
@@ -454,7 +464,7 @@ def build_match_data(home: Dict[str, Any], away: Dict[str, Any], sportoto_round_
         team_data = {}
         if use_rich:
             try:
-                team_data = _fetch_rich_team_data(team_id, team.get("name", ""), comp_id=comp_id)
+                team_data = _fetch_rich_team_data(team_id, _takim_db_adi(team_id) or team.get("name", ""), comp_id=comp_id)
             except Exception:
                 team_data = {}
         if not team_data:

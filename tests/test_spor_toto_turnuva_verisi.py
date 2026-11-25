@@ -52,3 +52,12 @@ def test_fikstürden_turnuva_bulunur():
     tarih = r["match_date"] + __import__("pandas").Timedelta(hours=3)          # Spor Toto saati TSİ, fikstür UTC
     assert stf.mac_turnuvasi(int(r["home_team_id"]), int(r["away_team_id"]), tarih) == 10
     assert stf.mac_turnuvasi(int(r["away_team_id"]), int(r["home_team_id"]), "2001-01-01") is None
+
+
+def test_korner_kart_icin_veritabani_adi_kullanilir(monkeypatch):
+    gelen = []
+    monkeypatch.setattr(stf, "get_team_league", lambda tid: {"league_id": 4, "league_name": "Super Lig"})
+    monkeypatch.setattr(stf, "_takim_db_adi", lambda tid: {1: "Rizespor", 2: None}[tid])
+    monkeypatch.setattr(stf, "_fetch_rich_team_data", lambda tid, name, comp_id=None: gelen.append(name) or {"x": 1})
+    stf.build_match_data({"team_id": 1, "name": "Çaykur Rizespor"}, {"team_id": 2, "name": "Kasımpaşa"}, None, comp_id=4)
+    assert gelen == ["Rizespor", "Kasımpaşa"]          # veritabanı adı yoksa Spor Toto adı

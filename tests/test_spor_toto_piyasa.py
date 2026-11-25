@@ -1,4 +1,6 @@
 """Farklı ülke ligleri maçı: model yerine iddaa Maç Sonucu oranı (komisyonsuz), kart ligi, önerilen kart yedeği."""
+import contextlib
+
 import pytest
 
 import app.routers.spor_toto as router
@@ -95,6 +97,8 @@ def akis(monkeypatch):
         return [{"senaryo": c, "metin": "m", "onerilen": c == "1-0-2"} for c in ["1", "0", "2", "1-0", "0-2", "1-0-2"]]
     monkeypatch.setattr(router.stf, "generate_scenarios", gen)
     monkeypatch.setattr(router, "execute_insert", lambda sql, p=None: log["sql"].append((" ".join(sql.split()), p)))
+    monkeypatch.setattr(router, "transaction", contextlib.nullcontext)        # _save_entries tek işlem açar: sahte execute_insert gerçek bağlantı istemesin
+    monkeypatch.setattr(router.stf, "mac_turnuvasi", lambda *a, **k: None)
     return log
 
 

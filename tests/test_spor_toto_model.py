@@ -2,6 +2,8 @@
 import json
 
 import pandas as pd
+import contextlib
+
 import pytest
 
 import app.routers.spor_toto as router
@@ -99,6 +101,8 @@ def pipeline(monkeypatch):
     def gen(md): log["match_data"] = md; return scen("1-0-2")
     monkeypatch.setattr(router.stf, "generate_scenarios", gen)
     monkeypatch.setattr(router, "execute_insert", lambda sql, params=None: log["sql"].append((" ".join(sql.split()), params)))
+    monkeypatch.setattr(router, "transaction", contextlib.nullcontext)        # _save_entries tek işlem açar: sahte execute_insert gerçek bağlantı istemesin
+    monkeypatch.setattr(router.stf, "mac_turnuvasi", lambda *a, **k: None)
     return log
 
 
