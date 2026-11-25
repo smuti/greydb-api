@@ -5,7 +5,7 @@ Kilitli kuponda maç bilgisi (takımlar, lig, saat) ve kuponun tuttu/yattı sonu
 bacak sonuçları gizlenir (bacak sonucu seçimi ele verirdi).
 """
 import copy
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from app.services.kupon_hesap import en_yuksek_odeme, kombinasyon_sayisi, kupon_sonucu, toplam_oran
@@ -73,6 +73,32 @@ def _bacak(b: Dict[str, Any], i: int) -> Dict[str, Any]:
     }
 
 
+def _utc_naif(v: Any) -> datetime:
+    d = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+    return d.astimezone(timezone.utc).replace(tzinfo=None) if d.tzinfo else d
+
+
+def _planli_yayin(v: Any) -> Optional[str]:
+    """Zamanlı yayın saati: boşsa None (hemen); değilse UTC'ye çevrilmiş, saat dilimsiz ISO. Saat dilimsiz gelen değer UTC sayılır."""
+    if v in (None, ""):
+        return None
+    try:
+        return _utc_naif(v).isoformat(timespec="seconds")
+    except Exception:
+        raise KuponHatasi("yayin_zamani", "geçerli bir tarih-saat olmalı (ISO)")
+
+
+def yayinlandi_mi(kupon: Dict[str, Any], simdi: Optional[datetime] = None) -> bool:
+    """Yayın saati geldi mi: zamanlı kupon (yayin_zamani ileride) saatine kadar üyeye görünmez. Saat yoksa ya da okunamıyorsa yayında sayılır."""
+    z = kupon.get("yayin_zamani")
+    if not z:
+        return True
+    try:
+        return _utc_naif(z) <= (simdi or datetime.now(timezone.utc).replace(tzinfo=None))
+    except ValueError:
+        return True
+
+
 def dogrula_olustur(g: Dict[str, Any], siki: bool = False) -> Dict[str, Any]:
     """İstemci girdisini doğrular, temizler ve hesaplanan alanları (oran, kombinasyon) sunucuda ekler. Hata: KuponHatasi(alan, mesaj).
     siki=True ve durum 'yayinda' ise yayın zorunlulukları da aranır: ana risk, sinyal gücü, risk seviyesi (admin formuyla aynı kurallar)."""
@@ -105,6 +131,9 @@ def dogrula_olustur(g: Dict[str, Any], siki: bool = False) -> Dict[str, Any]:
     if g.get("risk_seviyesi") is not None and g["risk_seviyesi"] not in RISKLER:
         raise KuponHatasi("risk_seviyesi", f"{', '.join(RISKLER)} olmalı")
     ana_risk = _metin(g.get("ana_risk"), "ana_risk", zorunlu=False, azami=500)
+    planli = _planli_yayin(g.get("yayin_zamani")) if "yayin_zamani" in g else None
+    if planli and durum != "yayinda":
+        raise KuponHatasi("yayin_zamani", "Zamanlı yayın için kupon yayına alınmalı")
     if siki and durum == "yayinda":
         if not ana_risk:
             raise KuponHatasi("ana_risk", "Yayınlamak için ana risk gerekli")
@@ -117,6 +146,8 @@ def dogrula_olustur(g: Dict[str, Any], siki: bool = False) -> Dict[str, Any]:
         "sistem_k": k, "nedenler": nedenler, "ana_risk": ana_risk,
         "yorum": _metin(g.get("yorum"), "yorum", zorunlu=False, azami=4000), "sinyal": g.get("sinyal"), "risk_seviyesi": g.get("risk_seviyesi"),
         "bacaklar": bacaklar,
+        # Zamanlı yayın: girdi yayin_zamani gönderdiyse (None = hemen) onu uygular; göndermediyse mevcut yayın saati korunur.
+        "planli_verildi": "yayin_zamani" in g, "planli_yayin": planli,
         "toplam_oran": toplam_oran([{"odds": b["oran"]} for b in bacaklar]) if k is None else None,
         "en_yuksek_odeme": en_yuksek_odeme([{"odds": b["oran"]} for b in bacaklar], k),
         "kombinasyon_sayisi": 1 if k is None else kombinasyon_sayisi(len(bacaklar), k),
@@ -133,7 +164,7 @@ def seviye_yeter(kupon_seviyesi: str, uye_seviyesi: Optional[str]) -> bool:
 
 
 def gorunur_mu(kupon: Dict[str, Any], uye_seviyesi: Optional[str]) -> bool:
-    return kupon.get("durum") == "yayinda"
+    return kupon.get("durum") == "yayinda" and yayinlandi_mi(kupon)
 
 
 # Kilitli görünüm: kupon (toplam) oranı ve maç adları görünür. Tercih, tek tek oran, gerekçe ve yorum gizli.

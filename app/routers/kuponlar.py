@@ -170,7 +170,7 @@ def db_ekle(k: Dict[str, Any], email: str) -> Dict[str, Any]:
     _takim_sutunlarini_hazirla()
     k = {**k, "bacaklar": _takimli(k["bacaklar"])}
     with transaction():
-        yayin = "now() AT TIME ZONE 'utc'" if k["durum"] == "yayinda" else "NULL"
+        yayin = "COALESCE(CAST(:planli AS timestamp), now() AT TIME ZONE 'utc')" if k["durum"] == "yayinda" else "NULL"
         satir = execute_insert(
             f"""INSERT INTO greydb.kuponlar (seviye, durum, zamanlama, one_cikan, sistem_k, nedenler, ana_risk, yorum, sinyal, risk_seviyesi,
                     toplam_oran, en_yuksek_odeme, kombinasyon_sayisi, olusturan_email, yayin_zamani)
@@ -178,7 +178,7 @@ def db_ekle(k: Dict[str, Any], email: str) -> Dict[str, Any]:
                     :toplam, :odeme, :komb, :email, {yayin}) RETURNING id""",
             {"seviye": k["seviye"], "durum": k["durum"], "zamanlama": k["zamanlama"], "one_cikan": k["one_cikan"], "sistem_k": k["sistem_k"],
              "nedenler": json.dumps(k["nedenler"]), "ana_risk": k["ana_risk"], "yorum": k["yorum"], "sinyal": k["sinyal"], "risk": k["risk_seviyesi"],
-             "toplam": k["toplam_oran"], "odeme": k["en_yuksek_odeme"], "komb": k["kombinasyon_sayisi"], "email": email},
+             "toplam": k["toplam_oran"], "odeme": k["en_yuksek_odeme"], "komb": k["kombinasyon_sayisi"], "email": email, "planli": k.get("planli_yayin")},
         )
         _bacaklari_yaz(satir["id"], k["bacaklar"])
     return db_getir(satir["id"])
@@ -207,6 +207,8 @@ def _db_liste_ham(filtre: Dict[str, Any]):
         kosul.append("one_cikan = :one"); p["one"] = filtre["one_cikan"]
     if filtre.get("yazar"):
         kosul.append("lower(olusturan_email) = :yazar"); p["yazar"] = filtre["yazar"]
+    if filtre.get("yayinlanmis"):
+        kosul.append("(yayin_zamani IS NULL OR yayin_zamani <= (now() AT TIME ZONE 'utc'))")      # zamanlı kupon saatine kadar üyeye görünmez
     if filtre.get("sonuclanmis") is True:
         kosul.append("sonuc IS NOT NULL")
     elif filtre.get("sonuclanmis") is False:
@@ -230,11 +232,15 @@ def db_guncelle(kupon_id: int, k: Dict[str, Any]) -> Dict[str, Any]:
             """UPDATE greydb.kuponlar SET seviye=:seviye, durum=:durum, zamanlama=:zamanlama, one_cikan=:one_cikan, sistem_k=:sistem_k,
                    nedenler=CAST(:nedenler AS jsonb), ana_risk=:ana_risk, yorum=:yorum, sinyal=:sinyal, risk_seviyesi=:risk,
                    toplam_oran=:toplam, en_yuksek_odeme=:odeme, kombinasyon_sayisi=:komb, guncelleme=(now() AT TIME ZONE 'utc'),
-                   yayin_zamani = CASE WHEN :durum = 'yayinda' AND yayin_zamani IS NULL THEN (now() AT TIME ZONE 'utc') ELSE yayin_zamani END
+                   yayin_zamani = CASE WHEN :durum <> 'yayinda' THEN yayin_zamani
+                                       WHEN :verildi AND CAST(:planli AS timestamp) IS NOT NULL THEN CAST(:planli AS timestamp)
+                                       WHEN yayin_zamani IS NULL OR (:verildi AND yayin_zamani > (now() AT TIME ZONE 'utc')) THEN (now() AT TIME ZONE 'utc')
+                                       ELSE yayin_zamani END
                WHERE id=:id""",
             {"id": kupon_id, "seviye": k["seviye"], "durum": k["durum"], "zamanlama": k["zamanlama"], "one_cikan": k["one_cikan"], "sistem_k": k["sistem_k"],
              "nedenler": json.dumps(k["nedenler"]), "ana_risk": k["ana_risk"], "yorum": k["yorum"], "sinyal": k["sinyal"], "risk": k["risk_seviyesi"],
-             "toplam": k["toplam_oran"], "odeme": k["en_yuksek_odeme"], "komb": k["kombinasyon_sayisi"]},
+             "toplam": k["toplam_oran"], "odeme": k["en_yuksek_odeme"], "komb": k["kombinasyon_sayisi"],
+             "planli": k.get("planli_yayin"), "verildi": bool(k.get("planli_verildi"))},
         )
         execute_insert("DELETE FROM greydb.kupon_bacaklari WHERE kupon_id = :id", {"id": kupon_id})
         _bacaklari_yaz(kupon_id, k["bacaklar"])
@@ -310,7 +316,7 @@ def kupon_olustur(govde: KuponGirdisi, request: Request):
 def kupon_listele(request: Request, durum: Optional[str] = None, seviye: Optional[str] = None, one_cikan: Optional[bool] = None,
                         sonuclanmis: Optional[bool] = None, sayfa: int = Query(1, ge=1), sayfa_boyutu: int = Query(20, ge=1, le=100)):
     k = kimlik(request)
-    filtre = {"durum": durum if k.admin else "yayinda", "seviye": seviye if seviye in SEVIYELER else None, "one_cikan": one_cikan,
+    filtre = {"durum": durum if k.admin else "yayinda", "yayinlanmis": None if k.admin else True, "seviye": seviye if seviye in SEVIYELER else None, "one_cikan": one_cikan,
               "sonuclanmis": sonuclanmis, "limit": sayfa_boyutu, "offset": (sayfa - 1) * sayfa_boyutu}
     items, toplam = db_liste(filtre)
     return {"items": [_cikti(i, k) for i in items if k.admin or gorunur_mu(i, k.seviye)], "total": toplam, "sayfa": sayfa, "sayfa_boyutu": sayfa_boyutu}

@@ -232,3 +232,13 @@ def test_kilitli_kuponda_kisa_nedenler_sizmaz():
     k["bacaklar"][0]["kisa_nedenler"] = ["gizli kısa gerekçe"]
     assert kilitle(k, "acik")["bacaklar"][0]["kisa_nedenler"] is None
     assert kilitle(k, "elit")["bacaklar"][0]["kisa_nedenler"] == ["gizli kısa gerekçe"]
+
+
+def test_yayinlandi_mi_zamanli_kupon():
+    from datetime import datetime
+    from app.services.kupon_model import yayinlandi_mi
+    simdi = datetime(2026, 11, 25, 12, 0)
+    assert yayinlandi_mi({"yayin_zamani": None}, simdi)
+    assert yayinlandi_mi({"yayin_zamani": "2026-11-25T11:59:00Z"}, simdi)
+    assert not yayinlandi_mi({"yayin_zamani": "2026-11-25T12:01:00Z"}, simdi)
+    assert yayinlandi_mi({"yayin_zamani": "2026-11-25T14:30:00+03:00"}, simdi) and not yayinlandi_mi({"yayin_zamani": "2026-11-25T15:30:00+03:00"}, simdi)

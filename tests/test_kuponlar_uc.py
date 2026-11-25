@@ -27,7 +27,8 @@ class Sahte:
 
     def ekle(self, k, email):
         self.sayac += 1
-        kayit = {**copy.deepcopy(k), "id": self.sayac, "sonuc": None, "odeme": None, "olusturan_email": email}
+        kayit = {**copy.deepcopy(k), "id": self.sayac, "sonuc": None, "odeme": None, "olusturan_email": email,
+                 "yayin_zamani": (k["planli_yayin"] + "Z") if k.get("planli_yayin") else None}
         for i, b in enumerate(kayit["bacaklar"], 1):
             b["id"] = self.sayac * 100 + i
         self.kuponlar[self.sayac] = kayit
@@ -212,3 +213,29 @@ def test_tam_guncellemede_siki_ama_yalniz_durum_degisikliginde_serbest(db):
     assert client.put("/api/kuponlar/1", json={"durum": "yayinda"}, headers=ADMIN).status_code == 200
     # tam güncelleme (bacaklar var) yayında eksikse 422
     assert client.put("/api/kuponlar/1", json={**GIRDI, "sinyal": None}, headers=ADMIN).status_code == 422
+
+
+# ---- Zamanlı yayın: yayin_zamani ileride olan kupon saatine kadar yalnız admine görünür ----
+def test_zamanli_kupon_saatine_kadar_uyeye_gorunmez(db):
+    j = client.post("/api/kuponlar", json={**GIRDI, "seviye": "acik", "yayin_zamani": "2099-01-01T00:01:00+03:00"}, headers=ADMIN).json()
+    assert j["yayin_zamani"] == "2098-12-31T21:01:00Z"
+    assert client.get("/api/kuponlar", headers=uye("elit")).json()["items"] == []
+    assert client.get(f"/api/kuponlar/{j['id']}", headers=uye("elit")).status_code == 404
+    assert [x["id"] for x in client.get("/api/kuponlar", headers=ADMIN).json()["items"]] == [j["id"]]
+    db.kuponlar[j["id"]]["yayin_zamani"] = "2020-01-01T00:00:00Z"            # saat geldi
+    assert [x["id"] for x in client.get("/api/kuponlar", headers=uye("acik")).json()["items"]] == [j["id"]]
+
+
+def test_zamanli_yayin_yalniz_yayindaki_kuponda(db):
+    r = client.post("/api/kuponlar", json={**GIRDI, "durum": "taslak", "yayin_zamani": "2099-01-01T00:00:00Z"}, headers=ADMIN)
+    assert r.status_code == 422 and r.json()["detail"]["alan"] == "yayin_zamani"
+    r = client.post("/api/kuponlar", json={**GIRDI, "yayin_zamani": "yarin"}, headers=ADMIN)
+    assert r.status_code == 422 and r.json()["detail"]["alan"] == "yayin_zamani"
+
+
+def test_yalniz_durum_degisikligi_yayin_saatine_dokunmaz_zamanlama_ayri_gonderilir(db):
+    client.post("/api/kuponlar", json={**GIRDI, "durum": "taslak"}, headers=ADMIN)
+    k = client.put("/api/kuponlar/1", json={"durum": "yayinda", "yayin_zamani": "2099-01-01T00:00:00Z"}, headers=ADMIN)
+    assert k.status_code == 200 and db.kuponlar[1]["planli_verildi"] is True and db.kuponlar[1]["planli_yayin"] == "2099-01-01T00:00:00"
+    client.put("/api/kuponlar/1", json={"one_cikan": True}, headers=ADMIN)
+    assert db.kuponlar[1]["planli_verildi"] is False                          # yayin_zamani gönderilmedi: veritabanı mevcut saati korur
