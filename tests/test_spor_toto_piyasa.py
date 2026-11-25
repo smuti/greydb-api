@@ -87,7 +87,7 @@ def akis(monkeypatch):
     log = {"sql": [], "md": None, "model_cagri": 0}
     ligler = {1: {"league_id": 4, "league_name": "Super Lig"}, 2: {"league_id": 5, "league_name": "Premier League"}}
     monkeypatch.setattr(router.stf, "get_team_league", lambda t: ligler[t])
-    monkeypatch.setattr(router.stf, "build_match_data", lambda h, a, l: {"ev_sahibi": "Fenerbahçe", "deplasman": "Liverpool", "lig": "Super Lig"})
+    monkeypatch.setattr(router.stf, "build_match_data", lambda h, a, l, **k: {"ev_sahibi": "Fenerbahçe", "deplasman": "Liverpool", "lig": "Super Lig"})
     monkeypatch.setattr(router.stf, "fetch_model_prediction", lambda *a, **k: log.__setitem__("model_cagri", log["model_cagri"] + 1))
     monkeypatch.setattr(router.stf, "fetch_piyasa_tahmini", lambda h, a: pz.piyasa_tahmini([olay("Fenerbahçe", "Liverpool")], "Fenerbahçe", "Liverpool"))
     def gen(md):
