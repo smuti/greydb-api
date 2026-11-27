@@ -171,7 +171,9 @@ def okuma_grubu(satirlar: List[Dict[str, Any]], ev: Any, dep: Any, tarih: dateti
     if not (home or away):
         return None
     grup: Dict[str, Any] = {"home": home, "away": away, "league": league}
-    grup.update({k: v for k, v in (kapsam or {}).items() if v})      # kapsam alanları yalnız doluysa yazılır: eski tüketici ve eski görüntü aynı kalır
+    if kapsam is not None:
+        grup["kapsam"] = True      # kapsam hesaplandı: alan yoksa "o kapsamda maç yok" demektir (işaret yoksa eski görüntü: henüz hesaplanmadı)
+        grup.update({k: v for k, v in kapsam.items() if v})
     return grup
 
 

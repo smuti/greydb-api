@@ -225,5 +225,5 @@ def test_avrupa_tabani_ayni_turnuva_ve_lige_karismaz():
 def test_okuma_grubu_kapsam_yoksa_eski_bicim_ayni():
     g = z.okuma_grubu(takim1_maclari(), 1, 30, MAC_GUNU)
     assert set(g) == {"home", "away", "league"}
-    assert set(z.okuma_grubu(takim1_maclari(), 1, 30, MAC_GUNU, {"europe": None, "prev_league": None, "prev_europe": None})) == {"home", "away", "league"}
+    assert set(z.okuma_grubu(takim1_maclari(), 1, 30, MAC_GUNU, {"europe": None, "prev_league": None, "prev_europe": None})) == {"home", "away", "league", "kapsam"}      # hesaplandı, Avrupa maçı yok
     assert "europe" in z.okuma_grubu(takim1_maclari(), 1, 30, MAC_GUNU, {"europe": {"home": {"n": 3}, "away": None}})
