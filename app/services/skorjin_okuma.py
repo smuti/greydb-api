@@ -4,7 +4,7 @@ Biçim sözleşmesi Skorjin deposunda: src/skorjin/prematch/okuma_girdi.py (anah
 Kurallar: yalnızca maçın ligindeki, mevcut sezonun ve maç gününden ÖNCE biten maçlar; pencere takımın son OKUMA_PENCERE maçı.
 Ölçüler yalnızca verisi olan maçlardan ortalanır (`n` toplam maç, ölçü başına veri yoksa null; 0 uydurulmaz). Takım için en az SEZON_MIN maç gerekir.
 Kapsam ayrımı (`europe`, `prev_league`, `prev_europe`): aynı P biçimi, ama lig ve Avrupa AYRI kümelerden hesaplanır, hiçbir ortalama ikisini karıştırmaz.
-Kaynak skorjin_stat.takim_mac (tur 'lig' | 'avrupa'); Avrupa'da lig süzgeci yoktur, geçen sezon ligi maçın ligiyle sınırlıdır (terfi eden takımda null). Sezon Temmuz-Temmuz,
+Kaynak skorjin_stat.takim_mac (tur 'lig' | 'avrupa'); Avrupa'da lig süzgeci yoktur; lig kapsamları takımın kendi ligiyle sınırlıdır (maçın turnuvası değil; terfi eden takımda geçen sezon null). Sezon Temmuz-Temmuz,
 yalnız maç gününden ÖNCE biten maçlar; en az SEZON_MIN maç yoksa null. Kontra xG bu kaynakta yok: null kalır (0 uydurulmaz).
 Kontra = şut haritasında durum FastBreak; duran top = FromCorner, FreeKick, ThrowInSetPiece, SetPiece (penaltı hariç). `*_yenilen` rakibin aynı ölçüsüdür.
 """
@@ -184,11 +184,11 @@ SELECT k.mac_id, k.tarih, k.tur, k.turnuva, k.lig_id, k.takim_id, k.rakip_id, k.
        k.kutu_f, k.kutu_a, k.mudahale_f, k.mudahale_a, k.duran_xg_f, k.duran_xg_a
 FROM skorjin_stat.takim_mac k
 WHERE k.takim_id = :takim AND k.tarih >= :bas AND k.tarih < :bit AND k.gf IS NOT NULL AND k.ga IS NOT NULL
-  AND (k.tur = 'avrupa' OR (k.tur = 'lig' AND k.lig_id = :lig))
+  AND k.tur IN ('lig', 'avrupa')
 ORDER BY k.tarih DESC
 """
 AVRUPA_TABAN_SQL = KAPSAM_SQL.replace("WHERE k.takim_id = :takim AND", "WHERE k.tur = 'avrupa' AND k.turnuva = :turnuva AND k.saha = 'E' AND") \
-                             .replace("  AND (k.tur = 'avrupa' OR (k.tur = 'lig' AND k.lig_id = :lig))\n", "")
+                             .replace("  AND k.tur IN ('lig', 'avrupa')\n", "")
 _OLCULER = (("xg", "xg"), ("sut", "sut"), ("korner", "korner"), ("sari", "sari"), ("kirmizi", "kirmizi"), ("faul", "faul"), ("top", "top"),
             ("pas_kendi", "pas_kendi"), ("pas_rakip", "pas_rakip"), ("ceza", "kutu"), ("mudahale", "mudahale"))
 
@@ -198,7 +198,7 @@ def kapsam_satiri(r: Dict[str, Any]) -> Dict[str, Any]:
     ev_mi = r["saha"] == "E"
     ev_son, dep_son = ("_f", "_a") if ev_mi else ("_a", "_f")      # ev ve deplasman gözünden son ek
     s: Dict[str, Any] = {"mac_id": r["mac_id"], "tarih": r["tarih"], "home_team_id": r["takim_id"] if ev_mi else r["rakip_id"], "away_team_id": r["rakip_id"] if ev_mi else r["takim_id"],
-                         "home_score": r["gf"] if ev_mi else r["ga"], "away_score": r["ga"] if ev_mi else r["gf"], "tur": r["tur"], "turnuva": r.get("turnuva")}
+                         "home_score": r["gf"] if ev_mi else r["ga"], "away_score": r["ga"] if ev_mi else r["gf"], "tur": r["tur"], "turnuva": r.get("turnuva"), "lig_id": r.get("lig_id")}
     for ad, kaynak in _OLCULER:
         s["ev_" + ad], s["dep_" + ad] = r.get(kaynak + ev_son), r.get(kaynak + dep_son)
     ev_dt, dep_dt = (r.get("duran_xg_f"), r.get("duran_xg_a")) if ev_mi else (r.get("duran_xg_a"), r.get("duran_xg_f"))
@@ -212,13 +212,23 @@ def _tur_sezon(satirlar: List[Dict[str, Any]], tur: str, sezon: int, tarih: date
     return [s for s in satirlar if s["tur"] == tur and bas <= s["tarih"] < bit and s["tarih"] < tarih and _skorlu(s)]
 
 
+def _ic_lig(satirlar: List[Dict[str, Any]], takim: Any, tarih: datetime) -> Optional[Any]:
+    """Takımın kendi (iç) ligi: maç gününden önceki en yakın lig maçının lig_id'si (Avrupa maçının ligi değil, takımın ligi)."""
+    son = [s for s in satirlar if s["tur"] == "lig" and s.get("lig_id") is not None and s["tarih"] < tarih and takim in (s["home_team_id"], s["away_team_id"])]
+    return max(son, key=lambda s: s["tarih"])["lig_id"] if son else None
+
+
 def _kapsam_profil(satirlar: List[Dict[str, Any]], takim: Any, tur: str, sezon: int, tarih: datetime, pencere: int) -> Optional[Dict[str, Any]]:
-    return takim_profili(_tur_sezon(satirlar, tur, sezon, tarih), takim, tarih, pencere)
+    kume = _tur_sezon(satirlar, tur, sezon, tarih)
+    if tur == "lig":      # lig kapsamı takımın kendi ligiyle sınırlı (başka lig ya da lig kimliksiz maç karışmaz; terfi eden takımda geçen sezon null)
+        ic = _ic_lig(satirlar, takim, tarih)
+        kume = [s for s in kume if ic is not None and s.get("lig_id") == ic]
+    return takim_profili(kume, takim, tarih, pencere)
 
 
 def kapsam_gruplari(ev_satirlari: List[Dict[str, Any]], dep_satirlari: List[Dict[str, Any]], ev: Any, dep: Any, tarih: datetime,
                     avrupa_tabani: Optional[Callable[[str, int], List[Dict[str, Any]]]] = None) -> Dict[str, Any]:
-    """{europe, prev_league, prev_europe}: her biri {"home": P | null, "away": P | null} ya da (hiç profil yoksa) None.
+    """{own_league, europe, prev_league, prev_europe}: `own_league` bu sezon takımın KENDİ ligi (Avrupa maçında bile iç lig; `home`/`away` ise maçın kendi ligi/turnuvasıdır). Her biri {"home": P | null, "away": P | null} ya da (hiç profil yoksa) None.
     Bu sezon Avrupa: son OKUMA_PENCERE maç; geçen sezon: sezonun tamamı. `europe` ayrıca `turnuva` (takımın bu sezonki en son Avrupa turnuvası) ve `base`
     (aynı sezonun AYNI turnuvasındaki takım-maçı ortalaması; lig tabanıyla kıyaslanmaz) taşır. `avrupa_tabani(turnuva, sezon)` -> o turnuvanın maç satırları."""
     sezon = sezon_icin(tarih)
@@ -235,7 +245,7 @@ def kapsam_gruplari(ev_satirlari: List[Dict[str, Any]], dep_satirlari: List[Dict
             turnuva[taraf] = son["turnuva"] if son else None
             base[taraf] = lig_tabani(_tur_sezon(avrupa_tabani(son["turnuva"], sezon), "avrupa", sezon, tarih), tarih) if son and avrupa_tabani else None
         avrupa = {**avrupa, "turnuva": turnuva, "base": base}
-    return {"europe": avrupa, "prev_league": cift("lig", sezon - 1, 10 ** 6), "prev_europe": cift("avrupa", sezon - 1, 10 ** 6)}
+    return {"own_league": cift("lig", sezon, OKUMA_PENCERE), "europe": avrupa, "prev_league": cift("lig", sezon - 1, 10 ** 6), "prev_europe": cift("avrupa", sezon - 1, 10 ** 6)}
 
 
 def okuma_kaynagi() -> Callable[[Any, Any, Any, datetime], Optional[Dict[str, Any]]]:
@@ -251,7 +261,7 @@ def okuma_kaynagi() -> Callable[[Any, Any, Any, datetime], Optional[Dict[str, An
             bas, bit = sezon_araligi(sezon - 1)[0], tarih
 
             def al(takim: Any) -> List[Dict[str, Any]]:
-                return execute_query(KAPSAM_SQL, {"takim": takim, "lig": lig, "bas": bas, "bit": bit})
+                return execute_query(KAPSAM_SQL, {"takim": takim, "bas": bas, "bit": bit})
 
             def taban(turnuva: str, sz: int) -> List[Dict[str, Any]]:
                 if (turnuva, sz) not in taban_onbellek:

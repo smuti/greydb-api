@@ -178,13 +178,14 @@ def test_avrupa_bu_sezon_profil_ve_en_az_uc_mac():
 
 def test_avrupada_oynamayan_takim_null():
     k = z.kapsam_gruplari([], [], 1, 2, MAC_GUNU)
-    assert k == {"europe": None, "prev_league": None, "prev_europe": None}
+    assert k == {"own_league": None, "europe": None, "prev_league": None, "prev_europe": None}
 
 
 def test_lig_ve_avrupa_karismaz():
     lig = [tm(200 + i, datetime(2026, 8, 20 + i, 18, 0), 1, 60 + i, 0, 0, tur="lig", turnuva="Super Lig", xg=3.0) for i in range(5)]
     k = z.kapsam_gruplari(avrupa_maclari(1, 4, xg=1.0) + lig, [], 1, 2, MAC_GUNU)
     assert k["europe"]["home"]["n"] == 4 and k["europe"]["home"]["xg"] == 1.0      # lig maçlarının xG'si (3,0) Avrupa'ya girmedi
+    assert k["own_league"]["home"]["n"] == 5 and k["own_league"]["home"]["xg"] == 3.0      # Avrupa'nın xG'si (1,0) lige girmedi
     assert k["prev_league"] is None
 
 
@@ -227,3 +228,15 @@ def test_okuma_grubu_kapsam_yoksa_eski_bicim_ayni():
     assert set(g) == {"home", "away", "league"}
     assert set(z.okuma_grubu(takim1_maclari(), 1, 30, MAC_GUNU, {"europe": None, "prev_league": None, "prev_europe": None})) == {"home", "away", "league", "kapsam"}      # hesaplandı, Avrupa maçı yok
     assert "europe" in z.okuma_grubu(takim1_maclari(), 1, 30, MAC_GUNU, {"europe": {"home": {"n": 3}, "away": None}})
+
+
+def test_lig_kapsami_takimin_kendi_ligiyle_sinirli():
+    """Avrupa maçında okumanın `league` kümesi turnuvadır; lig sütunu yine de takımın iç ligidir. Başka ligin ve lig kimliksiz maçın sayıları karışmaz."""
+    ic = [tm(700 + i, datetime(2026, 8, 20 + i, 18, 0), 1, 60 + i, 1, 0, tur="lig", turnuva="Super Lig", xg=2.0) for i in range(4)]
+    kupa = [tm(710, datetime(2026, 9, 5, 18, 0), 1, 90, 1, 0, tur="lig", turnuva=None, lig_id=None, xg=9.0)]       # lig kimliksiz (ör. süper kupa)
+    k = z.kapsam_gruplari(ic + kupa, [], 1, 2, MAC_GUNU)
+    assert k["own_league"]["home"]["n"] == 4 and k["own_league"]["home"]["xg"] == 2.0
+    terfi = [tm(720 + i, datetime(2026, 8, 20 + i, 18, 0), 1, 60 + i, 1, 0, tur="lig", lig_id=5, xg=2.0) for i in range(4)] + \
+            [tm(730 + i, datetime(2025, 8, 20 + i, 18, 0), 1, 70 + i, 1, 0, tur="lig", lig_id=7, xg=1.0) for i in range(5)]      # geçen sezon başka ligde (terfi)
+    k2 = z.kapsam_gruplari(terfi, [], 1, 2, MAC_GUNU)
+    assert k2["own_league"]["home"]["n"] == 4 and k2["prev_league"] is None
