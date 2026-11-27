@@ -3,14 +3,20 @@ Biçim sözleşmesi Skorjin deposunda: src/skorjin/prematch/okuma_girdi.py (anah
 
 Kurallar: yalnızca maçın ligindeki, mevcut sezonun ve maç gününden ÖNCE biten maçlar; pencere takımın son OKUMA_PENCERE maçı.
 Ölçüler yalnızca verisi olan maçlardan ortalanır (`n` toplam maç, ölçü başına veri yoksa null; 0 uydurulmaz). Takım için en az SEZON_MIN maç gerekir.
+Kapsam ayrımı (`europe`, `prev_league`, `prev_europe`): aynı P biçimi, ama lig ve Avrupa AYRI kümelerden hesaplanır, hiçbir ortalama ikisini karıştırmaz.
+Kaynak skorjin_stat.takim_mac (tur 'lig' | 'avrupa'); Avrupa'da lig süzgeci yoktur, geçen sezon ligi maçın ligiyle sınırlıdır (terfi eden takımda null). Sezon Temmuz-Temmuz,
+yalnız maç gününden ÖNCE biten maçlar; en az SEZON_MIN maç yoksa null. Kontra xG bu kaynakta yok: null kalır (0 uydurulmaz).
 Kontra = şut haritasında durum FastBreak; duran top = FromCorner, FreeKick, ThrowInSetPiece, SetPiece (penaltı hariç). `*_yenilen` rakibin aynı ölçüsüdür.
 """
+import logging
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from app.services.puan_durumu import sezon_araligi
 from app.services.skorjin_prematch import _skorlu
 from app.services.skorjin_sezon import SEZON_MIN, sezon_icin
+
+logger = logging.getLogger(__name__)
 
 OKUMA_PENCERE = 10
 
@@ -160,14 +166,100 @@ def lig_tabani(satirlar: List[Dict[str, Any]], tarih: datetime) -> Optional[Dict
             "kontra_xg_yenilen_p75": _yuzdelik([p["kontra_xg_yenilen"] for p in profiller if p["kontra_xg_yenilen"] is not None], 0.75)}
 
 
-def okuma_grubu(satirlar: List[Dict[str, Any]], ev: Any, dep: Any, tarih: datetime) -> Optional[Dict[str, Any]]:
+def okuma_grubu(satirlar: List[Dict[str, Any]], ev: Any, dep: Any, tarih: datetime, kapsam: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
     home, away, league = takim_profili(satirlar, ev, tarih), takim_profili(satirlar, dep, tarih), lig_tabani(satirlar, tarih)
-    return {"home": home, "away": away, "league": league} if (home or away) else None
+    if not (home or away):
+        return None
+    grup: Dict[str, Any] = {"home": home, "away": away, "league": league}
+    grup.update({k: v for k, v in (kapsam or {}).items() if v})      # kapsam alanları yalnız doluysa yazılır: eski tüketici ve eski görüntü aynı kalır
+    return grup
+
+
+# ---------------------------------------------------------------- Kapsam ayrımı: bu sezon Avrupa, geçen sezon lig, geçen sezon Avrupa
+KAPSAM_SQL = """
+SELECT k.mac_id, k.tarih, k.tur, k.turnuva, k.lig_id, k.takim_id, k.rakip_id, k.saha, k.gf, k.ga, k.xg_f, k.xg_a, k.sut_f, k.sut_a, k.korner_f, k.korner_a,
+       k.sari_f, k.sari_a, k.kirmizi_f, k.kirmizi_a, k.faul_f, k.faul_a, k.top_f, k.top_a, k.pas_kendi_f, k.pas_kendi_a, k.pas_rakip_f, k.pas_rakip_a,
+       k.kutu_f, k.kutu_a, k.mudahale_f, k.mudahale_a, k.duran_xg_f, k.duran_xg_a
+FROM skorjin_stat.takim_mac k
+WHERE k.takim_id = :takim AND k.tarih >= :bas AND k.tarih < :bit AND k.gf IS NOT NULL AND k.ga IS NOT NULL
+  AND (k.tur = 'avrupa' OR (k.tur = 'lig' AND k.lig_id = :lig))
+ORDER BY k.tarih DESC
+"""
+AVRUPA_TABAN_SQL = KAPSAM_SQL.replace("WHERE k.takim_id = :takim AND", "WHERE k.tur = 'avrupa' AND k.turnuva = :turnuva AND k.saha = 'E' AND") \
+                             .replace("  AND (k.tur = 'avrupa' OR (k.tur = 'lig' AND k.lig_id = :lig))\n", "")
+_OLCULER = (("xg", "xg"), ("sut", "sut"), ("korner", "korner"), ("sari", "sari"), ("kirmizi", "kirmizi"), ("faul", "faul"), ("top", "top"),
+            ("pas_kendi", "pas_kendi"), ("pas_rakip", "pas_rakip"), ("ceza", "kutu"), ("mudahale", "mudahale"))
+
+
+def kapsam_satiri(r: Dict[str, Any]) -> Dict[str, Any]:
+    """takim_mac satırını (takım gözünden: *_f kendi, *_a rakip) OKUMA_SQL'in maç satırı biçimine çevirir; saha 'E' = takım evde."""
+    ev_mi = r["saha"] == "E"
+    ev_son, dep_son = ("_f", "_a") if ev_mi else ("_a", "_f")      # ev ve deplasman gözünden son ek
+    s: Dict[str, Any] = {"mac_id": r["mac_id"], "tarih": r["tarih"], "home_team_id": r["takim_id"] if ev_mi else r["rakip_id"], "away_team_id": r["rakip_id"] if ev_mi else r["takim_id"],
+                         "home_score": r["gf"] if ev_mi else r["ga"], "away_score": r["ga"] if ev_mi else r["gf"], "tur": r["tur"], "turnuva": r.get("turnuva")}
+    for ad, kaynak in _OLCULER:
+        s["ev_" + ad], s["dep_" + ad] = r.get(kaynak + ev_son), r.get(kaynak + dep_son)
+    ev_dt, dep_dt = (r.get("duran_xg_f"), r.get("duran_xg_a")) if ev_mi else (r.get("duran_xg_a"), r.get("duran_xg_f"))
+    s.update(ev_duran=ev_dt, dep_duran=dep_dt, ev_kontra=None, dep_kontra=None, sut_var=ev_dt is not None)      # kontra xG bu kaynakta yok: null
+    return s
+
+
+def _tur_sezon(satirlar: List[Dict[str, Any]], tur: str, sezon: int, tarih: datetime) -> List[Dict[str, Any]]:
+    """Sezon sınırı Temmuz-Temmuz (30 Haziran sezonun son günü, 1 Temmuz yeni sezon); yalnız maç gününden önce biten, skorlu maçlar."""
+    bas, bit = sezon_araligi(sezon)
+    return [s for s in satirlar if s["tur"] == tur and bas <= s["tarih"] < bit and s["tarih"] < tarih and _skorlu(s)]
+
+
+def _kapsam_profil(satirlar: List[Dict[str, Any]], takim: Any, tur: str, sezon: int, tarih: datetime, pencere: int) -> Optional[Dict[str, Any]]:
+    return takim_profili(_tur_sezon(satirlar, tur, sezon, tarih), takim, tarih, pencere)
+
+
+def kapsam_gruplari(ev_satirlari: List[Dict[str, Any]], dep_satirlari: List[Dict[str, Any]], ev: Any, dep: Any, tarih: datetime,
+                    avrupa_tabani: Optional[Callable[[str, int], List[Dict[str, Any]]]] = None) -> Dict[str, Any]:
+    """{europe, prev_league, prev_europe}: her biri {"home": P | null, "away": P | null} ya da (hiç profil yoksa) None.
+    Bu sezon Avrupa: son OKUMA_PENCERE maç; geçen sezon: sezonun tamamı. `europe` ayrıca `turnuva` (takımın bu sezonki en son Avrupa turnuvası) ve `base`
+    (aynı sezonun AYNI turnuvasındaki takım-maçı ortalaması; lig tabanıyla kıyaslanmaz) taşır. `avrupa_tabani(turnuva, sezon)` -> o turnuvanın maç satırları."""
+    sezon = sezon_icin(tarih)
+    ev_s, dep_s = [kapsam_satiri(r) for r in ev_satirlari], [kapsam_satiri(r) for r in dep_satirlari]
+
+    def cift(tur: str, s: int, pencere: int) -> Optional[Dict[str, Any]]:
+        h, a = _kapsam_profil(ev_s, ev, tur, s, tarih, pencere), _kapsam_profil(dep_s, dep, tur, s, tarih, pencere)
+        return {"home": h, "away": a} if (h or a) else None
+    avrupa = cift("avrupa", sezon, OKUMA_PENCERE)
+    if avrupa:
+        turnuva, base = {}, {}
+        for taraf, satirlar, takim in (("home", ev_s, ev), ("away", dep_s, dep)):
+            son = next(iter(sorted((s for s in _tur_sezon(satirlar, "avrupa", sezon, tarih) if takim in (s["home_team_id"], s["away_team_id"])), key=lambda s: s["tarih"], reverse=True)), None)
+            turnuva[taraf] = son["turnuva"] if son else None
+            base[taraf] = lig_tabani(_tur_sezon(avrupa_tabani(son["turnuva"], sezon), "avrupa", sezon, tarih), tarih) if son and avrupa_tabani else None
+        avrupa = {**avrupa, "turnuva": turnuva, "base": base}
+    return {"europe": avrupa, "prev_league": cift("lig", sezon - 1, 10 ** 6), "prev_europe": cift("avrupa", sezon - 1, 10 ** 6)}
 
 
 def okuma_kaynagi() -> Callable[[Any, Any, Any, datetime], Optional[Dict[str, Any]]]:
     """(lig_id, ev_id, dep_id, maç_tarihi) -> okuma grubu. Her lig-sezon için sorgu BİR kez çalışır (koşu boyunca bellekte)."""
     onbellek: Dict[Tuple[Any, int], List[Dict[str, Any]]] = {}
+    taban_onbellek: Dict[Tuple[str, int], List[Dict[str, Any]]] = {}
+
+    def kapsam(lig: Any, ev: Any, dep: Any, tarih: datetime) -> Optional[Dict[str, Any]]:
+        """Kapsam alanları ek bilgidir: kaynak okunamazsa ya da erişim yoksa yalnız onlar düşer, okuma grubunun geri kalanı yazılır."""
+        try:
+            from app.services.db import execute_query
+            sezon = sezon_icin(tarih)
+            bas, bit = sezon_araligi(sezon - 1)[0], tarih
+
+            def al(takim: Any) -> List[Dict[str, Any]]:
+                return execute_query(KAPSAM_SQL, {"takim": takim, "lig": lig, "bas": bas, "bit": bit})
+
+            def taban(turnuva: str, sz: int) -> List[Dict[str, Any]]:
+                if (turnuva, sz) not in taban_onbellek:
+                    b, t = sezon_araligi(sz)
+                    taban_onbellek[(turnuva, sz)] = [kapsam_satiri(r) for r in execute_query(AVRUPA_TABAN_SQL, {"turnuva": turnuva, "bas": b, "bit": t})]
+                return taban_onbellek[(turnuva, sz)]
+            return kapsam_gruplari(al(ev), al(dep), ev, dep, tarih, taban)
+        except Exception:
+            logger.exception("okuma kapsam alanları okunamadı (lig=%s ev=%s dep=%s)", lig, ev, dep)
+            return None
 
     def kaynak(lig: Any, ev: Any, dep: Any, tarih: datetime) -> Optional[Dict[str, Any]]:
         sezon = sezon_icin(tarih)
@@ -175,6 +267,6 @@ def okuma_kaynagi() -> Callable[[Any, Any, Any, datetime], Optional[Dict[str, An
             from app.services.db import execute_query
             bas, bit = sezon_araligi(sezon)
             onbellek[(lig, sezon)] = execute_query(OKUMA_SQL, {"lig": lig, "bas": bas, "bit": bit})
-        return okuma_grubu(onbellek[(lig, sezon)], ev, dep, tarih)
+        return okuma_grubu(onbellek[(lig, sezon)], ev, dep, tarih, kapsam(lig, ev, dep, tarih))
 
     return kaynak
