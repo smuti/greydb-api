@@ -11,7 +11,8 @@ def test_is_tanimlari():
                  "tercih-kaydet": dict(hour="5-22", minute="10,40"), "tercih-sonuc": dict(hour="*/2", minute="50"), "oyuncu-json-mat": dict(hour="2", minute="30"),
                  "canli-korner-sonuc": dict(hour="*/2", minute="55"), "canli-sayim-sonuc": dict(hour="*/2", minute="57"), "canli-gol-sonuc": dict(hour="*/2", minute="59"),
                  "spor-toto-arsiv": dict(hour="6", minute="15"), "spor-toto-oynanma": dict(hour="*/6", minute="5"),
-                 "skorjin-kupon-sonuc": dict(hour="*/2", minute="35")}
+                 "skorjin-kupon-sonuc": dict(hour="*/2", minute="35"),
+                 "spor-toto-yayin-baglantisi": dict(hour="*", minute="12,42")}
 
 
 def test_kapali_varsayilan(monkeypatch):
@@ -23,7 +24,7 @@ def test_acik_uc_is(monkeypatch):
     monkeypatch.setenv("ZAMANLAYICI", "1")
     s = Z.baslat(calistir=False)
     try:
-        assert sorted(j.id for j in s.get_jobs()) == ["canli-gol-sonuc", "canli-korner-sonuc", "canli-sayim-sonuc", "iddaa-eslestir", "oyuncu-json-mat", "prematch-gunluk", "prematch-oran", "skorjin-kupon-sonuc", "spor-toto-arsiv", "spor-toto-oynanma", "tercih-kaydet", "tercih-sonuc"]
+        assert sorted(j.id for j in s.get_jobs()) == ["canli-gol-sonuc", "canli-korner-sonuc", "canli-sayim-sonuc", "iddaa-eslestir", "oyuncu-json-mat", "prematch-gunluk", "prematch-oran", "skorjin-kupon-sonuc", "spor-toto-arsiv", "spor-toto-oynanma", "spor-toto-yayin-baglantisi", "tercih-kaydet", "tercih-sonuc"]
         j = s.get_job("prematch-oran")
         assert j.max_instances == 1 and j.coalesce and str(j.trigger.timezone) == "UTC"
     finally:
