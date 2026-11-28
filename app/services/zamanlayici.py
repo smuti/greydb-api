@@ -89,6 +89,16 @@ def _skorjin_kupon_sonuc() -> None:
         log.exception("skorjin kupon sonuç koşusu hata verdi")
 
 
+def _st_yayin_baglantisi() -> None:
+    from app.services import spor_toto_yayin_senkron as y
+    try:
+        r = y.calistir(dry_run=False)
+        if r["yazilan"]:
+            log.info("spor toto yayın bağlantısı yazıldı: %s", r["yazilan"])
+    except Exception:  # noqa: BLE001 — YouTube erişilemezse ya da hata verirse zamanlayıcı ve diğer işler durmasın
+        log.exception("spor toto yayın bağlantısı senkronu hata verdi")
+
+
 def isler() -> List[Tuple[str, dict, Callable[[], None]]]:
     """(kimlik, cron alanları, iş). GitHub iş akışlarının eski planıyla aynı saatler."""
     return [
@@ -104,6 +114,7 @@ def isler() -> List[Tuple[str, dict, Callable[[], None]]]:
         ("spor-toto-arsiv", dict(hour="6", minute="15"), _st_arsiv),
         ("spor-toto-oynanma", dict(hour="*/6", minute="5"), _st_oynanma),
         ("skorjin-kupon-sonuc", dict(hour="*/2", minute="35"), _skorjin_kupon_sonuc),
+        ("spor-toto-yayin-baglantisi", dict(hour="*", minute="12,42"), _st_yayin_baglantisi),
     ]
 
 
